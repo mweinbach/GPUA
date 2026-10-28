@@ -45,7 +45,7 @@ application().run { cx in
 }
 ```
 
-Compare that with the Rust [`hello_world.rs`](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_examples/examples/hello_world.rs). The Swift API is a line-by-line translation on purpose. See [docs/API_DESIGN.md](docs/API_DESIGN.md).
+Compare that with the Rust [`hello_world.rs`](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_examples/examples/hello_world.rs). The Swift API faithfully ports GPUI's logic and behavior into idiomatic Swift. See [docs/API_DESIGN.md](docs/API_DESIGN.md).
 
 ## Platform plan
 

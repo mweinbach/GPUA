@@ -1,6 +1,10 @@
 # Porting Guide
 
-How to translate GPUI's Rust into GPUA's Swift. The guide aims to make porting **mechanical**: two people (or two agents) porting the same file should produce nearly the same Swift.
+How to port GPUI's Rust into GPUA's Swift. The overarching principle is the **Fidelity Rule**: **port logic, not code**.
+
+- **1:1 Mapping & Provenance**: Keep the existing 1:1 upstream-file → Swift-file mapping and per-file headers (`Ported from`, `Upstream commit`, `Port status`).
+- **Idiomatic Swift**: Inside each file, any idiomatic Swift is fine as long as behavior matches upstream, and tests must demonstrate that. Do not force Rust borrow patterns, lifetime workarounds, or raw pointer gymnastics into Swift where Swift provides native language or standard library features.
+- **Substitutions**: Where Swift or the platform offers a different way to get the same result, use it and note the substitution with a `// PORT NOTE: <rationale>`.
 
 When this guide doesn't cover something, pick the most faithful option, leave a `// PORT NOTE:`, and open a PR that adds the rule here.
 
@@ -59,7 +63,7 @@ Every mapped Swift file starts with:
 |---|---|
 | `not-started` | Scaffolded stub. Empty. |
 | `in-progress` | Partially translated. May contain `fatalError("TODO(port)")` bodies. |
-| `ported` | Every item is translated, it compiles on all CI platforms, and its tests are ported and pass (or are disabled with a reason). |
+| `ported` | All logic and behavior from the upstream file are ported into idiomatic Swift, compiling on all CI platforms, with behavioral tests ported and passing (or disabled with a reason). |
 | `verified` | Reviewed side by side against upstream by someone other than the porter, and exercised by an example or integration test. |
 | `skipped` | Intentionally not ported. **Requires** a `// Skip reason: …` line, e.g. `// Skip reason: objc runtime helpers; Swift has native ObjC interop.` |
 
@@ -150,6 +154,14 @@ func paint(...) {
 | Closures `Box<dyn FnMut(&mut App)>` | `@escaping (App) -> Void` | `FnOnce` → plain closure (document single-call). `Send` closures → `@Sendable`. |
 | `macro_rules!` | Hand-expand, or a Swift macro (§8) | |
 | `mod foo { … }` inline | `enum foo {}` namespace, or flatten with `fileprivate` | |
+
+### Porting Logic vs. Transliterating Syntax
+
+Rust and Swift handle memory, ownership, and concurrency through different paradigms:
+- **Ownership & Lifetimes**: Rust's explicit lifetime annotations (`'a`) and borrow checker guards exist to satisfy compile-time memory safety without a garbage collector or runtime ARC. Swift uses ARC and automatic value semantics. Do not simulate Rust borrow scopes or double-option tricks in Swift when a standard Swift property, optional unwrapping, or closure scope achieves the same behavior.
+- **Collections**: Use standard Swift `Dictionary`, `Set`, and `Array` unless exact memory layout or monoidal indexing requires specialized types (e.g., `SumTree`, `SlotMap`).
+- **Error Handling**: Use Swift's native `throws` / `try` for recoverable errors.
+- **Documentation of Deviations**: Always place a `// PORT NOTE: <explanation>` comment when substituting a Swift-idiomatic pattern or platform API for Rust internals.
 
 ### Item placement
 
@@ -276,6 +288,7 @@ Shaders are copied verbatim. Every Swift struct uploaded to the GPU (`Quad`, `Sh
 
 ## 7. Tests
 
+- **Behavioral Parity Is Validated by Tests**: Porting logic rather than syntax makes tests the authoritative proof of fidelity. Every upstream test in `#[cfg(test)]` should have a matching `@Test` in Swift that verifies identical state transitions, outputs, edge cases, and deterministic execution.
 - Framework: **Swift Testing** (`import Testing`, `@Test`, `#expect`).
 - Placement: §1. One test file per upstream file that has `#[cfg(test)]`. Keep test function names (`fn test_foo` → `@Test func test_foo()`). Snake case is fine in tests because it keeps them greppable against upstream.
 - `#[gpui::test]` / `#[gpui::test(iterations = 10, seed = 1)]` becomes a Swift Testing trait ported from `gpui_macros/src/test.rs`:

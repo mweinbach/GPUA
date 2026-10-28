@@ -17,7 +17,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIMacOS` | 14 | 14 | 0 | 0 | 0 | 0 | 10,175 | 0% |
 | `ZedUtil` | 23 | 23 | 0 | 0 | 0 | 0 | 9,596 | 0% |
 | `GPUIiOS` | 20 | 20 | 0 | 0 | 0 | 0 | 6,168 | 0% |
-| `SumTree` | 4 | 4 | 0 | 0 | 0 | 0 | 3,313 | 0% |
+| `SumTree` | 4 | 0 | 0 | 4 | 0 | 0 | 3,313 | 100% |
 | `GPUIWGPU` | 5 | 5 | 0 | 0 | 0 | 0 | 3,307 | 0% |
 | `GPUIMacros` | 11 | 11 | 0 | 0 | 0 | 0 | 3,047 | 0% |
 | `GPUIWeb` | 10 | 10 | 0 | 0 | 0 | 0 | 2,787 | 0% |
@@ -25,13 +25,13 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIMetal` | 3 | 3 | 0 | 0 | 0 | 0 | 2,083 | 0% |
 | `HTTPClient` | 4 | 4 | 0 | 0 | 0 | 0 | 1,073 | 0% |
 | `DeriveRefineable` | 1 | 1 | 0 | 0 | 0 | 0 | 548 | 0% |
-| `GPUIUtil` | 2 | 2 | 0 | 0 | 0 | 0 | 433 | 0% |
-| `GPUICollections` | 3 | 3 | 0 | 0 | 0 | 0 | 414 | 0% |
+| `GPUIUtil` | 2 | 0 | 0 | 2 | 0 | 0 | 433 | 100% |
+| `GPUICollections` | 3 | 0 | 0 | 2 | 0 | 1 | 414 | 100% |
 | `Media` | 2 | 2 | 0 | 0 | 0 | 0 | 362 | 0% |
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
-| `Refineable` | 1 | 1 | 0 | 0 | 0 | 0 | 132 | 0% |
-| **Total** | **291** | 291 | 0 | 0 | 0 | 0 | 135,638 | 0% |
+| `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
+| **Total** | **291** | 281 | 0 | 9 | 0 | 1 | 135,638 | 3% |
 
 ## Files
 
@@ -184,11 +184,11 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/collections/src/collections.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/collections/src/collections.rs) | [Sources/GPUICollections/collections.swift](../Sources/GPUICollections/collections.swift) | source | 13 | not-started |
-| [crates/collections/src/vecmap.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/collections/src/vecmap.rs) | [Sources/GPUICollections/vecmap.swift](../Sources/GPUICollections/vecmap.swift) | source | 192 | not-started |
-| [crates/collections/src/vecmap_tests.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/collections/src/vecmap_tests.rs) | [Sources/GPUICollections/vecmap_tests.swift](../Sources/GPUICollections/vecmap_tests.swift) | source | 209 | not-started |
-| [crates/collections/src/collections.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/collections/src/collections.rs) | [Tests/GPUICollectionsTests/collections.swift](../Tests/GPUICollectionsTests/collections.swift) | inline-test |  | not-started |
-| [crates/collections/src/vecmap_tests.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/collections/src/vecmap_tests.rs) | [Tests/GPUICollectionsTests/vecmap_tests.swift](../Tests/GPUICollectionsTests/vecmap_tests.swift) | inline-test |  | not-started |
+| [crates/collections/src/collections.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/collections/src/collections.rs) | [Sources/GPUICollections/collections.swift](../Sources/GPUICollections/collections.swift) | source | 13 | ported |
+| [crates/collections/src/vecmap.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/collections/src/vecmap.rs) | [Sources/GPUICollections/vecmap.swift](../Sources/GPUICollections/vecmap.swift) | source | 192 | ported |
+| [crates/collections/src/vecmap_tests.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/collections/src/vecmap_tests.rs) | [Sources/GPUICollections/vecmap_tests.swift](../Sources/GPUICollections/vecmap_tests.swift) | source | 209 | skipped |
+| [crates/collections/src/collections.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/collections/src/collections.rs) | [Tests/GPUICollectionsTests/collections.swift](../Tests/GPUICollectionsTests/collections.swift) | inline-test |  | ported |
+| [crates/collections/src/vecmap_tests.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/collections/src/vecmap_tests.rs) | [Tests/GPUICollectionsTests/vecmap_tests.swift](../Tests/GPUICollectionsTests/vecmap_tests.swift) | inline-test |  | ported |
 
 ### `GPUIExamples`
 
@@ -334,8 +334,8 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/gpui_util/src/arc_cow.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_util/src/arc_cow.rs) | [Sources/GPUIUtil/arc_cow.swift](../Sources/GPUIUtil/arc_cow.swift) | source | 141 | not-started |
-| [crates/gpui_util/src/lib.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_util/src/lib.rs) | [Sources/GPUIUtil/lib.swift](../Sources/GPUIUtil/lib.swift) | source | 292 | not-started |
+| [crates/gpui_util/src/arc_cow.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_util/src/arc_cow.rs) | [Sources/GPUIUtil/arc_cow.swift](../Sources/GPUIUtil/arc_cow.swift) | source | 141 | ported |
+| [crates/gpui_util/src/lib.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_util/src/lib.rs) | [Sources/GPUIUtil/lib.swift](../Sources/GPUIUtil/lib.swift) | source | 292 | ported |
 
 ### `GPUIWGPU`
 
@@ -444,7 +444,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/refineable/src/refineable.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/refineable/src/refineable.rs) | [Sources/Refineable/refineable.swift](../Sources/Refineable/refineable.swift) | source | 132 | not-started |
+| [crates/refineable/src/refineable.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/refineable/src/refineable.rs) | [Sources/Refineable/refineable.swift](../Sources/Refineable/refineable.swift) | source | 132 | ported |
 
 ### `Scheduler`
 
@@ -462,12 +462,12 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/sum_tree/src/cursor.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/cursor.rs) | [Sources/SumTree/cursor.swift](../Sources/SumTree/cursor.swift) | source | 856 | not-started |
-| [crates/sum_tree/src/property_test.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/property_test.rs) | [Sources/SumTree/property_test.swift](../Sources/SumTree/property_test.swift) | source | 32 | not-started |
-| [crates/sum_tree/src/sum_tree.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/sum_tree.rs) | [Sources/SumTree/sum_tree.swift](../Sources/SumTree/sum_tree.swift) | source | 1894 | not-started |
-| [crates/sum_tree/src/tree_map.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/tree_map.rs) | [Sources/SumTree/tree_map.swift](../Sources/SumTree/tree_map.swift) | source | 531 | not-started |
-| [crates/sum_tree/src/sum_tree.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/sum_tree.rs) | [Tests/SumTreeTests/sum_tree.swift](../Tests/SumTreeTests/sum_tree.swift) | inline-test |  | not-started |
-| [crates/sum_tree/src/tree_map.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/tree_map.rs) | [Tests/SumTreeTests/tree_map.swift](../Tests/SumTreeTests/tree_map.swift) | inline-test |  | not-started |
+| [crates/sum_tree/src/cursor.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/cursor.rs) | [Sources/SumTree/cursor.swift](../Sources/SumTree/cursor.swift) | source | 856 | ported |
+| [crates/sum_tree/src/property_test.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/property_test.rs) | [Sources/SumTree/property_test.swift](../Sources/SumTree/property_test.swift) | source | 32 | ported |
+| [crates/sum_tree/src/sum_tree.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/sum_tree.rs) | [Sources/SumTree/sum_tree.swift](../Sources/SumTree/sum_tree.swift) | source | 1894 | ported |
+| [crates/sum_tree/src/tree_map.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/tree_map.rs) | [Sources/SumTree/tree_map.swift](../Sources/SumTree/tree_map.swift) | source | 531 | ported |
+| [crates/sum_tree/src/sum_tree.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/sum_tree.rs) | [Tests/SumTreeTests/sum_tree.swift](../Tests/SumTreeTests/sum_tree.swift) | inline-test |  | ported |
+| [crates/sum_tree/src/tree_map.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/sum_tree/src/tree_map.rs) | [Tests/SumTreeTests/tree_map.swift](../Tests/SumTreeTests/tree_map.swift) | inline-test |  | ported |
 
 ### `ZedUtil`
 

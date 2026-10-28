@@ -1,7 +1,7 @@
 # 0007: Proc macros → Swift macros (swift-syntax)
 
-- **Status:** Proposed
-- **Date:** 2026-10-27
+- **Status:** Accepted
+- **Date:** 2026-10-28
 
 ## Context
 
@@ -9,12 +9,12 @@ Upstream uses proc macros heavily. `gpui_macros` provides `derive(Action)`, `der
 
 ## Decision
 
-- `GPUIMacros` and `DeriveRefineable` become SwiftPM `.macro` targets depending on **swift-syntax**. Their files mirror upstream (`styles.rs` → `styles.swift`, …).
+- `GPUIMacros` and `DeriveRefineable` are SwiftPM `.macro` targets depending on **swift-syntax**. Their files mirror upstream (`styles.rs` → `styles.swift`, …). Under R5, `swift-syntax` is an accepted dependency.
 - Macro *declarations* (`@freestanding(declaration) public macro styleHelpers() = #externalMacro(…)`) live in `GPUI` and `Refineable`, next to where upstream re-exports the proc macros.
 - Freestanding declaration macros are allowed inside type and extension bodies with `names: arbitrary`, which lets `styled.swift` say `extension Styled { #styleHelpers() }`, mirroring `style_helpers!()`.
-- `#[gpui::test]` and `#[gpui::property_test]` become Swift Testing traits (`.gpui(iterations:seed:)`) using `TestScoping`, not macros. Their files (`test.swift`, `property_test.swift`) live in `GPUIMacros` for mapping purposes but hold only a `// PORT NOTE:` pointing to the trait in `GPUI/test.swift`.
+- `#[gpui::test]` and `#[gpui::property_test]` become Swift Testing traits (`.gpui(iterations:seed:)`) using `TestScoping`, not compiler macros. Their files (`test.swift`, `property_test.swift`) live in `GPUIMacros` for mapping purposes and hold a `// PORT NOTE:` pointing to the native trait in `GPUI/test.swift`. This enables everyday development and test runs to execute without requiring compiler macro invocation.
 - Use swift-syntax prebuilts (SwiftPM 6.1+) to keep build times reasonable.
 
 ## Consequences
 
-Adds one dependency (swift-syntax) for the whole package. Macros run on the host, so cross-compiling to Android/Windows/Wasm is unaffected. Until this lands, macro-dependent code stays `fatalError("TODO(port): needs GPUIMacros")`.
+Adds swift-syntax as an accepted package dependency. Macros run on the host, so cross-compiling to Android/Windows/Wasm is unaffected. Test execution remains lightweight and native through Swift Testing traits.

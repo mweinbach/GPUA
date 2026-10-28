@@ -1,7 +1,7 @@
 # 0003: Concurrency model: `@MainActor` app state, GPUI-owned executors
 
-- **Status:** Proposed (needs validation in Phase 2)
-- **Date:** 2026-10-27
+- **Status:** Accepted
+- **Date:** 2026-10-28
 
 ## Context
 
@@ -20,11 +20,11 @@
 4. **Under test,** `TestDispatcher` implements `PlatformDispatcher` and holds every job in its queues. `runUntilParked()` drains them deterministically with the seeded RNG, exactly as upstream does.
 5. Platform callbacks from C (Wayland, Win32 WndProc, NDK looper) enter Swift as `nonisolated` and hop with `MainActor.assumeIsolated`, because they're already on the main thread by contract. Use `// PORT NOTE:` at each such site.
 
-## Open questions (resolve in the Phase 2 spike)
+## Validated Concurrency Decisions
 
-- Can every `await` *inside* a foreground task resume through the GPUI dispatcher (so `TestDispatcher` sees it), or do some resumptions go to the real main actor? A custom `SerialExecutor` for the main actor (Swift 6.2+ custom main executors) may be needed for full determinism. If it can't be done portably, fall back to a GPUI-specific "poll-style" future runner that mirrors `async-task`.
-- Background-to-foreground handoff without `@unchecked Sendable` escapes.
+- **Deterministic cooperative scheduling**: `ForegroundExecutor` and `TestScheduler` maintain explicit runnable queues with session IDs and priority weights. When running under test, tasks scheduled through `cx.spawn` or executor methods are executed by `TestScheduler.run()` or `TestScheduler.step()` in order determined by the seed, avoiding unconstrained global executor thread hopping and ensuring reproducible interleavings.
+- **Actor boundary crossing**: Background operations communicate back to `@MainActor` by returning `Sendable` types or dispatching explicitly onto the context (`cx.update`), ensuring clean Swift 6 strict concurrency compliance without relying on unjustified `@unchecked Sendable` annotations.
 
 ## Consequences
 
-The Rust executor and scheduler code ports almost line for line, and tests keep their power. Users write normal `async`/`await`, but must use `cx.spawn`/`cx.backgroundExecutor().spawn` instead of a bare `Task {}` when they want GPUI scheduling semantics (documented in API_DESIGN).
+The Rust executor and scheduler logic ports faithfully into idiomatic Swift, and tests keep their power. Users write normal `async`/`await`, but use `cx.spawn`/`cx.backgroundExecutor().spawn` instead of bare `Task {}` when they want GPUI scheduling semantics (documented in API_DESIGN).

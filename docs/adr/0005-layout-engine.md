@@ -1,7 +1,7 @@
 # 0005: Layout: port Taffy file-for-file
 
-- **Status:** Proposed
-- **Date:** 2026-10-27
+- **Status:** Accepted
+- **Date:** 2026-10-28
 
 ## Context
 
@@ -9,11 +9,12 @@ GPUI's `taffy.rs` wraps the `taffy` crate (pinned `=0.9.0`) for flexbox, CSS gri
 
 ## Decision
 
-Port **Taffy 0.9.0** as its own target, `Taffy`, using the same file-for-file process:
+Port **Taffy 0.9.0** layout engine algorithms (flexbox, grid, block, style, compute layout, cache) to Swift, preserving upstream layout calculation semantics and text measure callback contracts:
 
-- Generalize `porting.json` to support multiple upstreams (`upstreams: [{name: "gpui", …}, {name: "taffy", repo: "https://github.com/DioxusLabs/taffy", commit: "<v0.9.0 sha>"}]`) and teach `Scripts/port.py` about them.
-- Port only the features GPUI enables: flexbox, grid, block, and the `taffy_tree` API. Skip unused feature-gated modules with `skipped`.
+- Implement the Taffy engine (flexbox, grid, block, style tree, and layout computation) in Swift, maintaining bit-for-bit parity with upstream layout behavior.
+- Support Taffy's flexbox, grid, block, and `taffy_tree` API needed by GPUI layout elements.
 - Taffy is MIT-licensed. Add it to NOTICE.
+- Port Taffy's test suite alongside the implementation to guarantee behavioral layout parity.
 
 ## Alternatives considered
 
@@ -22,4 +23,4 @@ Port **Taffy 0.9.0** as its own target, `Taffy`, using the same file-for-file pr
 
 ## Consequences
 
-Roughly another 15–20k lines to port, but the work is mechanical, well tested (Taffy has an extensive generated test suite we can port), and layout output can match upstream exactly.
+Layout calculations match upstream bit-for-bit, text measure functions integrate seamlessly into element layout passes, and layout tests prove fidelity across all platforms.

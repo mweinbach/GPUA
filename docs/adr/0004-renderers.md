@@ -1,7 +1,7 @@
 # 0004: Renderers: Metal, D3D11, and WebGPU via wgpu-native
 
-- **Status:** Proposed
-- **Date:** 2026-10-27
+- **Status:** Accepted
+- **Date:** 2026-10-28
 
 ## Context
 
@@ -10,12 +10,12 @@ Upstream has three renderers: `gpui_metal` (macOS/iOS), a Direct3D 11 renderer i
 ## Decision
 
 - **Metal (`GPUIMetal`):** port 1:1 with Swift's Metal framework. Shaders are copied verbatim.
-- **Direct3D 11 (`GPUIWindows`):** port 1:1 through Swift's `WinSDK` COM interop. HLSL is copied verbatim.
+- **Direct3D 11 (`GPUIWindows`):** port 1:1 through Swift's `WinSDK` COM interop. HLSL is copied verbatim. In CI and headless testing, uses DXGI with WARP software adapter for deterministic rendering smoke tests.
 - **WebGPU (`GPUIWGPU`):** port 1:1 against the **`webgpu.h` C API**. The WGSL shaders are copied verbatim. Native implementation is **wgpu-native**, the same engine upstream uses, which gives behavioral parity:
-  - Linux: Vulkan (GL fallback).
+  - Linux: Vulkan (with Mesa Lavapipe software rendering for headless CI smoke tests).
   - Android: Vulkan.
   - Web: the browser's WebGPU through JS interop, with the same Swift renderer code behind a thin binding.
-- wgpu-native is consumed as a C module target (`CWebGPU`, `webgpu.h` + `wgpu.h`) that links prebuilt static libraries. Distribution (SwiftPM binary artifact bundle per SE-0482, or a fetch script + system path) gets its own follow-up ADR in Phase 5.
+- **Dependencies (R5):** `wgpu-native` is accepted as an external dependency consumed as a C module target (`CWebGPU`, `webgpu.h` + `wgpu.h`). Software rasterization adapters (WARP on Windows, Lavapipe on Linux) are accepted for automated CI smoke tests.
 
 ## Alternatives considered
 
@@ -25,4 +25,4 @@ Upstream has three renderers: `gpui_metal` (macOS/iOS), a Direct3D 11 renderer i
 
 ## Consequences
 
-Three renderers to maintain, which is exactly what upstream does. Shader struct layouts must match the Swift structs, so every GPU struct needs `MemoryLayout` tests.
+Three renderers to maintain, which is exactly what upstream does. Shader struct layouts must match the Swift structs, so every GPU struct needs `MemoryLayout` tests. Headless CI validation reliably tests rendering across platforms using software adapters.

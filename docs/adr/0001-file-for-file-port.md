@@ -12,7 +12,7 @@ We want GPUI's architecture and quality in Swift on every platform Swift support
 - Port **file-for-file**: one Rust crate → one SwiftPM target, one `.rs` → one `.swift` at the same relative path, keeping item order and doc comments.
 - Pin one upstream commit (`porting.json`). Each Swift file records its source path, the commit it was synced to, and its port status in a header.
 - `Scripts/port.py` owns the mapping, scaffolding, status reporting, and CI validation.
-- Translate idioms mechanically, following `docs/PORTING_GUIDE.md`. Deviations need a `// PORT NOTE:`.
+- Port logic and behavior faithfully into idiomatic Swift, following `docs/PORTING_GUIDE.md` (the Fidelity Rule). Where Swift or the platform offers a different way to get the same result, use it and note the substitution with a `// PORT NOTE:`.
 - No Rust in the build. This is a real port, not FFI bindings.
 
 ## Alternatives considered

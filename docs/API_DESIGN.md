@@ -1,13 +1,13 @@
 # API Design
 
-GPUA's public API is **GPUI's public API, mechanically translated to Swift** using the rules in [PORTING_GUIDE.md](PORTING_GUIDE.md). This page shows what that looks like for users. Treat it as the target the port is aiming for.
+GPUA's public API is **GPUI's public API faithfully ported to idiomatic Swift** using the rules in [PORTING_GUIDE.md](PORTING_GUIDE.md). This page shows what that looks like for users. Treat it as the target the port is aiming for.
 
 > [!NOTE]
 > Nothing here compiles yet. These examples are the acceptance tests for the API. If porting reveals that a snippet can't work as written, update this page in the same PR.
 
 ## Principles
 
-1. **Line-by-line translatable.** Rust GPUI code converts to GPUA by renaming (`snake_case` → `camelCase`) and adjusting syntax. GPUI docs, blog posts, and Zed's codebase stay useful references.
+1. **Conceptually and behaviorally faithful.** Rust GPUI code and concepts map cleanly to GPUA. GPUI docs, blog posts, and Zed's codebase stay useful references.
 2. **Same nouns.** `App`, `Window`, `Context<T>`, `Entity<T>`, `Render`, `IntoElement`, `div()`, `px()`, `rgb()`, `SharedString`, `Bounds`, `WindowOptions`.
 3. **Swift where it's free.** String interpolation into `SharedString`, trailing closures, `some`/`any`, `throws`, enums with leading-dot syntax, Swift Testing traits, macros instead of derives.
 4. **No hidden magic.** No property wrappers or SwiftUI-style implicit dependency tracking. State changes go through `cx.notify()`, as in GPUI.

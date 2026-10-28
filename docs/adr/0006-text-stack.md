@@ -1,7 +1,7 @@
 # 0006: Text: CoreText / DirectWrite / FreeType + HarfBuzz
 
-- **Status:** Proposed
-- **Date:** 2026-10-27
+- **Status:** Accepted
+- **Date:** 2026-10-28
 
 ## Context
 
@@ -10,11 +10,12 @@
 ## Decision
 
 - **Apple:** CoreText, ported 1:1.
-- **Windows:** DirectWrite, ported 1:1.
+- **Windows:** DirectWrite via WinSDK COM interop, ported 1:1.
 - **Linux/Android:** port `cosmic_text_system.rs`'s *structure and behavior* onto **HarfBuzz** (shaping), **FreeType** (rasterization and metrics), and **fontconfig** (Linux discovery and fallback). On Android, discovery reads `/system/fonts` + `fonts.xml`.
-  - Linux uses system libraries through `systemLibrary` + pkg-config.
+  - Linux uses system libraries through `systemLibrary` targets (`CFreeType`, `CHarfBuzz`, `CFontConfig`) + pkg-config. Under R5, `libfreetype6-dev`, `libharfbuzz-dev`, and `libfontconfig1-dev` are accepted system dependencies.
   - Android vendors FreeType and HarfBuzz as C/C++ source targets, since the NDK doesn't expose them.
   - The file keeps its upstream name (`cosmic_text_system.swift`) and carries a `// PORT NOTE:` that explains the backend substitution.
+- **Headless Core & Test Platform:** `NoopTextSystem` with deterministic mock font metrics (constant line height, fixed glyph advances) allowing headless rendering and layout tests to run predictably without platform font dependencies.
 
 ## Alternatives considered
 
@@ -23,4 +24,4 @@
 
 ## Consequences
 
-Glyph output on Linux will differ slightly from upstream (a different rasterizer), so pixel tests there need tolerance. Adding FreeType/HarfBuzz/fontconfig requires follow-up ADRs for each vendoring choice.
+Glyph output on Linux will differ slightly from upstream (a different rasterizer), so pixel tests there need tolerance. Linux CI installs system packages `libfreetype6-dev`, `libharfbuzz-dev`, and `libfontconfig1-dev`. Headless test suites run deterministically using `NoopTextSystem`.

@@ -13,9 +13,9 @@ Copy [0000-template.md](0000-template.md), take the next number, and open it as 
 |---|---|---|
 | [0001](0001-file-for-file-port.md) | File-for-file port of upstream GPUI | Accepted |
 | [0002](0002-module-naming-and-layout.md) | Crate → target naming and file layout | Accepted |
-| [0003](0003-concurrency-model.md) | Concurrency model: `@MainActor` app state, GPUI-owned executors | Proposed |
-| [0004](0004-renderers.md) | Renderers: Metal, D3D11, and WebGPU via wgpu-native | Proposed |
-| [0005](0005-layout-engine.md) | Layout: port Taffy file-for-file | Proposed |
-| [0006](0006-text-stack.md) | Text: CoreText / DirectWrite / FreeType + HarfBuzz | Proposed |
-| [0007](0007-macros.md) | Proc macros → Swift macros (swift-syntax) | Proposed |
+| [0003](0003-concurrency-model.md) | Concurrency model: `@MainActor` app state, GPUI-owned executors | Accepted |
+| [0004](0004-renderers.md) | Renderers: Metal, D3D11, and WebGPU via wgpu-native | Accepted |
+| [0005](0005-layout-engine.md) | Layout: port Taffy file-for-file | Accepted |
+| [0006](0006-text-stack.md) | Text: CoreText / DirectWrite / FreeType + HarfBuzz | Accepted |
+| [0007](0007-macros.md) | Proc macros → Swift macros (swift-syntax) | Accepted |
 | [0008](0008-features-as-traits.md) | Cargo features → SwiftPM package traits | Accepted |

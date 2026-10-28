@@ -8,7 +8,7 @@ GPUA does this by porting [GPUI](https://github.com/Glass-HQ/gpui), the framewor
 
 ## Goals
 
-1. **Faithful port.** Same architecture, same semantics, same file layout as upstream GPUI. A GPUI user should feel at home, and the GPUI docs and examples should translate line by line.
+1. **Faithful port.** Same architecture, same semantics, same file layout as upstream GPUI. A GPUI user should feel at home, and GPUI concepts, docs, and examples translate naturally into idiomatic Swift.
 2. **One SwiftPM package, every platform.** Add `.package(url: "https://github.com/mweinbach/GPUA", …)`, `import GPUI`, and build with the standard Swift toolchain for each target (Xcode/swift on Apple, swift.org toolchains on Linux/Windows, the Swift SDK for Android, the Swift SDK for Wasm).
 3. **Native rendering performance.** Metal on Apple, Direct3D on Windows, Vulkan through WebGPU on Linux and Android, and WebGPU in browsers. The target is frame times comparable to Rust GPUI on the same hardware.
 4. **Upstream-trackable.** Pinning, per-file provenance headers, and `Scripts/port.py stale` keep re-syncing with upstream cheap.
