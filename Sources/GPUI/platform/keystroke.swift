@@ -203,7 +203,7 @@ public struct Modifiers: Copyable, Sendable, Equatable, Hashable, Codable, Custo
     }
 
     public var description: String {
-        displayModifiers(self)
+        formatDisplayModifiers(self)
     }
 }
 
@@ -454,7 +454,7 @@ public struct Keystroke: Sendable, Equatable, Hashable, Codable, AsKeystroke, Cu
     }
 
     public var description: String {
-        displayModifiers(modifiers) + displayKey(key)
+        formatDisplayModifiers(modifiers) + formatDisplayKey(key)
     }
 }
 
@@ -580,7 +580,7 @@ public struct KeybindingKeystroke: Sendable, Equatable, Hashable, AsKeystroke, C
     }
 
     public var description: String {
-        displayModifiers(modifiers) + displayKey(key)
+        formatDisplayModifiers(modifiers) + formatDisplayKey(key)
     }
 }
 
@@ -600,7 +600,7 @@ public func isPrintableKey(_ key: String) -> Bool {
     }
 }
 
-func displayModifiers(_ modifiers: Modifiers) -> String {
+func formatDisplayModifiers(_ modifiers: Modifiers) -> String {
     var result = ""
     if modifiers.control {
         #if os(macOS)
@@ -635,7 +635,7 @@ func displayModifiers(_ modifiers: Modifiers) -> String {
     return result
 }
 
-func displayKey(_ key: String) -> String {
+func formatDisplayKey(_ key: String) -> String {
     #if os(macOS)
     switch key {
     case "backspace": return "⌫"
