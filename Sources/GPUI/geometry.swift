@@ -3,6 +3,7 @@
 // Port status: ported
 
 import Foundation
+import Refineable
 
 // MARK: - Axis
 
@@ -803,6 +804,25 @@ extension Corners where T == Pixels {
             bottomLeft: bottomLeft.scale(factor)
         )
     }
+
+    public func max() -> Pixels {
+        Swift.max(topLeft, Swift.max(topRight, Swift.max(bottomRight, bottomLeft)))
+    }
+}
+
+extension Corners where T == AbsoluteLength {
+    public static var zero: Corners<AbsoluteLength> {
+        Corners.all(.pixels(Pixels(0.0)))
+    }
+
+    public func toPixels(remSize: Pixels) -> Corners<Pixels> {
+        Corners<Pixels>(
+            topLeft: topLeft.toPixels(remSize: remSize),
+            topRight: topRight.toPixels(remSize: remSize),
+            bottomRight: bottomRight.toPixels(remSize: remSize),
+            bottomLeft: bottomLeft.toPixels(remSize: remSize)
+        )
+    }
 }
 
 extension Corners where T == ScaledPixels {
@@ -1137,6 +1157,14 @@ public enum AbsoluteLength: Sendable, Equatable, Hashable {
             return nil
         }
     }
+
+    public init(_ px: Pixels) {
+        self = .pixels(px)
+    }
+
+    public init(_ r: Rems) {
+        self = .rems(r)
+    }
 }
 
 extension AbsoluteLength: CustomStringConvertible, CustomDebugStringConvertible {
@@ -1158,6 +1186,10 @@ extension AbsoluteLength: CustomStringConvertible, CustomDebugStringConvertible 
 public enum DefiniteLength: Sendable, Equatable, Hashable {
     case absolute(AbsoluteLength)
     case fraction(Float)
+
+    public static var zero: DefiniteLength { .absolute(.pixels(Pixels(0.0))) }
+    public static func pixels(_ px: Pixels) -> DefiniteLength { .absolute(.pixels(px)) }
+    public static func rems(_ r: Rems) -> DefiniteLength { .absolute(.rems(r)) }
 
     public var isZero: Bool {
         switch self {
@@ -1272,7 +1304,14 @@ public struct GridLocation: Sendable, Equatable, Hashable {
         self.row = row
         self.column = column
     }
+
+    public init() {
+        self.row = 0..<0
+        self.column = 0..<0
+    }
 }
+
+extension GridLocation: DefaultInitializable {}
 
 // MARK: - Half & IsZero Protocols
 
@@ -1380,3 +1419,294 @@ extension ContentMask where P == ScaledPixels {
         ContentMask(bounds: bounds.intersect(other.bounds))
     }
 }
+
+// MARK: - Refineable Conformances for Geometry Types
+
+public struct PointRefinement<T: Sendable & Equatable>: Sendable, Equatable, Refineable, IsEmpty, DefaultInitializable {
+    public typealias Refinement = PointRefinement<T>
+
+    public var x: T?
+    public var y: T?
+
+    public init(x: T? = nil, y: T? = nil) {
+        self.x = x
+        self.y = y
+    }
+
+    public init() {
+        self.x = nil
+        self.y = nil
+    }
+
+    public var isEmpty: Bool {
+        x == nil && y == nil
+    }
+
+    public mutating func refine(with refinement: PointRefinement<T>) {
+        if let x = refinement.x { self.x = x }
+        if let y = refinement.y { self.y = y }
+    }
+
+    public func isSuperset(of refinement: PointRefinement<T>) -> Bool {
+        if let rx = refinement.x, x != rx { return false }
+        if let ry = refinement.y, y != ry { return false }
+        return true
+    }
+
+    public func subtract(_ refinement: PointRefinement<T>) -> PointRefinement<T> {
+        PointRefinement(
+            x: self.x == refinement.x ? nil : self.x,
+            y: self.y == refinement.y ? nil : self.y
+        )
+    }
+}
+
+extension Point: Refineable {
+    public typealias Refinement = PointRefinement<T>
+
+    public mutating func refine(with refinement: PointRefinement<T>) {
+        if let x = refinement.x { self.x = x }
+        if let y = refinement.y { self.y = y }
+    }
+
+    public func isSuperset(of refinement: PointRefinement<T>) -> Bool {
+        if let rx = refinement.x, self.x != rx { return false }
+        if let ry = refinement.y, self.y != ry { return false }
+        return true
+    }
+
+    public func subtract(_ refinement: PointRefinement<T>) -> PointRefinement<T> {
+        PointRefinement(
+            x: self.x == refinement.x ? nil : self.x,
+            y: self.y == refinement.y ? nil : self.y
+        )
+    }
+}
+
+public struct SizeRefinement<T: Sendable & Equatable>: Sendable, Equatable, Refineable, IsEmpty, DefaultInitializable {
+    public typealias Refinement = SizeRefinement<T>
+
+    public var width: T?
+    public var height: T?
+
+    public init(width: T? = nil, height: T? = nil) {
+        self.width = width
+        self.height = height
+    }
+
+    public init() {
+        self.width = nil
+        self.height = nil
+    }
+
+    public var isEmpty: Bool {
+        width == nil && height == nil
+    }
+
+    public mutating func refine(with refinement: SizeRefinement<T>) {
+        if let w = refinement.width { self.width = w }
+        if let h = refinement.height { self.height = h }
+    }
+
+    public func isSuperset(of refinement: SizeRefinement<T>) -> Bool {
+        if let rw = refinement.width, width != rw { return false }
+        if let rh = refinement.height, height != rh { return false }
+        return true
+    }
+
+    public func subtract(_ refinement: SizeRefinement<T>) -> SizeRefinement<T> {
+        SizeRefinement(
+            width: self.width == refinement.width ? nil : self.width,
+            height: self.height == refinement.height ? nil : self.height
+        )
+    }
+}
+
+extension Size: Refineable {
+    public typealias Refinement = SizeRefinement<T>
+
+    public mutating func refine(with refinement: SizeRefinement<T>) {
+        if let w = refinement.width { self.width = w }
+        if let h = refinement.height { self.height = h }
+    }
+
+    public func isSuperset(of refinement: SizeRefinement<T>) -> Bool {
+        if let rw = refinement.width, self.width != rw { return false }
+        if let rh = refinement.height, self.height != rh { return false }
+        return true
+    }
+
+    public func subtract(_ refinement: SizeRefinement<T>) -> SizeRefinement<T> {
+        SizeRefinement(
+            width: self.width == refinement.width ? nil : self.width,
+            height: self.height == refinement.height ? nil : self.height
+        )
+    }
+}
+
+public struct EdgesRefinement<T: Sendable & Equatable>: Sendable, Equatable, Refineable, IsEmpty, DefaultInitializable {
+    public typealias Refinement = EdgesRefinement<T>
+
+    public var top: T?
+    public var right: T?
+    public var bottom: T?
+    public var left: T?
+
+    public init(top: T? = nil, right: T? = nil, bottom: T? = nil, left: T? = nil) {
+        self.top = top
+        self.right = right
+        self.bottom = bottom
+        self.left = left
+    }
+
+    public init() {
+        self.top = nil
+        self.right = nil
+        self.bottom = nil
+        self.left = nil
+    }
+
+    public static func all(_ value: T) -> EdgesRefinement<T> {
+        EdgesRefinement(top: value, right: value, bottom: value, left: value)
+    }
+
+    public var isEmpty: Bool {
+        top == nil && right == nil && bottom == nil && left == nil
+    }
+
+    public mutating func refine(with refinement: EdgesRefinement<T>) {
+        if let t = refinement.top { self.top = t }
+        if let r = refinement.right { self.right = r }
+        if let b = refinement.bottom { self.bottom = b }
+        if let l = refinement.left { self.left = l }
+    }
+
+    public func isSuperset(of refinement: EdgesRefinement<T>) -> Bool {
+        if let rt = refinement.top, top != rt { return false }
+        if let rr = refinement.right, right != rr { return false }
+        if let rb = refinement.bottom, bottom != rb { return false }
+        if let rl = refinement.left, left != rl { return false }
+        return true
+    }
+
+    public func subtract(_ refinement: EdgesRefinement<T>) -> EdgesRefinement<T> {
+        EdgesRefinement(
+            top: self.top == refinement.top ? nil : self.top,
+            right: self.right == refinement.right ? nil : self.right,
+            bottom: self.bottom == refinement.bottom ? nil : self.bottom,
+            left: self.left == refinement.left ? nil : self.left
+        )
+    }
+}
+
+extension Edges: Refineable {
+    public typealias Refinement = EdgesRefinement<T>
+
+    public mutating func refine(with refinement: EdgesRefinement<T>) {
+        if let t = refinement.top { self.top = t }
+        if let r = refinement.right { self.right = r }
+        if let b = refinement.bottom { self.bottom = b }
+        if let l = refinement.left { self.left = l }
+    }
+
+    public func isSuperset(of refinement: EdgesRefinement<T>) -> Bool {
+        if let rt = refinement.top, self.top != rt { return false }
+        if let rr = refinement.right, self.right != rr { return false }
+        if let rb = refinement.bottom, self.bottom != rb { return false }
+        if let rl = refinement.left, self.left != rl { return false }
+        return true
+    }
+
+    public func subtract(_ refinement: EdgesRefinement<T>) -> EdgesRefinement<T> {
+        EdgesRefinement(
+            top: self.top == refinement.top ? nil : self.top,
+            right: self.right == refinement.right ? nil : self.right,
+            bottom: self.bottom == refinement.bottom ? nil : self.bottom,
+            left: self.left == refinement.left ? nil : self.left
+        )
+    }
+}
+
+public struct CornersRefinement<T: Sendable & Equatable>: Sendable, Equatable, Refineable, IsEmpty, DefaultInitializable {
+    public typealias Refinement = CornersRefinement<T>
+
+    public var topLeft: T?
+    public var topRight: T?
+    public var bottomRight: T?
+    public var bottomLeft: T?
+
+    public init(topLeft: T? = nil, topRight: T? = nil, bottomRight: T? = nil, bottomLeft: T? = nil) {
+        self.topLeft = topLeft
+        self.topRight = topRight
+        self.bottomRight = bottomRight
+        self.bottomLeft = bottomLeft
+    }
+
+    public init() {
+        self.topLeft = nil
+        self.topRight = nil
+        self.bottomRight = nil
+        self.bottomLeft = nil
+    }
+
+    public static func all(_ value: T) -> CornersRefinement<T> {
+        CornersRefinement(topLeft: value, topRight: value, bottomRight: value, bottomLeft: value)
+    }
+
+    public var isEmpty: Bool {
+        topLeft == nil && topRight == nil && bottomRight == nil && bottomLeft == nil
+    }
+
+    public mutating func refine(with refinement: CornersRefinement<T>) {
+        if let tl = refinement.topLeft { self.topLeft = tl }
+        if let tr = refinement.topRight { self.topRight = tr }
+        if let br = refinement.bottomRight { self.bottomRight = br }
+        if let bl = refinement.bottomLeft { self.bottomLeft = bl }
+    }
+
+    public func isSuperset(of refinement: CornersRefinement<T>) -> Bool {
+        if let rtl = refinement.topLeft, topLeft != rtl { return false }
+        if let rtr = refinement.topRight, topRight != rtr { return false }
+        if let rbr = refinement.bottomRight, bottomRight != rbr { return false }
+        if let rbl = refinement.bottomLeft, bottomLeft != rbl { return false }
+        return true
+    }
+
+    public func subtract(_ refinement: CornersRefinement<T>) -> CornersRefinement<T> {
+        CornersRefinement(
+            topLeft: self.topLeft == refinement.topLeft ? nil : self.topLeft,
+            topRight: self.topRight == refinement.topRight ? nil : self.topRight,
+            bottomRight: self.bottomRight == refinement.bottomRight ? nil : self.bottomRight,
+            bottomLeft: self.bottomLeft == refinement.bottomLeft ? nil : self.bottomLeft
+        )
+    }
+}
+
+extension Corners: Refineable {
+    public typealias Refinement = CornersRefinement<T>
+
+    public mutating func refine(with refinement: CornersRefinement<T>) {
+        if let tl = refinement.topLeft { self.topLeft = tl }
+        if let tr = refinement.topRight { self.topRight = tr }
+        if let br = refinement.bottomRight { self.bottomRight = br }
+        if let bl = refinement.bottomLeft { self.bottomLeft = bl }
+    }
+
+    public func isSuperset(of refinement: CornersRefinement<T>) -> Bool {
+        if let rtl = refinement.topLeft, self.topLeft != rtl { return false }
+        if let rtr = refinement.topRight, self.topRight != rtr { return false }
+        if let rbr = refinement.bottomRight, self.bottomRight != rbr { return false }
+        if let rbl = refinement.bottomLeft, self.bottomLeft != rbl { return false }
+        return true
+    }
+
+    public func subtract(_ refinement: CornersRefinement<T>) -> CornersRefinement<T> {
+        CornersRefinement(
+            topLeft: self.topLeft == refinement.topLeft ? nil : self.topLeft,
+            topRight: self.topRight == refinement.topRight ? nil : self.topRight,
+            bottomRight: self.bottomRight == refinement.bottomRight ? nil : self.bottomRight,
+            bottomLeft: self.bottomLeft == refinement.bottomLeft ? nil : self.bottomLeft
+        )
+    }
+}
+
