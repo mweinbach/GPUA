@@ -128,6 +128,8 @@ let package = Package(
 
         // ---- Tests (inline `#[cfg(test)]` modules + crates/*/tests) ---------
         crateTests("GPUICollections"),
+        crateTests("GPUIUtil"),
+        crateTests("Refineable"),
         crateTests("ZedUtil"),
         crateTests("SumTree"),
         crateTests("Scheduler"),
