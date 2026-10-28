@@ -18,6 +18,10 @@ public struct MapEntry<Key: Comparable & Sendable, Value: Sendable>: KeyedItem, 
         MapKey(maxKey: key)
     }
 
+    public static func key(from summary: MapKey<Key>) -> Key? {
+        summary.maxKey
+    }
+
     public static func == (lhs: MapEntry<Key, Value>, rhs: MapEntry<Key, Value>) -> Bool {
         lhs.key == rhs.key
     }
@@ -64,37 +68,14 @@ public struct MapKey<Key: Comparable & Sendable>: ContextLessSummary, Dimension,
     }
 }
 
-// Key dimension conformance
-extension Int: Dimension {
-    public typealias SummaryType = MapKey<Int>
-    public static func zero(cx: Void) -> Int { 0 }
-    public mutating func addSummary(_ summary: MapKey<Int>, cx: Void) {
-        if let m = summary.maxKey { self = m }
-    }
-}
-
-extension String: Dimension {
-    public typealias SummaryType = MapKey<String>
-    public static func zero(cx: Void) -> String { "" }
-    public mutating func addSummary(_ summary: MapKey<String>, cx: Void) {
-        if let m = summary.maxKey { self = m }
-    }
-}
-
-extension UInt8: Dimension {
-    public typealias SummaryType = MapKey<UInt8>
-    public static func zero(cx: Void) -> UInt8 { 0 }
-    public mutating func addSummary(_ summary: MapKey<UInt8>, cx: Void) {
-        if let m = summary.maxKey { self = m }
-    }
-}
-
 /// A cheaply-cloneable ordered map based on a `SumTree`.
 public struct TreeMap<Key: Comparable & Sendable, Value: Sendable>: Sendable {
     private var tree: SumTree<MapEntry<Key, Value>>
+    public private(set) var count: Int = 0
 
     public init() {
         self.tree = SumTree(cx: ())
+        self.count = 0
     }
 
     public static func fromOrderedEntries<S: Sequence>(_ entries: S) -> Self where S.Element == (Key, Value) {
@@ -106,11 +87,7 @@ public struct TreeMap<Key: Comparable & Sendable, Value: Sendable>: Sendable {
     }
 
     public var isEmpty: Bool {
-        tree.isEmpty
-    }
-
-    public var count: Int {
-        tree.items(()).count
+        count == 0
     }
 
     public func containsKey(_ key: Key) -> Bool {
@@ -122,12 +99,18 @@ public struct TreeMap<Key: Comparable & Sendable, Value: Sendable>: Sendable {
     }
 
     public mutating func insert(_ key: Key, _ value: Value) {
-        tree.insertOrReplace(MapEntry(key: key, value: value), ())
+        if tree.insertOrReplace(MapEntry(key: key, value: value), ()) == nil {
+            count += 1
+        }
     }
 
     @discardableResult
     public mutating func insertOrReplace(_ key: Key, _ value: Value) -> Value? {
-        tree.insertOrReplace(MapEntry(key: key, value: value), ())?.value
+        let old = tree.insertOrReplace(MapEntry(key: key, value: value), ())?.value
+        if old == nil {
+            count += 1
+        }
+        return old
     }
 
     public mutating func extend<S: Sequence>(_ entries: S) where S.Element == (Key, Value) {
@@ -138,45 +121,73 @@ public struct TreeMap<Key: Comparable & Sendable, Value: Sendable>: Sendable {
 
     public mutating func clear() {
         self.tree = SumTree(cx: ())
+        self.count = 0
     }
 
     @discardableResult
     public mutating func remove(_ key: Key) -> Value? {
-        tree.remove(key, ())?.value
+        if let removed = tree.remove(key, ())?.value {
+            count -= 1
+            return removed
+        }
+        return nil
     }
 
     public func closest(_ key: Key) -> (Key, Value)? {
-        let all = tree.items(())
-        var best: MapEntry<Key, Value>? = nil
-        for entry in all {
-            if entry.key <= key {
-                best = entry
-            } else {
-                break
-            }
-        }
-        guard let b = best else { return nil }
-        return (b.key, b.value)
+        var cursor = tree.cursor(()) as Cursor<MapEntry<Key, Value>, KeyDimension<MapEntry<Key, Value>>>
+        cursor.seek(to: KeyDimension(key: key), bias: .right)
+        cursor.prev()
+        return cursor.item().map { ($0.key, $0.value) }
     }
 
     public func iter() -> [(Key, Value)] {
-        tree.items(()).map { ($0.key, $0.value) }
+        var cursor = tree.cursor(()) as Cursor<MapEntry<Key, Value>, KeyDimension<MapEntry<Key, Value>>>
+        var result: [(Key, Value)] = []
+        result.reserveCapacity(count)
+        while let item = cursor.item() {
+            result.append((item.key, item.value))
+            cursor.next()
+        }
+        return result
     }
 
     public func iterFrom(_ startKey: Key) -> [(Key, Value)] {
-        tree.items(()).filter { $0.key >= startKey }.map { ($0.key, $0.value) }
+        var cursor = tree.cursor(()) as Cursor<MapEntry<Key, Value>, KeyDimension<MapEntry<Key, Value>>>
+        cursor.seek(to: KeyDimension(key: startKey), bias: .left)
+        var result: [(Key, Value)] = []
+        while let item = cursor.item() {
+            result.append((item.key, item.value))
+            cursor.next()
+        }
+        return result
     }
 
     public mutating func update(_ key: Key, _ f: (inout Value) -> Void) {
-        if var current = tree.get(key, ()) {
-            f(&current.value)
-            tree.insertOrReplace(current, ())
+        var cursor = tree.cursor(()) as Cursor<MapEntry<Key, Value>, KeyDimension<MapEntry<Key, Value>>>
+        let target = KeyDimension<MapEntry<Key, Value>>(key: key)
+        var newTree = cursor.slice(to: target, bias: .left)
+        if var item = cursor.item(), item.key == key {
+            f(&item.value)
+            newTree.push(item, ())
+            cursor.next()
         }
+        newTree.append(cursor.suffix(), ())
+        self.tree = newTree
     }
 
     public mutating func retain(_ predicate: (Key, Value) -> Bool) {
-        let kept = tree.items(()).filter { predicate($0.key, $0.value) }
-        self.tree = SumTree.fromIter(kept, ())
+        var newTree = SumTree<MapEntry<Key, Value>>(cx: ())
+        var cursor = tree.cursor(()) as Cursor<MapEntry<Key, Value>, KeyDimension<MapEntry<Key, Value>>>
+        var newCount = 0
+        while let item = cursor.item() {
+            if predicate(item.key, item.value) {
+                newTree.push(item, ())
+                newCount += 1
+            }
+            cursor.next()
+        }
+        self.tree = newTree
+        self.count = newCount
     }
 
     public func first() -> (Key, Value)? {
