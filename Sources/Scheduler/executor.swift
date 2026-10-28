@@ -4,17 +4,77 @@
 
 import Foundation
 
+public final class CancellationToken: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _isCancelled: Bool = false
+    private var callbacks: [@Sendable () -> Void] = []
+    private var taskHandle: _Concurrency.Task<Void, Never>?
+
+    public init() {}
+
+    public var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _isCancelled
+    }
+
+    public func cancel() {
+        lock.lock()
+        guard !_isCancelled else {
+            lock.unlock()
+            return
+        }
+        _isCancelled = true
+        let actions = callbacks
+        callbacks.removeAll()
+        let handle = taskHandle
+        taskHandle = nil
+        lock.unlock()
+
+        handle?.cancel()
+        for action in actions {
+            action()
+        }
+    }
+
+    public func onCancel(_ action: @escaping @Sendable () -> Void) {
+        lock.lock()
+        if _isCancelled {
+            lock.unlock()
+            action()
+            return
+        }
+        callbacks.append(action)
+        lock.unlock()
+    }
+
+    public func attachTaskHandle(_ handle: _Concurrency.Task<Void, Never>) {
+        lock.lock()
+        let alreadyCancelled = _isCancelled
+        if !alreadyCancelled {
+            taskHandle = handle
+        }
+        lock.unlock()
+
+        if alreadyCancelled {
+            handle.cancel()
+        }
+    }
+}
+
 public final class TaskBox<T: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
+    private let readyCondition = NSCondition()
     private var result: T?
     private var isFinished = false
-    private var continuations: [CheckedContinuation<T, Never>] = []
+    private var _isCancelled = false
+    private var continuations: [CheckedContinuation<T?, Never>] = []
 
     public init() {}
 
     public func finish(with value: T) {
         lock.lock()
-        guard !isFinished else {
+        guard !isFinished && !_isCancelled else {
             lock.unlock()
             return
         }
@@ -24,27 +84,50 @@ public final class TaskBox<T: Sendable>: @unchecked Sendable {
         continuations.removeAll()
         lock.unlock()
 
+        readyCondition.lock()
+        readyCondition.broadcast()
+        readyCondition.unlock()
+
         for waiter in waiters {
             waiter.resume(returning: value)
         }
     }
 
-    private func registerWaiter(_ cont: CheckedContinuation<T, Never>) -> T? {
+    public func cancel() {
         lock.lock()
-        defer { lock.unlock() }
-        if isFinished, let result = result {
-            return result
+        guard !isFinished && !_isCancelled else {
+            lock.unlock()
+            return
         }
-        continuations.append(cont)
-        return nil
+        _isCancelled = true
+        isFinished = true
+        let waiters = continuations
+        continuations.removeAll()
+        lock.unlock()
+
+        readyCondition.lock()
+        readyCondition.broadcast()
+        readyCondition.unlock()
+
+        for waiter in waiters {
+            waiter.resume(returning: nil)
+        }
     }
 
-    public func awaitValue() async -> T {
-        await withCheckedContinuation { cont in
-            if let immediate = registerWaiter(cont) {
-                cont.resume(returning: immediate)
-            }
-        }
+    public func waitForReady(timeout: TimeInterval = 0.005) -> Bool {
+        readyCondition.lock()
+        defer { readyCondition.unlock() }
+        lock.lock()
+        let ready = isFinished || _isCancelled
+        lock.unlock()
+        if ready { return true }
+        return readyCondition.wait(until: Date().addingTimeInterval(timeout))
+    }
+
+    public var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _isCancelled
     }
 
     public var isReady: Bool {
@@ -58,24 +141,53 @@ public final class TaskBox<T: Sendable>: @unchecked Sendable {
         defer { lock.unlock() }
         return result
     }
+
+    private func registerWaiter(_ cont: CheckedContinuation<T?, Never>) -> (finished: Bool, value: T?) {
+        lock.lock()
+        defer { lock.unlock() }
+        if isFinished {
+            return (true, result)
+        }
+        continuations.append(cont)
+        return (false, nil)
+    }
+
+    public func awaitOptionalValue() async -> T? {
+        await withCheckedContinuation { cont in
+            let reg = registerWaiter(cont)
+            if reg.finished {
+                cont.resume(returning: reg.value)
+            }
+        }
+    }
+
+    public func awaitValue() async -> T {
+        guard let val = await awaitOptionalValue() else {
+            fatalError("Task was cancelled")
+        }
+        return val
+    }
 }
 
 public final class Task<T: Sendable>: @unchecked Sendable {
     public enum State {
         case ready(T)
-        case spawned(TaskBox<T>, inner: _Concurrency.Task<Void, Never>?, scheduler: (any Scheduler)?)
+        case spawned(TaskBox<T>, token: CancellationToken, scheduler: (any Scheduler)?)
     }
 
     public let state: State
+    public let token: CancellationToken
     private let lock = NSLock()
     private var isDetached: Bool = false
 
     public static func ready(_ val: T) -> Task<T> {
-        Task(state: .ready(val))
+        let token = CancellationToken()
+        return Task(state: .ready(val), token: token)
     }
 
-    public init(state: State) {
+    public init(state: State, token: CancellationToken? = nil) {
         self.state = state
+        self.token = token ?? CancellationToken()
     }
 
     public var isReady: Bool {
@@ -87,10 +199,56 @@ public final class Task<T: Sendable>: @unchecked Sendable {
         }
     }
 
+    public var boxSyncValue: T? {
+        switch state {
+        case .ready(let val):
+            return val
+        case .spawned(let box, _, _):
+            return box.syncValue
+        }
+    }
+
+    public var isCancelled: Bool {
+        token.isCancelled
+    }
+
     public func detach() {
         lock.lock()
         defer { lock.unlock() }
         isDetached = true
+    }
+
+    public func cancel() {
+        token.cancel()
+    }
+
+    public var optionalValue: T? {
+        get async {
+            switch state {
+            case .ready(let val):
+                return val
+            case .spawned(let box, let token, let scheduler):
+                if token.isCancelled || box.isCancelled {
+                    return nil
+                }
+                if let testScheduler = scheduler?.asTest() {
+                    while !box.isReady {
+                        if token.isCancelled || box.isCancelled {
+                            return nil
+                        }
+                        if !testScheduler.step() {
+                            if !testScheduler.advanceClockToNextTimer() {
+                                await _Concurrency.Task.yield()
+                            }
+                        }
+                    }
+                    if box.isCancelled { return nil }
+                    return box.syncValue
+                } else {
+                    return await box.awaitOptionalValue()
+                }
+            }
+        }
     }
 
     public var value: T {
@@ -98,16 +256,22 @@ public final class Task<T: Sendable>: @unchecked Sendable {
             switch state {
             case .ready(let val):
                 return val
-            case .spawned(let box, _, let scheduler):
+            case .spawned(let box, let token, let scheduler):
                 if let testScheduler = scheduler?.asTest() {
                     while !box.isReady {
+                        if token.isCancelled || box.isCancelled {
+                            fatalError("Task was cancelled")
+                        }
                         if !testScheduler.step() {
                             if !testScheduler.advanceClockToNextTimer() {
                                 await _Concurrency.Task.yield()
                             }
                         }
                     }
-                    return box.syncValue!
+                    guard let val = box.syncValue else {
+                        fatalError("Task was cancelled")
+                    }
+                    return val
                 } else {
                     return await box.awaitValue()
                 }
@@ -124,9 +288,7 @@ public final class Task<T: Sendable>: @unchecked Sendable {
         let detached = isDetached
         lock.unlock()
         if !detached {
-            if case .spawned(_, let inner, _) = state {
-                inner?.cancel()
-            }
+            token.cancel()
         }
     }
 }
@@ -146,13 +308,21 @@ public final class FallibleTask<T: Sendable>: @unchecked Sendable {
         innerTask.detach()
     }
 
+    public func cancel() {
+        innerTask.cancel()
+    }
+
     public var isReady: Bool {
         innerTask.isReady
     }
 
+    public var isCancelled: Bool {
+        innerTask.isCancelled
+    }
+
     public var value: T? {
         get async {
-            await innerTask.value
+            await innerTask.optionalValue
         }
     }
 }
@@ -195,11 +365,24 @@ public final class ForegroundExecutor: @unchecked Sendable {
         if let testScheduler = scheduler.asTest() {
             return testScheduler.spawnForeground(sessionId: sessionId, meta: meta, box: box, future: future)
         } else {
+            let token = CancellationToken()
             let inner = _Concurrency.Task {
+                guard !token.isCancelled else {
+                    box.cancel()
+                    return
+                }
                 let result = await future()
-                box.finish(with: result)
+                if token.isCancelled {
+                    box.cancel()
+                } else {
+                    box.finish(with: result)
+                }
             }
-            return Task(state: .spawned(box, inner: inner, scheduler: scheduler))
+            token.attachTaskHandle(inner)
+            token.onCancel {
+                box.cancel()
+            }
+            return Task(state: .spawned(box, token: token, scheduler: scheduler), token: token)
         }
     }
 
@@ -286,11 +469,24 @@ public final class BackgroundExecutor: @unchecked Sendable {
         if let testScheduler = scheduler.asTest() {
             return testScheduler.spawnBackground(priority: priority, meta: meta, box: box, future: future)
         } else {
+            let token = CancellationToken()
             let inner = _Concurrency.Task {
+                guard !token.isCancelled else {
+                    box.cancel()
+                    return
+                }
                 let result = await future()
-                box.finish(with: result)
+                if token.isCancelled {
+                    box.cancel()
+                } else {
+                    box.finish(with: result)
+                }
             }
-            return Task(state: .spawned(box, inner: inner, scheduler: scheduler))
+            token.attachTaskHandle(inner)
+            token.onCancel {
+                box.cancel()
+            }
+            return Task(state: .spawned(box, token: token, scheduler: scheduler), token: token)
         }
     }
 
@@ -300,13 +496,26 @@ public final class BackgroundExecutor: @unchecked Sendable {
         _ future: @escaping @Sendable () async -> T
     ) -> Task<T> {
         let box = TaskBox<T>()
+        let token = CancellationToken()
         scheduler.spawnRealtime {
-            _Concurrency.Task {
+            let inner = _Concurrency.Task {
+                guard !token.isCancelled else {
+                    box.cancel()
+                    return
+                }
                 let res = await future()
-                box.finish(with: res)
+                if token.isCancelled {
+                    box.cancel()
+                } else {
+                    box.finish(with: res)
+                }
             }
+            token.attachTaskHandle(inner)
         }
-        return Task(state: .spawned(box, inner: nil, scheduler: scheduler))
+        token.onCancel {
+            box.cancel()
+        }
+        return Task(state: .spawned(box, token: token, scheduler: scheduler), token: token)
     }
 
     public func timer(_ duration: Duration) -> Timer {

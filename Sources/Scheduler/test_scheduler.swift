@@ -3,6 +3,25 @@
 // Port status: ported
 
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif canImport(WinSDK)
+import WinSDK
+#endif
+
+#if os(Windows)
+private typealias NativeThreadId = DWORD
+private func currentThreadId() -> NativeThreadId { GetCurrentThreadId() }
+private func threadIdEqual(_ a: NativeThreadId, _ b: NativeThreadId) -> Bool { a == b }
+#else
+private typealias NativeThreadId = pthread_t
+private func currentThreadId() -> NativeThreadId { pthread_self() }
+private func threadIdEqual(_ a: NativeThreadId, _ b: NativeThreadId) -> Bool { pthread_equal(a, b) != 0 }
+#endif
 
 public struct DeterministicRng: Sendable {
     private var state: UInt64
@@ -142,8 +161,26 @@ public struct ScheduledRunnable: @unchecked Sendable {
     public var sessionId: SessionId?
     public var priority: Priority
     public var runnable: Runnable
+    public var token: CancellationToken?
+
+    public init(
+        sessionId: SessionId?,
+        priority: Priority,
+        runnable: Runnable,
+        token: CancellationToken? = nil
+    ) {
+        self.sessionId = sessionId
+        self.priority = priority
+        self.runnable = runnable
+        self.token = token
+    }
+
+    public var isCancelled: Bool {
+        token?.isCancelled ?? runnable.isCancelled
+    }
 
     public func run() {
+        guard !isCancelled else { return }
         runnable.run()
     }
 }
@@ -167,7 +204,7 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
     private var state: State
     public let clockInstance: TestClock
     public let rngInstance: SharedRng
-    private let creatorThread: Thread
+    private let creatorThreadId: NativeThreadId
 
     public init(config: TestSchedulerConfig = TestSchedulerConfig()) {
         self.state = State(
@@ -178,7 +215,7 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         )
         self.clockInstance = TestClock()
         self.rngInstance = SharedRng(seed: config.seed)
-        self.creatorThread = Thread.current
+        self.creatorThreadId = currentThreadId()
     }
 
     @discardableResult
@@ -280,10 +317,10 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         if state.parkingAllowedOnce || state.allowParking {
             return
         }
-        if Thread.current === creatorThread {
+        if threadIdEqual(currentThreadId(), creatorThreadId) {
             return
         }
-        let message = "Detected activity on thread \(Thread.current), but test scheduler is running on \(creatorThread). Your test is not deterministic."
+        let message = "Detected activity on thread \(currentThreadId()), but test scheduler is running on \(creatorThreadId). Your test is not deterministic."
         if state.finished {
             fatalError(message)
         } else {
@@ -363,17 +400,19 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
 
     private let inFlightLock = NSLock()
     private var inFlightCount = 0
+    private let workAvailableCondition = NSCondition()
 
-    private func taskStarted() {
+    public func taskStarted() {
         inFlightLock.lock()
         inFlightCount += 1
         inFlightLock.unlock()
     }
 
-    private func taskFinished() {
+    public func taskFinished() {
         inFlightLock.lock()
         inFlightCount -= 1
         inFlightLock.unlock()
+        signalWorkAvailable()
     }
 
     public var hasInFlightTasks: Bool {
@@ -382,21 +421,47 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         return inFlightCount > 0
     }
 
+    public func signalWorkAvailable() {
+        workAvailableCondition.lock()
+        workAvailableCondition.broadcast()
+        workAvailableCondition.unlock()
+    }
+
     public func run() {
         while step() {}
-        let start = Date()
-        while hasInFlightTasks && Date().timeIntervalSince(start) < 0.2 {
-            if step() { continue }
-            Thread.sleep(forTimeInterval: 0.0001)
-        }
     }
 
     public func runWithClockAdvancement() {
-        while step() || advanceClockToNextTimer() {}
-        let start = Date()
-        while hasInFlightTasks && Date().timeIntervalSince(start) < 0.2 {
-            if step() || advanceClockToNextTimer() { continue }
-            Thread.sleep(forTimeInterval: 0.0001)
+        while true {
+            while step() {}
+
+            if hasInFlightTasks {
+                workAvailableCondition.lock()
+                stateLock.lock()
+                let hasRunnables = !state.runnables.isEmpty
+                stateLock.unlock()
+
+                if !hasRunnables && hasInFlightTasks {
+                    _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.005))
+                }
+                workAvailableCondition.unlock()
+
+                if step() {
+                    continue
+                }
+            }
+
+            if advanceClockToNextTimer() {
+                continue
+            }
+
+            if !hasInFlightTasks {
+                break
+            }
+
+            workAvailableCondition.lock()
+            _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.1))
+            workAvailableCondition.unlock()
         }
     }
 
@@ -413,6 +478,11 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
     }
 
     private func stepFiltered(backgroundOnly: Bool) -> Bool {
+        // Prune cancelled runnables
+        stateLock.lock()
+        state.runnables.removeAll { $0.isCancelled }
+        stateLock.unlock()
+
         // First check timers
         let expiredTimers: [ScheduledTimer] = {
             stateLock.lock()
@@ -433,7 +503,8 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
             for timer in expiredTimers {
                 timer.timerRef.fire()
             }
-            Thread.sleep(forTimeInterval: 0.002)
+            Thread.sleep(forTimeInterval: 0.001)
+            signalWorkAvailable()
             return true
         }
 
@@ -491,14 +562,18 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         return false
     }
 
-    public func scheduleForeground(sessionId: SessionId, runnable: Runnable) {
+    public func scheduleForeground(sessionId: SessionId, runnable: Runnable, token: CancellationToken? = nil) {
         stateLock.lock()
-        defer { stateLock.unlock() }
+        defer {
+            stateLock.unlock()
+            signalWorkAvailable()
+        }
 
         let scheduled = ScheduledRunnable(
             sessionId: sessionId,
             priority: .default,
-            runnable: runnable
+            runnable: runnable,
+            token: token
         )
 
         if state.randomizeOrder {
@@ -510,14 +585,22 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         }
     }
 
-    public func scheduleBackgroundWithPriority(runnable: Runnable, priority: Priority) {
+    public func scheduleForeground(sessionId: SessionId, runnable: Runnable) {
+        scheduleForeground(sessionId: sessionId, runnable: runnable, token: nil)
+    }
+
+    public func scheduleBackgroundWithPriority(runnable: Runnable, priority: Priority, token: CancellationToken? = nil) {
         stateLock.lock()
-        defer { stateLock.unlock() }
+        defer {
+            stateLock.unlock()
+            signalWorkAvailable()
+        }
 
         let scheduled = ScheduledRunnable(
             sessionId: nil,
             priority: priority,
-            runnable: runnable
+            runnable: runnable,
+            token: token
         )
 
         if state.randomizeOrder {
@@ -526,6 +609,10 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         } else {
             state.runnables.append(scheduled)
         }
+    }
+
+    public func scheduleBackgroundWithPriority(runnable: Runnable, priority: Priority) {
+        scheduleBackgroundWithPriority(runnable: runnable, priority: priority, token: nil)
     }
 
     public func spawnRealtime(closure: @escaping @Sendable () -> Void) {
@@ -537,10 +624,11 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
     public func timer(timeout: Duration) -> Timer {
         let timerRef = TimerRef()
         stateLock.lock()
-        defer { stateLock.unlock() }
         let expiration = clockInstance.now().advanced(by: timeout)
         state.timers.append(ScheduledTimer(expiration: expiration, timerRef: timerRef))
         state.timers.sort { $0.expiration < $1.expiration }
+        stateLock.unlock()
+        signalWorkAvailable()
         return Timer(timerRef: timerRef)
     }
 
@@ -563,9 +651,10 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         }
 
         let doneBox = TaskBox<Void>()
-        _Concurrency.Task {
+        _Concurrency.Task { [weak self] in
             await operation()
             doneBox.finish(with: ())
+            self?.signalWorkAvailable()
         }
 
         let maxTicks: Int = {
@@ -589,7 +678,9 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                 let advanced = !parkingAllowed && advanceClockToNextTimer()
                 if !advanced {
                     if parkingAllowed {
-                        Thread.sleep(forTimeInterval: 0.01)
+                        workAvailableCondition.lock()
+                        _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.01))
+                        workAvailableCondition.unlock()
                         clockInstance.advance(by: .milliseconds(10))
                     } else if timeout != nil {
                         return false
@@ -611,20 +702,50 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         box: TaskBox<T>,
         future: @escaping @Sendable () async -> T
     ) -> Task<T> {
+        let token = CancellationToken()
+        token.onCancel { [weak box] in
+            box?.cancel()
+        }
+
         taskStarted()
-        let runnable = Runnable(meta: meta) { [weak self] in
-            _ = _Concurrency.Task {
+        let runnable = Runnable(meta: meta, token: token) { [weak self, weak token, box] in
+            guard let token = token, !token.isCancelled else {
+                self?.taskFinished()
+                return
+            }
+            let taskHandle = _Concurrency.Task { [weak self, weak box] in
+                guard !token.isCancelled else {
+                    box?.cancel()
+                    self?.taskFinished()
+                    return
+                }
                 let result = await future()
-                box.finish(with: result)
+                if token.isCancelled {
+                    box?.cancel()
+                } else {
+                    box?.finish(with: result)
+                }
                 self?.taskFinished()
             }
-            for _ in 0..<500 {
-                if box.isReady { break }
-                Thread.sleep(forTimeInterval: 0.0001)
+            token.attachTaskHandle(taskHandle)
+            _ = box.waitForReady(timeout: 0.005)
+        }
+
+        token.onCancel { [weak self, weak runnable] in
+            guard let self = self, let runnable = runnable else { return }
+            var didRemove = false
+            self.stateLock.lock()
+            let initialCount = self.state.runnables.count
+            self.state.runnables.removeAll { $0.runnable === runnable }
+            didRemove = self.state.runnables.count < initialCount
+            self.stateLock.unlock()
+            if didRemove {
+                self.taskFinished()
             }
         }
-        scheduleForeground(sessionId: sessionId, runnable: runnable)
-        return Task(state: .spawned(box, inner: nil, scheduler: self))
+
+        scheduleForeground(sessionId: sessionId, runnable: runnable, token: token)
+        return Task(state: .spawned(box, token: token, scheduler: self), token: token)
     }
 
     public func spawnBackground<T: Sendable>(
@@ -633,20 +754,50 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         box: TaskBox<T>,
         future: @escaping @Sendable () async -> T
     ) -> Task<T> {
+        let token = CancellationToken()
+        token.onCancel { [weak box] in
+            box?.cancel()
+        }
+
         taskStarted()
-        let runnable = Runnable(meta: meta) { [weak self] in
-            _ = _Concurrency.Task {
+        let runnable = Runnable(meta: meta, token: token) { [weak self, weak token, box] in
+            guard let token = token, !token.isCancelled else {
+                self?.taskFinished()
+                return
+            }
+            let taskHandle = _Concurrency.Task { [weak self, weak box] in
+                guard !token.isCancelled else {
+                    box?.cancel()
+                    self?.taskFinished()
+                    return
+                }
                 let result = await future()
-                box.finish(with: result)
+                if token.isCancelled {
+                    box?.cancel()
+                } else {
+                    box?.finish(with: result)
+                }
                 self?.taskFinished()
             }
-            for _ in 0..<500 {
-                if box.isReady { break }
-                Thread.sleep(forTimeInterval: 0.0001)
+            token.attachTaskHandle(taskHandle)
+            _ = box.waitForReady(timeout: 0.005)
+        }
+
+        token.onCancel { [weak self, weak runnable] in
+            guard let self = self, let runnable = runnable else { return }
+            var didRemove = false
+            self.stateLock.lock()
+            let initialCount = self.state.runnables.count
+            self.state.runnables.removeAll { $0.runnable === runnable }
+            didRemove = self.state.runnables.count < initialCount
+            self.stateLock.unlock()
+            if didRemove {
+                self.taskFinished()
             }
         }
-        scheduleBackgroundWithPriority(runnable: runnable, priority: priority)
-        return Task(state: .spawned(box, inner: nil, scheduler: self))
+
+        scheduleBackgroundWithPriority(runnable: runnable, priority: priority, token: token)
+        return Task(state: .spawned(box, token: token, scheduler: self), token: token)
     }
 
     public func blockOnForeground<T: Sendable>(
@@ -664,44 +815,62 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         }
 
         let box = TaskBox<Result<T, any Error>>()
+        let token = CancellationToken()
 
-        let taskHandle = _Concurrency.Task {
+        let taskHandle = _Concurrency.Task { [weak self] in
             do {
                 let res = try await future()
-                box.finish(with: .success(res))
+                if !token.isCancelled {
+                    box.finish(with: .success(res))
+                }
             } catch {
-                box.finish(with: .failure(error))
+                if !token.isCancelled {
+                    box.finish(with: .failure(error))
+                }
             }
+            self?.signalWorkAvailable()
         }
+        token.attachTaskHandle(taskHandle)
 
         var idleTicks = 0
         while !box.isReady {
             let stepped = step()
             if stepped {
                 idleTicks = 0
-            } else {
-                stateLock.lock()
-                let parkingAllowed = state.allowParking
-                stateLock.unlock()
+                continue
+            }
 
-                if parkingAllowed {
-                    Thread.sleep(forTimeInterval: 0.005)
-                    clockInstance.advance(by: .milliseconds(5))
+            stateLock.lock()
+            let parkingAllowed = state.allowParking
+            stateLock.unlock()
+
+            let advanced = !parkingAllowed && advanceClockToNextTimer()
+            if advanced {
+                idleTicks = 0
+                continue
+            }
+
+            if parkingAllowed {
+                workAvailableCondition.lock()
+                _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.01))
+                workAvailableCondition.unlock()
+                clockInstance.advance(by: .milliseconds(10))
+            } else {
+                idleTicks += 1
+                if idleTicks < 30 {
+                    workAvailableCondition.lock()
+                    if box.isReady {
+                        workAvailableCondition.unlock()
+                        break
+                    }
+                    _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.001))
+                    workAvailableCondition.unlock()
                 } else {
-                    idleTicks += 1
-                    if idleTicks < 15 {
-                        Thread.sleep(forTimeInterval: 0.001)
-                    } else if advanceClockToNextTimer() {
-                        idleTicks = 0
-                    } else if idleTicks <= 40 {
-                        Thread.sleep(forTimeInterval: 0.001)
+                    token.cancel()
+                    if state.capturePendingTraces {
+                        throw SchedulerError("Parking forbidden. Pending traces:")
                     } else {
-                        taskHandle.cancel()
-                        if state.capturePendingTraces {
-                            throw SchedulerError("Parking forbidden. Pending traces:")
-                        } else {
-                            throw SchedulerError("Parking forbidden. Re-run with PENDING_TRACES=1 to show pending traces")
-                        }
+                        throw SchedulerError("Parking forbidden. Re-run with PENDING_TRACES=1 to show pending traces")
                     }
                 }
             }
@@ -729,32 +898,30 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
             stateLock.unlock()
         }
 
-        let box = TaskBox<T>()
-        let taskHandle = _Concurrency.Task {
-            let res = await future()
-            box.finish(with: res)
-        }
-        let task = Task<T>(state: .spawned(box, inner: taskHandle, scheduler: self))
+        let task = foreground().spawn(future)
 
         for _ in 0..<ticksBudget {
-            if box.isReady { break }
+            if task.isReady { break }
             let stepped = step()
             if !stepped {
                 if !advanceClockToNextTimer() {
-                    Thread.sleep(forTimeInterval: 0.001)
-                    if box.isReady { break }
+                    workAvailableCondition.lock()
+                    _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.001))
+                    workAvailableCondition.unlock()
+                    if task.isReady { break }
                 }
             }
         }
 
-        if !box.isReady {
-            let start = Date()
-            while !box.isReady && Date().timeIntervalSince(start) < 0.002 {
-                Thread.sleep(forTimeInterval: 0.0005)
+        if !task.isReady {
+            workAvailableCondition.lock()
+            if !task.isReady {
+                _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.002))
             }
+            workAvailableCondition.unlock()
         }
 
-        if box.isReady, let result = box.syncValue {
+        if task.isReady, let result = task.boxSyncValue {
             return .success(result)
         } else {
             return .timeout(task)

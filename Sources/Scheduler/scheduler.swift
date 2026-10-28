@@ -57,14 +57,25 @@ public struct RunnableMeta: Sendable {
 
 public final class Runnable: @unchecked Sendable {
     public let meta: RunnableMeta
+    public let token: CancellationToken?
     private let action: @Sendable () -> Void
 
-    public init(meta: RunnableMeta = RunnableMeta(), action: @escaping @Sendable () -> Void) {
+    public init(
+        meta: RunnableMeta = RunnableMeta(),
+        token: CancellationToken? = nil,
+        action: @escaping @Sendable () -> Void
+    ) {
         self.meta = meta
+        self.token = token
         self.action = action
     }
 
+    public var isCancelled: Bool {
+        token?.isCancelled ?? false
+    }
+
     public func run() {
+        guard !isCancelled else { return }
         action()
     }
 }
@@ -103,9 +114,25 @@ public final class TimerRef: @unchecked Sendable {
     }
 
     public func wait() async {
-        await withCheckedContinuation { cont in
-            if registerWaiter(cont) {
-                cont.resume()
+        if _Concurrency.Task.isCancelled { return }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { cont in
+                lock.lock()
+                if isFired || _Concurrency.Task.isCancelled {
+                    lock.unlock()
+                    cont.resume()
+                    return
+                }
+                continuations.append(cont)
+                lock.unlock()
+            }
+        } onCancel: {
+            lock.lock()
+            let waiters = continuations
+            continuations.removeAll()
+            lock.unlock()
+            for waiter in waiters {
+                waiter.resume()
             }
         }
     }
