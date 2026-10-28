@@ -25,3 +25,6 @@ Hosts/web/dist/
 
 # Python
 __pycache__/
+
+# Agent metadata
+.agents/

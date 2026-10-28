@@ -649,12 +649,12 @@ private func performAbsoluteLayoutOnAbsoluteChildren<Tree: LayoutBlockContainer>
         )
 
         let location = Point<Float>(
-            x: left.map { $0 + resolvedMargin.left }
-                ?? right.map { areaSize.width - finalSize.width - $0 - resolvedMargin.right }
+            x: (left.map { $0 + resolvedMargin.left }
+                ?? right.map { areaSize.width - finalSize.width - $0 - resolvedMargin.right })
                 .maybeAdd(areaOffset.x)
                 ?? (item.staticPosition.x + resolvedMargin.left),
-            y: top.map { $0 + resolvedMargin.top }
-                ?? bottom.map { areaSize.height - finalSize.height - $0 - resolvedMargin.bottom }
+            y: (top.map { $0 + resolvedMargin.top }
+                ?? bottom.map { areaSize.height - finalSize.height - $0 - resolvedMargin.bottom })
                 .maybeAdd(areaOffset.y)
                 ?? (item.staticPosition.y + resolvedMargin.top)
         )

@@ -352,6 +352,13 @@ public func minmax(_ min: MinTrackSizingFunction, _ max: MaxTrackSizingFunction)
     TrackSizingFunction(min: min, max: max)
 }
 
+/// Returns a GridTemplateComponent containing a MinMax
+@_disfavoredOverload
+@inlinable
+public func minmax<S: Sendable & Hashable>(_ min: MinTrackSizingFunction, _ max: MaxTrackSizingFunction) -> GridTemplateComponent<S> {
+    .single(TrackSizingFunction(min: min, max: max))
+}
+
 /// Shorthand for minmax(0, Nfr)
 @inlinable
 public func flex(_ flexFraction: Float) -> TrackSizingFunction {

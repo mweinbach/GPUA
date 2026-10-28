@@ -575,8 +575,7 @@ extension TaffyTree: LayoutPartialTree {
             case (.flex, true):
                 return computeFlexboxLayout(tree: &tree, node: node, inputs: inputs)
             case (.grid, true):
-                // Grid layout fallback to block if grid engine not yet active
-                return computeBlockLayout(tree: &tree, nodeId: node, inputs: inputs)
+                return computeGridLayout(tree: &tree, node: node, inputs: inputs)
             case (_, false):
                 let style = tree.nodes[node].style
                 let hasContext = tree.nodes[node].hasContext

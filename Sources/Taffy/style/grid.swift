@@ -835,6 +835,13 @@ extension GridTemplateComponent: FromFr {
     }
 }
 
+extension GridTemplateComponent: TaffyFitContent {
+    @inlinable
+    public static func fitContent(_ argument: LengthPercentage) -> GridTemplateComponent {
+        .single(.fitContent(argument))
+    }
+}
+
 /// The set of styles required for a CSS Grid container
 public protocol GridContainerStyle: CoreStyle {
     var gridTemplateRows: [GridTemplateComponent<CustomIdent>] { get }
