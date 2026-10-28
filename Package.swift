@@ -72,7 +72,7 @@ let package = Package(
     targets: [
         // ---- Support crates ------------------------------------------------
         crate("GPUICollections"),                                   // crates/collections
-        crate("ZedUtil", ["GPUICollections"]),                      // crates/util
+        crate("ZedUtil", ["GPUICollections", "GPUIUtil"]),                      // crates/util
         crate("GPUIUtil"),                                          // crates/gpui_util
         crate("SumTree"),                                           // crates/sum_tree
         crate("Scheduler"),                                         // crates/scheduler

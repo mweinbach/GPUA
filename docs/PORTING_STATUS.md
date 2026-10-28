@@ -15,13 +15,13 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIExamples` | 40 | 40 | 0 | 0 | 0 | 0 | 12,441 | 0% |
 | `GPUIWindows` | 18 | 18 | 0 | 0 | 0 | 0 | 11,223 | 0% |
 | `GPUIMacOS` | 14 | 14 | 0 | 0 | 0 | 0 | 10,175 | 0% |
-| `ZedUtil` | 23 | 23 | 0 | 0 | 0 | 0 | 9,596 | 0% |
+| `ZedUtil` | 23 | 0 | 0 | 6 | 0 | 17 | 9,596 | 100% |
 | `GPUIiOS` | 20 | 20 | 0 | 0 | 0 | 0 | 6,168 | 0% |
 | `SumTree` | 4 | 0 | 0 | 4 | 0 | 0 | 3,313 | 100% |
 | `GPUIWGPU` | 5 | 5 | 0 | 0 | 0 | 0 | 3,307 | 0% |
 | `GPUIMacros` | 11 | 11 | 0 | 0 | 0 | 0 | 3,047 | 0% |
 | `GPUIWeb` | 10 | 10 | 0 | 0 | 0 | 0 | 2,787 | 0% |
-| `Scheduler` | 5 | 5 | 0 | 0 | 0 | 0 | 2,091 | 0% |
+| `Scheduler` | 5 | 0 | 0 | 4 | 0 | 1 | 2,091 | 100% |
 | `GPUIMetal` | 3 | 3 | 0 | 0 | 0 | 0 | 2,083 | 0% |
 | `HTTPClient` | 4 | 4 | 0 | 0 | 0 | 0 | 1,073 | 0% |
 | `DeriveRefineable` | 1 | 1 | 0 | 0 | 0 | 0 | 548 | 0% |
@@ -31,7 +31,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **291** | 281 | 0 | 9 | 0 | 1 | 135,638 | 3% |
+| **Total** | **291** | 253 | 0 | 19 | 0 | 19 | 135,638 | 12% |
 
 ## Files
 
@@ -450,13 +450,13 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/scheduler/src/clock.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/clock.rs) | [Sources/Scheduler/clock.swift](../Sources/Scheduler/clock.swift) | source | 49 | not-started |
-| [crates/scheduler/src/executor.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/executor.rs) | [Sources/Scheduler/executor.swift](../Sources/Scheduler/executor.swift) | source | 377 | not-started |
-| [crates/scheduler/src/scheduler.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/scheduler.rs) | [Sources/Scheduler/scheduler.swift](../Sources/Scheduler/scheduler.swift) | source | 136 | not-started |
-| [crates/scheduler/src/test_scheduler.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/test_scheduler.rs) | [Sources/Scheduler/test_scheduler.swift](../Sources/Scheduler/test_scheduler.swift) | source | 884 | not-started |
-| [crates/scheduler/src/tests.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/tests.rs) | [Sources/Scheduler/tests.swift](../Sources/Scheduler/tests.swift) | source | 645 | not-started |
-| [crates/scheduler/src/scheduler.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/scheduler.rs) | [Tests/SchedulerTests/scheduler.swift](../Tests/SchedulerTests/scheduler.swift) | inline-test |  | not-started |
-| [crates/scheduler/src/tests.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/tests.rs) | [Tests/SchedulerTests/tests.swift](../Tests/SchedulerTests/tests.swift) | inline-test |  | not-started |
+| [crates/scheduler/src/clock.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/clock.rs) | [Sources/Scheduler/clock.swift](../Sources/Scheduler/clock.swift) | source | 49 | ported |
+| [crates/scheduler/src/executor.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/executor.rs) | [Sources/Scheduler/executor.swift](../Sources/Scheduler/executor.swift) | source | 377 | ported |
+| [crates/scheduler/src/scheduler.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/scheduler.rs) | [Sources/Scheduler/scheduler.swift](../Sources/Scheduler/scheduler.swift) | source | 136 | ported |
+| [crates/scheduler/src/test_scheduler.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/test_scheduler.rs) | [Sources/Scheduler/test_scheduler.swift](../Sources/Scheduler/test_scheduler.swift) | source | 884 | ported |
+| [crates/scheduler/src/tests.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/tests.rs) | [Sources/Scheduler/tests.swift](../Sources/Scheduler/tests.swift) | source | 645 | skipped |
+| [crates/scheduler/src/scheduler.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/scheduler.rs) | [Tests/SchedulerTests/scheduler.swift](../Tests/SchedulerTests/scheduler.swift) | inline-test |  | ported |
+| [crates/scheduler/src/tests.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/scheduler/src/tests.rs) | [Tests/SchedulerTests/tests.swift](../Tests/SchedulerTests/tests.swift) | inline-test |  | ported |
 
 ### `SumTree`
 
@@ -473,41 +473,41 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/util/src/arc_cow.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/arc_cow.rs) | [Sources/ZedUtil/arc_cow.swift](../Sources/ZedUtil/arc_cow.swift) | source | 141 | not-started |
-| [crates/util/src/archive.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/archive.rs) | [Sources/ZedUtil/archive.swift](../Sources/ZedUtil/archive.swift) | source | 303 | not-started |
-| [crates/util/src/command.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/command.rs) | [Sources/ZedUtil/command.swift](../Sources/ZedUtil/command.swift) | source | 132 | not-started |
-| [crates/util/src/command/darwin.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/command/darwin.rs) | [Sources/ZedUtil/command/darwin.swift](../Sources/ZedUtil/command/darwin.swift) | source | 825 | not-started |
-| [crates/util/src/disambiguate.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/disambiguate.rs) | [Sources/ZedUtil/disambiguate.swift](../Sources/ZedUtil/disambiguate.swift) | source | 177 | not-started |
-| [crates/util/src/fs.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/fs.rs) | [Sources/ZedUtil/fs.swift](../Sources/ZedUtil/fs.swift) | source | 111 | not-started |
-| [crates/util/src/markdown.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/markdown.rs) | [Sources/ZedUtil/markdown.swift](../Sources/ZedUtil/markdown.swift) | source | 329 | not-started |
-| [crates/util/src/path_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/path_list.rs) | [Sources/ZedUtil/path_list.swift](../Sources/ZedUtil/path_list.swift) | source | 233 | not-started |
-| [crates/util/src/paths.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/paths.rs) | [Sources/ZedUtil/paths.swift](../Sources/ZedUtil/paths.swift) | source | 3054 | not-started |
-| [crates/util/src/process.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/process.rs) | [Sources/ZedUtil/process.swift](../Sources/ZedUtil/process.swift) | source | 92 | not-started |
-| [crates/util/src/redact.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/redact.rs) | [Sources/ZedUtil/redact.swift](../Sources/ZedUtil/redact.swift) | source | 49 | not-started |
-| [crates/util/src/rel_path.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/rel_path.rs) | [Sources/ZedUtil/rel_path.swift](../Sources/ZedUtil/rel_path.swift) | source | 590 | not-started |
-| [crates/util/src/schemars.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/schemars.rs) | [Sources/ZedUtil/schemars.swift](../Sources/ZedUtil/schemars.swift) | source | 72 | not-started |
-| [crates/util/src/serde.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/serde.rs) | [Sources/ZedUtil/serde.swift](../Sources/ZedUtil/serde.swift) | source | 7 | not-started |
-| [crates/util/src/shell.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/shell.rs) | [Sources/ZedUtil/shell.swift](../Sources/ZedUtil/shell.swift) | source | 1040 | not-started |
-| [crates/util/src/shell_builder.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/shell_builder.rs) | [Sources/ZedUtil/shell_builder.swift](../Sources/ZedUtil/shell_builder.swift) | source | 310 | not-started |
-| [crates/util/src/shell_env.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/shell_env.rs) | [Sources/ZedUtil/shell_env.swift](../Sources/ZedUtil/shell_env.swift) | source | 245 | not-started |
-| [crates/util/src/size.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/size.rs) | [Sources/ZedUtil/size.swift](../Sources/ZedUtil/size.swift) | source | 46 | not-started |
-| [crates/util/src/test.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/test.rs) | [Sources/ZedUtil/test.swift](../Sources/ZedUtil/test.swift) | source | 81 | not-started |
-| [crates/util/src/test/assertions.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/test/assertions.rs) | [Sources/ZedUtil/test/assertions.swift](../Sources/ZedUtil/test/assertions.swift) | source | 62 | not-started |
-| [crates/util/src/test/marked_text.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/test/marked_text.rs) | [Sources/ZedUtil/test/marked_text.swift](../Sources/ZedUtil/test/marked_text.swift) | source | 281 | not-started |
-| [crates/util/src/time.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/time.rs) | [Sources/ZedUtil/time.swift](../Sources/ZedUtil/time.swift) | source | 33 | not-started |
-| [crates/util/src/util.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/util.rs) | [Sources/ZedUtil/util.swift](../Sources/ZedUtil/util.swift) | source | 1383 | not-started |
-| [crates/util/src/archive.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/archive.rs) | [Tests/ZedUtilTests/archive.swift](../Tests/ZedUtilTests/archive.swift) | inline-test |  | not-started |
-| [crates/util/src/command/darwin.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/command/darwin.rs) | [Tests/ZedUtilTests/command/darwin.swift](../Tests/ZedUtilTests/command/darwin.swift) | inline-test |  | not-started |
-| [crates/util/src/disambiguate.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/disambiguate.rs) | [Tests/ZedUtilTests/disambiguate.swift](../Tests/ZedUtilTests/disambiguate.swift) | inline-test |  | not-started |
-| [crates/util/src/markdown.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/markdown.rs) | [Tests/ZedUtilTests/markdown.swift](../Tests/ZedUtilTests/markdown.swift) | inline-test |  | not-started |
-| [crates/util/src/path_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/path_list.rs) | [Tests/ZedUtilTests/path_list.swift](../Tests/ZedUtilTests/path_list.swift) | inline-test |  | not-started |
-| [crates/util/src/paths.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/paths.rs) | [Tests/ZedUtilTests/paths.swift](../Tests/ZedUtilTests/paths.swift) | inline-test |  | not-started |
-| [crates/util/src/redact.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/redact.rs) | [Tests/ZedUtilTests/redact.swift](../Tests/ZedUtilTests/redact.swift) | inline-test |  | not-started |
-| [crates/util/src/rel_path.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/rel_path.rs) | [Tests/ZedUtilTests/rel_path.swift](../Tests/ZedUtilTests/rel_path.swift) | inline-test |  | not-started |
-| [crates/util/src/shell.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/shell.rs) | [Tests/ZedUtilTests/shell.swift](../Tests/ZedUtilTests/shell.swift) | inline-test |  | not-started |
-| [crates/util/src/shell_builder.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/shell_builder.rs) | [Tests/ZedUtilTests/shell_builder.swift](../Tests/ZedUtilTests/shell_builder.swift) | inline-test |  | not-started |
-| [crates/util/src/size.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/size.rs) | [Tests/ZedUtilTests/size.swift](../Tests/ZedUtilTests/size.swift) | inline-test |  | not-started |
-| [crates/util/src/test/marked_text.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/test/marked_text.rs) | [Tests/ZedUtilTests/test/marked_text.swift](../Tests/ZedUtilTests/test/marked_text.swift) | inline-test |  | not-started |
-| [crates/util/src/time.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/time.rs) | [Tests/ZedUtilTests/time.swift](../Tests/ZedUtilTests/time.swift) | inline-test |  | not-started |
-| [crates/util/src/util.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/util.rs) | [Tests/ZedUtilTests/util.swift](../Tests/ZedUtilTests/util.swift) | inline-test |  | not-started |
+| [crates/util/src/arc_cow.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/arc_cow.rs) | [Sources/ZedUtil/arc_cow.swift](../Sources/ZedUtil/arc_cow.swift) | source | 141 | ported |
+| [crates/util/src/archive.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/archive.rs) | [Sources/ZedUtil/archive.swift](../Sources/ZedUtil/archive.swift) | source | 303 | skipped |
+| [crates/util/src/command.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/command.rs) | [Sources/ZedUtil/command.swift](../Sources/ZedUtil/command.swift) | source | 132 | ported |
+| [crates/util/src/command/darwin.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/command/darwin.rs) | [Sources/ZedUtil/command/darwin.swift](../Sources/ZedUtil/command/darwin.swift) | source | 825 | skipped |
+| [crates/util/src/disambiguate.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/disambiguate.rs) | [Sources/ZedUtil/disambiguate.swift](../Sources/ZedUtil/disambiguate.swift) | source | 177 | skipped |
+| [crates/util/src/fs.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/fs.rs) | [Sources/ZedUtil/fs.swift](../Sources/ZedUtil/fs.swift) | source | 111 | skipped |
+| [crates/util/src/markdown.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/markdown.rs) | [Sources/ZedUtil/markdown.swift](../Sources/ZedUtil/markdown.swift) | source | 329 | skipped |
+| [crates/util/src/path_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/path_list.rs) | [Sources/ZedUtil/path_list.swift](../Sources/ZedUtil/path_list.swift) | source | 233 | skipped |
+| [crates/util/src/paths.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/paths.rs) | [Sources/ZedUtil/paths.swift](../Sources/ZedUtil/paths.swift) | source | 3054 | skipped |
+| [crates/util/src/process.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/process.rs) | [Sources/ZedUtil/process.swift](../Sources/ZedUtil/process.swift) | source | 92 | skipped |
+| [crates/util/src/redact.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/redact.rs) | [Sources/ZedUtil/redact.swift](../Sources/ZedUtil/redact.swift) | source | 49 | skipped |
+| [crates/util/src/rel_path.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/rel_path.rs) | [Sources/ZedUtil/rel_path.swift](../Sources/ZedUtil/rel_path.swift) | source | 590 | skipped |
+| [crates/util/src/schemars.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/schemars.rs) | [Sources/ZedUtil/schemars.swift](../Sources/ZedUtil/schemars.swift) | source | 72 | skipped |
+| [crates/util/src/serde.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/serde.rs) | [Sources/ZedUtil/serde.swift](../Sources/ZedUtil/serde.swift) | source | 7 | skipped |
+| [crates/util/src/shell.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/shell.rs) | [Sources/ZedUtil/shell.swift](../Sources/ZedUtil/shell.swift) | source | 1040 | skipped |
+| [crates/util/src/shell_builder.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/shell_builder.rs) | [Sources/ZedUtil/shell_builder.swift](../Sources/ZedUtil/shell_builder.swift) | source | 310 | skipped |
+| [crates/util/src/shell_env.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/shell_env.rs) | [Sources/ZedUtil/shell_env.swift](../Sources/ZedUtil/shell_env.swift) | source | 245 | skipped |
+| [crates/util/src/size.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/size.rs) | [Sources/ZedUtil/size.swift](../Sources/ZedUtil/size.swift) | source | 46 | ported |
+| [crates/util/src/test.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/test.rs) | [Sources/ZedUtil/test.swift](../Sources/ZedUtil/test.swift) | source | 81 | skipped |
+| [crates/util/src/test/assertions.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/test/assertions.rs) | [Sources/ZedUtil/test/assertions.swift](../Sources/ZedUtil/test/assertions.swift) | source | 62 | ported |
+| [crates/util/src/test/marked_text.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/test/marked_text.rs) | [Sources/ZedUtil/test/marked_text.swift](../Sources/ZedUtil/test/marked_text.swift) | source | 281 | skipped |
+| [crates/util/src/time.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/time.rs) | [Sources/ZedUtil/time.swift](../Sources/ZedUtil/time.swift) | source | 33 | ported |
+| [crates/util/src/util.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/util.rs) | [Sources/ZedUtil/util.swift](../Sources/ZedUtil/util.swift) | source | 1383 | ported |
+| [crates/util/src/archive.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/archive.rs) | [Tests/ZedUtilTests/archive.swift](../Tests/ZedUtilTests/archive.swift) | inline-test |  | skipped |
+| [crates/util/src/command/darwin.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/command/darwin.rs) | [Tests/ZedUtilTests/command/darwin.swift](../Tests/ZedUtilTests/command/darwin.swift) | inline-test |  | skipped |
+| [crates/util/src/disambiguate.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/disambiguate.rs) | [Tests/ZedUtilTests/disambiguate.swift](../Tests/ZedUtilTests/disambiguate.swift) | inline-test |  | skipped |
+| [crates/util/src/markdown.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/markdown.rs) | [Tests/ZedUtilTests/markdown.swift](../Tests/ZedUtilTests/markdown.swift) | inline-test |  | skipped |
+| [crates/util/src/path_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/path_list.rs) | [Tests/ZedUtilTests/path_list.swift](../Tests/ZedUtilTests/path_list.swift) | inline-test |  | skipped |
+| [crates/util/src/paths.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/paths.rs) | [Tests/ZedUtilTests/paths.swift](../Tests/ZedUtilTests/paths.swift) | inline-test |  | skipped |
+| [crates/util/src/redact.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/redact.rs) | [Tests/ZedUtilTests/redact.swift](../Tests/ZedUtilTests/redact.swift) | inline-test |  | skipped |
+| [crates/util/src/rel_path.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/rel_path.rs) | [Tests/ZedUtilTests/rel_path.swift](../Tests/ZedUtilTests/rel_path.swift) | inline-test |  | skipped |
+| [crates/util/src/shell.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/shell.rs) | [Tests/ZedUtilTests/shell.swift](../Tests/ZedUtilTests/shell.swift) | inline-test |  | skipped |
+| [crates/util/src/shell_builder.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/shell_builder.rs) | [Tests/ZedUtilTests/shell_builder.swift](../Tests/ZedUtilTests/shell_builder.swift) | inline-test |  | skipped |
+| [crates/util/src/size.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/size.rs) | [Tests/ZedUtilTests/size.swift](../Tests/ZedUtilTests/size.swift) | inline-test |  | ported |
+| [crates/util/src/test/marked_text.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/test/marked_text.rs) | [Tests/ZedUtilTests/test/marked_text.swift](../Tests/ZedUtilTests/test/marked_text.swift) | inline-test |  | skipped |
+| [crates/util/src/time.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/time.rs) | [Tests/ZedUtilTests/time.swift](../Tests/ZedUtilTests/time.swift) | inline-test |  | ported |
+| [crates/util/src/util.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/util/src/util.rs) | [Tests/ZedUtilTests/util.swift](../Tests/ZedUtilTests/util.swift) | inline-test |  | ported |
 
