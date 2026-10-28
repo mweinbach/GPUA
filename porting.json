@@ -5,7 +5,21 @@
     "commit": "650aab59d54f4f6f85d42c965831935568ac1162",
     "checkout": ".upstream/gpui"
   },
+  "upstreams": {
+    "gpui": {
+      "repo": "https://github.com/Glass-HQ/gpui.git",
+      "commit": "650aab59d54f4f6f85d42c965831935568ac1162",
+      "checkout": ".upstream/gpui"
+    },
+    "taffy": {
+      "repo": "https://github.com/DioxusLabs/taffy",
+      "tag": "v0.9.0",
+      "commit": "599b1b7d7410d97e13bafc4c01fbe6d7a9cf060a",
+      "checkout": ".upstream/taffy"
+    }
+  },
   "crates": [
+    { "crate": "taffy",              "upstream": "taffy", "path": "",                          "target": "Taffy",             "decision": "port", "exclude": ["tests", "benches", "examples"] },
     { "crate": "gpui",              "path": "crates/gpui",                          "target": "GPUI",              "decision": "port" },
     { "crate": "gpui_platform",     "path": "crates/gpui_platform",                 "target": "GPUIPlatform",      "decision": "port" },
     { "crate": "gpui_apple",        "path": "crates/gpui_apple",                    "target": "GPUIApple",         "decision": "port", "guard": "canImport(ObjectiveC)" },

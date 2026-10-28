@@ -52,6 +52,8 @@ let package = Package(
     products: [
         // The framework: core types, elements, styling, entities, windows.
         .library(name: "GPUI", targets: ["GPUI"]),
+        // The layout engine: flexbox, CSS grid, block layout
+        .library(name: "Taffy", targets: ["Taffy"]),
         // `application()` / `current_platform()` — picks the right backend for the OS.
         .library(name: "GPUIPlatform", targets: ["GPUIPlatform"]),
         // Upstream example gallery: `swift run gpui-examples hello_world`.
@@ -81,11 +83,12 @@ let package = Package(
         crate("HTTPClient", ["ZedUtil"]),                           // crates/http_client
         crate("Media"),                                             // crates/media
         crate("GPUIMacros"),                                        // crates/gpui_macros (→ `.macro` target later)
+        crate("Taffy"),                                             // upstream taffy (flexbox, grid, block layout)
 
         // ---- Core ----------------------------------------------------------
         crate(                                                      // crates/gpui
             "GPUI",
-            ["GPUICollections", "GPUIMacros", "GPUIUtil", "HTTPClient", "Media", "Refineable", "Scheduler", "SumTree"],
+            ["GPUICollections", "GPUIMacros", "GPUIUtil", "HTTPClient", "Media", "Refineable", "Scheduler", "SumTree", "Taffy"],
             resources: [.copy("platform/mac/shaders.metal")]
         ),
 
@@ -135,6 +138,7 @@ let package = Package(
         crateTests("Scheduler"),
         crateTests("HTTPClient"),
         crateTests("GPUIMacros"),
+        crateTests("Taffy"),
         crateTests("GPUI"),
         crateTests("GPUIMetal"),
         crateTests("GPUIWGPU"),

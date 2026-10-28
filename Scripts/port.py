@@ -58,8 +58,24 @@ def load_config() -> dict:
         return json.load(f)
 
 
-def upstream_dir(cfg: dict) -> Path:
-    return ROOT / cfg["upstream"]["checkout"]
+def get_upstreams(cfg: dict) -> dict[str, dict]:
+    if "upstreams" in cfg:
+        return cfg["upstreams"]
+    return {"gpui": cfg["upstream"]}
+
+
+def get_upstream_info(cfg: dict, name: str = "gpui") -> dict:
+    upstreams = get_upstreams(cfg)
+    if name in upstreams:
+        return upstreams[name]
+    if "upstream" in cfg:
+        return cfg["upstream"]
+    raise KeyError(f"No upstream configured with name '{name}'")
+
+
+def upstream_dir(cfg: dict, name: str = "gpui") -> Path:
+    info = get_upstream_info(cfg, name)
+    return ROOT / info["checkout"]
 
 
 def git(*args: str, cwd: Path | None = None, check: bool = True) -> str:
@@ -69,37 +85,39 @@ def git(*args: str, cwd: Path | None = None, check: bool = True) -> str:
     return res.stdout
 
 
-def require_upstream(cfg: dict) -> Path:
-    up = upstream_dir(cfg)
+def require_upstream(cfg: dict, name: str = "gpui") -> Path:
+    up = upstream_dir(cfg, name)
+    info = get_upstream_info(cfg, name)
     if not (up / "Cargo.toml").exists():
         raise SystemExit(
-            f"Upstream checkout not found at {up.relative_to(ROOT)}.\n"
+            f"Upstream '{name}' checkout not found at {up.relative_to(ROOT)}.\n"
             f"Run: Scripts/port.py fetch"
         )
     head = git("rev-parse", "HEAD", cwd=up).strip()
-    if head != cfg["upstream"]["commit"]:
+    if head != info["commit"]:
         print(
             f"warning: {up.relative_to(ROOT)} is at {head[:12]}, porting.json pins "
-            f"{cfg['upstream']['commit'][:12]}. Run: Scripts/port.py fetch",
+            f"{info['commit'][:12]}. Run: Scripts/port.py fetch",
             file=sys.stderr,
         )
     return up
 
 
 def cmd_fetch(args, cfg):
-    up = upstream_dir(cfg)
-    commit = cfg["upstream"]["commit"]
-    if not (up / ".git").exists():
-        up.mkdir(parents=True, exist_ok=True)
-        git("init", "-q", cwd=up)
-        git("remote", "add", "origin", cfg["upstream"]["repo"], cwd=up)
-    depth = [] if args.full else ["--depth", "1"]
-    if args.full and (up / ".git" / "shallow").exists():
-        depth = ["--unshallow"]
-    print(f"Fetching {cfg['upstream']['repo']} @ {commit[:12]} ...")
-    git("fetch", "-q", *depth, "origin", commit, cwd=up)
-    git("checkout", "-q", "--detach", commit, cwd=up)
-    print(f"Upstream ready at {up.relative_to(ROOT)}")
+    for name, info in get_upstreams(cfg).items():
+        up = ROOT / info["checkout"]
+        commit = info["commit"]
+        if not (up / ".git").exists():
+            up.mkdir(parents=True, exist_ok=True)
+            git("init", "-q", cwd=up)
+            git("remote", "add", "origin", info["repo"], cwd=up)
+        depth = [] if args.full else ["--depth", "1"]
+        if args.full and (up / ".git" / "shallow").exists():
+            depth = ["--unshallow"]
+        print(f"Fetching {info['repo']} ({name}) @ {commit[:12]} ...")
+        git("fetch", "-q", *depth, "origin", commit, cwd=up)
+        git("checkout", "-q", "--detach", commit, cwd=up)
+        print(f"Upstream '{name}' ready at {up.relative_to(ROOT)}")
 
 
 # --------------------------------------------------------------------------- #
@@ -113,6 +131,8 @@ class Entry:
     crate: str
     target: str
     upstream: str  # posix path relative to upstream root
+    upstream_name: str = "gpui"
+    upstream_commit: str = ""
     swift: str = ""  # posix path relative to repo root (filled in by resolve)
     guard: str | None = None
     lines: int = 0
@@ -137,14 +157,18 @@ def _rel_parts(rel: PurePosixPath) -> tuple[str, str]:
     return ("" if str(rel.parent) == "." else str(rel.parent)), stem
 
 
-def build_entries(cfg: dict, up: Path) -> list[Entry]:
+def build_entries(cfg: dict, up: Path | dict[str, Path] | None = None) -> list[Entry]:
     entries: list[Entry] = []
     asset_exts = set(cfg.get("asset_extensions", []))
+    up_dict = up if isinstance(up, dict) else {name: upstream_dir(cfg, name) for name in get_upstreams(cfg)}
 
     for c in cfg["crates"]:
         if c["decision"] != "port":
             continue
-        crate_root = up / c["path"]
+        up_name = c.get("upstream", "gpui")
+        up_info = get_upstream_info(cfg, up_name)
+        up_path = up_dict[up_name] if up_name in up_dict else upstream_dir(cfg, up_name)
+        crate_root = up_path / c["path"] if c.get("path") else up_path
         target = c["target"]
         guard = c.get("guard")
         excludes = [crate_root / e for e in c.get("exclude", [])]
@@ -165,25 +189,28 @@ def build_entries(cfg: dict, up: Path) -> list[Entry]:
                 if not p.is_file() or excluded(p):
                     continue
                 rel = PurePosixPath(p.relative_to(base).as_posix())
-                upstream_rel = p.relative_to(up).as_posix()
+                upstream_rel = p.relative_to(up_path).as_posix()
                 text = None
                 if p.suffix == ".rs":
                     d, stem = _rel_parts(rel)
                     d = str(PurePosixPath(prefix) / d) if prefix else d
                     d = "" if d == "." else d
                     text = p.read_text(errors="replace")
-                    e = Entry(kind, c["crate"], target, upstream_rel, guard=guard,
-                              lines=text.count("\n"), root=root, rel_dir=d, stem=stem)
+                    e = Entry(kind, c["crate"], target, upstream_rel,
+                              upstream_name=up_name, upstream_commit=up_info["commit"],
+                              guard=guard, lines=text.count("\n"), root=root, rel_dir=d, stem=stem)
                     entries.append(e)
                     if kind == "source" and sub == "src" and TEST_MARKERS.search(text):
                         entries.append(Entry("inline-test", c["crate"], target, upstream_rel,
+                                             upstream_name=up_name, upstream_commit=up_info["commit"],
                                              guard=guard, lines=0,
                                              root=f"Tests/{target}Tests", rel_dir=d, stem=stem))
                 elif p.suffix in asset_exts:
                     d = str(PurePosixPath(prefix) / rel.parent) if prefix else str(rel.parent)
                     d = "" if d == "." else d
-                    entries.append(Entry("asset", c["crate"], target, upstream_rel, guard=guard,
-                                         root=root, rel_dir=d, stem=p.stem, ext=p.suffix))
+                    entries.append(Entry("asset", c["crate"], target, upstream_rel,
+                                         upstream_name=up_name, upstream_commit=up_info["commit"],
+                                         guard=guard, root=root, rel_dir=d, stem=p.stem, ext=p.suffix))
     resolve_collisions(entries)
     return entries
 
@@ -306,14 +333,22 @@ def stub_text(e: Entry, commit: str) -> str:
 
 
 def cmd_map(args, cfg):
-    up = require_upstream(cfg)
-    entries = build_entries(cfg, up)
+    up_dict = {name: require_upstream(cfg, name) for name in get_upstreams(cfg)}
+    entries = build_entries(cfg, up_dict)
     q = args.path.replace("\\", "/").lstrip("./")
-    hits = [e for e in entries if e.upstream == q or e.swift == q
-            or e.upstream.endswith("/" + q) or e.swift.endswith("/" + q)]
+    aliases = {
+        "src/math.rs": "src/util/math.rs",
+        "src/sys.rs": "src/util/sys.rs",
+        "src/style/flexbox.rs": "src/style/flex.rs",
+    }
+    q_mapped = aliases.get(q, q)
+    hits = [e for e in entries if e.upstream == q or e.upstream == q_mapped
+            or e.swift == q or e.swift == q_mapped
+            or e.upstream.endswith("/" + q) or e.swift.endswith("/" + q)
+            or e.upstream.endswith("/" + q_mapped) or e.swift.endswith("/" + q_mapped)]
     if not hits:
         for c in cfg["crates"]:
-            if q.startswith(c["path"] + "/") and c["decision"] != "port":
+            if c.get("path") and q.startswith(c["path"] + "/") and c["decision"] != "port":
                 print(f"{q}: crate `{c['crate']}` is `{c['decision']}` — {c.get('note', '')}")
                 return
         raise SystemExit(f"No mapping for {q}")
@@ -322,10 +357,9 @@ def cmd_map(args, cfg):
 
 
 def cmd_scaffold(args, cfg):
-    up = require_upstream(cfg)
-    commit = cfg["upstream"]["commit"]
+    up_dict = {name: require_upstream(cfg, name) for name in get_upstreams(cfg)}
     created = 0
-    for e in build_entries(cfg, up):
+    for e in build_entries(cfg, up_dict):
         dest = ROOT / e.swift
         if dest.exists():
             continue
@@ -335,15 +369,16 @@ def cmd_scaffold(args, cfg):
             continue
         dest.parent.mkdir(parents=True, exist_ok=True)
         if e.kind == "asset":
+            up = up_dict[e.upstream_name]
             shutil.copyfile(up / e.upstream, dest)
         else:
-            dest.write_text(stub_text(e, commit))
+            dest.write_text(stub_text(e, e.upstream_commit))
     print(f"{'Would create' if args.dry_run else 'Created'} {created} file(s).")
 
 
 def collect(cfg):
-    up = require_upstream(cfg)
-    entries = build_entries(cfg, up)
+    up_dict = {name: require_upstream(cfg, name) for name in get_upstreams(cfg)}
+    entries = build_entries(cfg, up_dict)
     rows = []
     for e in entries:
         if e.kind == "asset":
@@ -353,12 +388,16 @@ def collect(cfg):
         h = read_header(ROOT / e.swift)
         status = h["status"] if (ROOT / e.swift).exists() else "missing"
         rows.append((e, status or "unknown", h))
-    return up, rows
+    return up_dict, rows
 
 
 def render_status(cfg, rows) -> str:
-    commit = cfg["upstream"]["commit"]
-    repo_web = cfg["upstream"]["repo"].removesuffix(".git")
+    upstreams_list = []
+    for name, info in get_upstreams(cfg).items():
+        commit = info["commit"]
+        repo_web = info["repo"].removesuffix(".git")
+        upstreams_list.append(f"[{name}@{commit[:12]}]({repo_web}/tree/{commit})")
+    upstream_str = ", ".join(upstreams_list)
     per_target: dict[str, Counter] = defaultdict(Counter)
     lines_total: Counter = Counter()
     lines_done: Counter = Counter()
@@ -375,7 +414,7 @@ def render_status(cfg, rows) -> str:
         "",
         "<!-- GENERATED by `Scripts/port.py status --write`. Do not edit by hand. -->",
         "",
-        f"Upstream: [{repo_web.split('github.com/')[-1]}@{commit[:12]}]({repo_web}/tree/{commit})",
+        f"Upstream: {upstream_str}",
         "",
         "Status comes from the `// Port status:` header of each Swift file. "
         "Lines are upstream Rust lines (a rough size signal, not a goal).",
@@ -405,6 +444,9 @@ def render_status(cfg, rows) -> str:
     for t in sorted(by_target):
         out += [f"### `{t}`", "", "| Upstream | Swift | Kind | Lines | Status |", "|---|---|---|---:|---|"]
         for e, status, _ in sorted(by_target[t], key=lambda r: (r[0].kind != "source", r[0].upstream)):
+            up_info = get_upstream_info(cfg, e.upstream_name)
+            repo_web = up_info["repo"].removesuffix(".git")
+            commit = e.upstream_commit
             up_link = f"[{e.upstream}]({repo_web}/blob/{commit}/{e.upstream})"
             sw_link = f"[{e.swift}](../{e.swift})"
             out.append(f"| {up_link} | {sw_link} | {e.kind} | {e.lines or ''} | {status} |")
@@ -433,10 +475,9 @@ def cmd_todo(args, cfg):
 
 
 def cmd_check(args, cfg):
-    up, rows = collect(cfg)
+    up_dict, rows = collect(cfg)
     errors: list[str] = []
     mapped = {e.swift for e, _, _ in rows}
-    commit = cfg["upstream"]["commit"]
 
     for e, status, h in rows:
         if status == "missing":
@@ -453,7 +494,7 @@ def cmd_check(args, cfg):
             errors.append(f"{e.swift}: header says ported from {h['ported_from']!r}, mapping says {e.upstream!r}")
         if not h["commit"]:
             errors.append(f"{e.swift}: missing `// Upstream commit:` header")
-        elif not commit.startswith(h["commit"]):
+        elif not e.upstream_commit.startswith(h["commit"]):
             pass  # stale, reported by `stale`, not an error
 
     known_targets = {c["target"] for c in cfg["crates"] if c.get("target")}
@@ -477,17 +518,19 @@ def cmd_check(args, cfg):
     if errors:
         print("\n".join(errors))
         raise SystemExit(f"\n{len(errors)} problem(s).")
-    print(f"OK — {len(rows)} mapped files, upstream {commit[:12]}.")
+    gpui_commit = cfg.get("upstream", {}).get("commit", "")[:12]
+    print(f"OK — {len(rows)} mapped files, primary upstream {gpui_commit}.")
 
 
 def cmd_stale(args, cfg):
-    up, rows = collect(cfg)
-    pinned = cfg["upstream"]["commit"]
+    up_dict, rows = collect(cfg)
     any_stale = False
     for e, status, h in rows:
+        pinned = e.upstream_commit
         if not h or not h["commit"] or pinned.startswith(h["commit"]) or status == "not-started":
             continue
         any_stale = True
+        up = up_dict[e.upstream_name]
         res = subprocess.run(["git", "diff", "--stat", h["commit"], pinned, "--", e.upstream],
                              cwd=up, capture_output=True, text=True)
         stat = res.stdout.strip().splitlines()[-1] if res.returncode == 0 and res.stdout.strip() else \
