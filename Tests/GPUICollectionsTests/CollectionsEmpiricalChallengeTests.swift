@@ -96,4 +96,90 @@ struct CollectionsEmpiricalChallengeTests {
         #expect(emptyVec.count == 3)
         #expect(Array(emptyVec) == [1, 2, 3])
     }
+
+    // MARK: - 4. OrderedSet COW Isolation & 5000-Item Stress
+
+    @Test func test_ordered_set_cow_isolation_and_stress() {
+        var setA = OrderedSet<Int>()
+        for i in 0..<5000 {
+            setA.insert(i)
+        }
+        #expect(setA.count == 5000)
+
+        // Branch setB from setA
+        var setB = setA
+        #expect(setB.count == 5000)
+
+        // Mutate setB: remove first 1000 items
+        for i in 0..<1000 {
+            let removed = setB.remove(i)
+            #expect(removed == i)
+        }
+        #expect(setB.count == 4000)
+
+        // Mutate setA: insert 5000..<6000
+        for i in 5000..<6000 {
+            setA.insert(i)
+        }
+        #expect(setA.count == 6000)
+
+        // Assert setA isolation
+        #expect(setA.contains(0))
+        #expect(setA.contains(999))
+        #expect(setA.contains(5500))
+
+        // Assert setB isolation
+        #expect(!setB.contains(0))
+        #expect(!setB.contains(999))
+        #expect(!setB.contains(5500))
+        #expect(setB.contains(1000))
+        #expect(setB.contains(4999))
+    }
+
+    // MARK: - 5. SmallVec COW & Growth Stress (5000 items)
+
+    @Test func test_small_vec_cow_and_large_growth() {
+        var vecA = SmallVec<Int>()
+        for i in 0..<5000 {
+            vecA.append(i)
+        }
+        #expect(vecA.count == 5000)
+
+        var vecB = vecA
+        vecB[0] = 999999
+        vecB.append(888888)
+
+        #expect(vecA.count == 5000)
+        #expect(vecA[0] == 0)
+        #expect(vecB.count == 5001)
+        #expect(vecB[0] == 999999)
+        #expect(vecB[5000] == 888888)
+    }
+
+    // MARK: - 6. OrderedMap COW Isolation Under Mutation
+
+    @Test func test_ordered_map_cow_isolation() {
+        var mapA = OrderedMap<Int, String>()
+        for i in 0..<2000 {
+            mapA.insert("val_\(i)", forKey: i)
+        }
+        #expect(mapA.count == 2000)
+
+        var mapB = mapA
+        // Overwrite and remove in mapB
+        mapB.insert("overwritten", forKey: 0)
+        mapB.removeValue(forKey: 1)
+        mapB.insert("new_entry", forKey: 999999)
+
+        #expect(mapA.count == 2000)
+        #expect(mapA[0] == "val_0")
+        #expect(mapA[1] == "val_1")
+        #expect(mapA[999999] == nil)
+
+        #expect(mapB.count == 2000) // -1 + 1 = 2000
+        #expect(mapB[0] == "overwritten")
+        #expect(mapB[1] == nil)
+        #expect(mapB[999999] == "new_entry")
+    }
 }
+

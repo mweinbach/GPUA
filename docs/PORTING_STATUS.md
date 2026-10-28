@@ -10,7 +10,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Target | Files | Not started | In progress | Ported | Verified | Skipped | Upstream lines | Lines done |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `GPUI` | 81 | 81 | 0 | 0 | 0 | 0 | 53,398 | 0% |
+| `GPUI` | 81 | 77 | 0 | 4 | 0 | 0 | 53,398 | 10% |
 | `GPUILinux` | 24 | 24 | 0 | 0 | 0 | 0 | 12,710 | 0% |
 | `GPUIExamples` | 40 | 40 | 0 | 0 | 0 | 0 | 12,441 | 0% |
 | `GPUIWindows` | 18 | 18 | 0 | 0 | 0 | 0 | 11,223 | 0% |
@@ -31,7 +31,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **291** | 253 | 0 | 19 | 0 | 19 | 135,638 | 12% |
+| **Total** | **291** | 249 | 0 | 23 | 0 | 19 | 135,638 | 16% |
 
 ## Files
 
@@ -58,9 +58,9 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui/src/arena.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/arena.rs) | [Sources/GPUI/arena.swift](../Sources/GPUI/arena.swift) | source | 289 | not-started |
 | [crates/gpui/src/asset_cache.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/asset_cache.rs) | [Sources/GPUI/asset_cache.swift](../Sources/GPUI/asset_cache.swift) | source | 84 | not-started |
 | [crates/gpui/src/assets.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/assets.rs) | [Sources/GPUI/assets.swift](../Sources/GPUI/assets.swift) | source | 115 | not-started |
-| [crates/gpui/src/bounds_tree.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/bounds_tree.rs) | [Sources/GPUI/bounds_tree.swift](../Sources/GPUI/bounds_tree.swift) | source | 466 | not-started |
-| [crates/gpui/src/color.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/color.rs) | [Sources/GPUI/color.swift](../Sources/GPUI/color.swift) | source | 947 | not-started |
-| [crates/gpui/src/colors.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/colors.rs) | [Sources/GPUI/colors.swift](../Sources/GPUI/colors.swift) | source | 122 | not-started |
+| [crates/gpui/src/bounds_tree.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/bounds_tree.rs) | [Sources/GPUI/bounds_tree.swift](../Sources/GPUI/bounds_tree.swift) | source | 466 | ported |
+| [crates/gpui/src/color.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/color.rs) | [Sources/GPUI/color.swift](../Sources/GPUI/color.swift) | source | 947 | ported |
+| [crates/gpui/src/colors.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/colors.rs) | [Sources/GPUI/colors.swift](../Sources/GPUI/colors.swift) | source | 122 | ported |
 | [crates/gpui/src/composite_hosts/mod.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/composite_hosts/mod.rs) | [Sources/GPUI/composite_hosts/composite_hosts.swift](../Sources/GPUI/composite_hosts/composite_hosts.swift) | source | 5 | not-started |
 | [crates/gpui/src/element.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/element.rs) | [Sources/GPUI/element.swift](../Sources/GPUI/element.swift) | source | 797 | not-started |
 | [crates/gpui/src/elements/anchored.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/anchored.rs) | [Sources/GPUI/elements/anchored.swift](../Sources/GPUI/elements/anchored.swift) | source | 292 | not-started |
@@ -77,7 +77,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui/src/elements/text.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/text.rs) | [Sources/GPUI/elements/text.swift](../Sources/GPUI/elements/text.swift) | source | 953 | not-started |
 | [crates/gpui/src/elements/uniform_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/uniform_list.rs) | [Sources/GPUI/elements/uniform_list.swift](../Sources/GPUI/elements/uniform_list.swift) | source | 853 | not-started |
 | [crates/gpui/src/executor.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/executor.rs) | [Sources/GPUI/executor.swift](../Sources/GPUI/executor.swift) | source | 585 | not-started |
-| [crates/gpui/src/geometry.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/geometry.rs) | [Sources/GPUI/geometry.swift](../Sources/GPUI/geometry.swift) | source | 3871 | not-started |
+| [crates/gpui/src/geometry.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/geometry.rs) | [Sources/GPUI/geometry.swift](../Sources/GPUI/geometry.swift) | source | 3871 | ported |
 | [crates/gpui/src/global.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/global.rs) | [Sources/GPUI/global.swift](../Sources/GPUI/global.swift) | source | 75 | not-started |
 | [crates/gpui/src/gpui.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/gpui.rs) | [Sources/GPUI/gpui.swift](../Sources/GPUI/gpui.swift) | source | 302 | not-started |
 | [crates/gpui/src/hosted_views/mod.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/hosted_views/mod.rs) | [Sources/GPUI/hosted_views/hosted_views.swift](../Sources/GPUI/hosted_views/hosted_views.swift) | source | 5 | not-started |
@@ -131,14 +131,14 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui/src/app/test_app.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/test_app.rs) | [Tests/GPUITests/app/test_app.swift](../Tests/GPUITests/app/test_app.swift) | inline-test |  | not-started |
 | [crates/gpui/src/app/test_context.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/test_context.rs) | [Tests/GPUITests/app/test_context.swift](../Tests/GPUITests/app/test_context.swift) | inline-test |  | not-started |
 | [crates/gpui/src/arena.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/arena.rs) | [Tests/GPUITests/arena.swift](../Tests/GPUITests/arena.swift) | inline-test |  | not-started |
-| [crates/gpui/src/bounds_tree.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/bounds_tree.rs) | [Tests/GPUITests/bounds_tree.swift](../Tests/GPUITests/bounds_tree.swift) | inline-test |  | not-started |
-| [crates/gpui/src/color.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/color.rs) | [Tests/GPUITests/color.swift](../Tests/GPUITests/color.swift) | inline-test |  | not-started |
+| [crates/gpui/src/bounds_tree.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/bounds_tree.rs) | [Tests/GPUITests/bounds_tree.swift](../Tests/GPUITests/bounds_tree.swift) | inline-test |  | ported |
+| [crates/gpui/src/color.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/color.rs) | [Tests/GPUITests/color.swift](../Tests/GPUITests/color.swift) | inline-test |  | ported |
 | [crates/gpui/src/elements/div.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/div.rs) | [Tests/GPUITests/elements/div.swift](../Tests/GPUITests/elements/div.swift) | inline-test |  | not-started |
 | [crates/gpui/src/elements/list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/list.rs) | [Tests/GPUITests/elements/list.swift](../Tests/GPUITests/elements/list.swift) | inline-test |  | not-started |
 | [crates/gpui/src/elements/text.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/text.rs) | [Tests/GPUITests/elements/text.swift](../Tests/GPUITests/elements/text.swift) | inline-test |  | not-started |
 | [crates/gpui/src/elements/uniform_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/uniform_list.rs) | [Tests/GPUITests/elements/uniform_list.swift](../Tests/GPUITests/elements/uniform_list.swift) | inline-test |  | not-started |
 | [crates/gpui/src/executor.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/executor.rs) | [Tests/GPUITests/executor.swift](../Tests/GPUITests/executor.swift) | inline-test |  | not-started |
-| [crates/gpui/src/geometry.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/geometry.rs) | [Tests/GPUITests/geometry.swift](../Tests/GPUITests/geometry.swift) | inline-test |  | not-started |
+| [crates/gpui/src/geometry.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/geometry.rs) | [Tests/GPUITests/geometry.swift](../Tests/GPUITests/geometry.swift) | inline-test |  | ported |
 | [crates/gpui/src/interactive.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/interactive.rs) | [Tests/GPUITests/interactive.swift](../Tests/GPUITests/interactive.swift) | inline-test |  | not-started |
 | [crates/gpui/src/key_dispatch.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/key_dispatch.rs) | [Tests/GPUITests/key_dispatch.swift](../Tests/GPUITests/key_dispatch.swift) | inline-test |  | not-started |
 | [crates/gpui/src/keymap.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/keymap.rs) | [Tests/GPUITests/keymap.swift](../Tests/GPUITests/keymap.swift) | inline-test |  | not-started |

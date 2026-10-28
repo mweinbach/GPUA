@@ -168,4 +168,118 @@ struct SumTreeEmpiricalChallengeTests {
         #expect(removed.map(\.value) == [20, 40])
         #expect(tree.items(()).map(\.value) == [10, 25, 30, 35, 50])
     }
+
+    // MARK: - 5. SumTree Copy-on-Write (COW) Isolation Across Branches
+
+    @Test func test_sumtree_cow_isolation_across_branches() {
+        var treeA = SumTree<IntItem>(cx: ())
+        for i in 1...1000 {
+            treeA.push(IntItem(value: i), ())
+        }
+        #expect(treeA.summary.count == 1000)
+
+        // Branch B from A
+        var treeB = treeA
+        #expect(treeB.summary.count == 1000)
+
+        // Mutate A with new pushes (1001...1500)
+        for i in 1001...1500 {
+            treeA.push(IntItem(value: i), ())
+        }
+
+        // Mutate B with distinct pushes (2001...2200)
+        for i in 2001...2200 {
+            treeB.push(IntItem(value: i), ())
+        }
+
+        // Branch C from B
+        var treeC = treeB
+        // Mutate C with (3001...3100)
+        for i in 3001...3100 {
+            treeC.push(IntItem(value: i), ())
+        }
+
+        // Verify A
+        #expect(treeA.summary.count == 1500)
+        #expect(treeA.summary.sum == (1...1500).reduce(0, +))
+        #expect(treeA.items(()).map(\.value) == Array(1...1500))
+
+        // Verify B
+        let expectedB = Array(1...1000) + Array(2001...2200)
+        #expect(treeB.summary.count == 1200)
+        #expect(treeB.summary.sum == expectedB.reduce(0, +))
+        #expect(treeB.items(()).map(\.value) == expectedB)
+
+        // Verify C
+        let expectedC = expectedB + Array(3001...3100)
+        #expect(treeC.summary.count == 1300)
+        #expect(treeC.summary.sum == expectedC.reduce(0, +))
+        #expect(treeC.items(()).map(\.value) == expectedC)
+    }
+
+    // MARK: - 6. TreeMap (BTreeMap Equivalent) 5000-Item Stress & Range Queries
+
+    @Test func test_treemap_stress_5000_operations() {
+        var map = TreeMap<Int, String>()
+        let total = 5000
+
+        var rng: UInt64 = 424242
+        func randInt() -> Int {
+            rng = rng &* 6364136223846793005 &+ 1442695040888963407
+            return Int((rng >> 32) % 100000)
+        }
+
+        var baseline: [Int: String] = [:]
+        for _ in 0..<total {
+            let k = randInt()
+            let v = "val_\(k)"
+            map.insert(k, v)
+            baseline[k] = v
+        }
+
+        #expect(map.count == baseline.count)
+
+        // Verify sorted ordering
+        let entries = map.iter()
+        let sortedBaselineKeys = baseline.keys.sorted()
+        #expect(entries.map(\.0) == sortedBaselineKeys)
+        for (k, v) in entries {
+            #expect(v == baseline[k])
+            #expect(map.get(k) == baseline[k])
+        }
+
+        // Test iterFrom on random sample
+        for _ in 0..<10 {
+            let targetKey = randInt()
+            let tail = map.iterFrom(targetKey)
+            let expectedTailKeys = sortedBaselineKeys.filter { $0 >= targetKey }
+            #expect(tail.map(\.0) == expectedTailKeys)
+        }
+
+        // Test closest: for an exact key, closest(k) == k
+        for (k, _) in entries.prefix(50) {
+            let c = map.closest(k)
+            #expect(c?.0 == k)
+        }
+
+        // For arbitrary targets, closest returns max key <= target
+        for _ in 0..<20 {
+            let targetKey = randInt()
+            let c = map.closest(targetKey)
+            let expectedKey = sortedBaselineKeys.filter { $0 <= targetKey }.last
+            #expect(c?.0 == expectedKey)
+        }
+
+        // Remove half the keys
+        let keysToRemove = Array(sortedBaselineKeys.prefix(sortedBaselineKeys.count / 2))
+        for k in keysToRemove {
+            let removed = map.remove(k)
+            #expect(removed != nil)
+            baseline.removeValue(forKey: k)
+        }
+
+        #expect(map.count == baseline.count)
+        #expect(map.iter().map(\.0) == baseline.keys.sorted())
+    }
 }
+
