@@ -42,6 +42,10 @@ public struct SharedString: Sendable, Equatable, Hashable, Comparable, Codable,
         value
     }
 
+    public var asString: String {
+        value
+    }
+
     public func as_str() -> String {
         value
     }

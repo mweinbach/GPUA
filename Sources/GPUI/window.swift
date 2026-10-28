@@ -10,3 +10,27 @@ public struct Window: Sendable {
         self.scaleFactor = scaleFactor
     }
 }
+
+/// Represents the two different phases when dispatching events.
+public enum DispatchPhase: Sendable, Equatable, CaseIterable {
+    case bubble
+    case capture
+
+    public var bubble: Bool { self == .bubble }
+    public var capture: Bool { self == .capture }
+}
+
+/// A globally unique identifier for a focusable element.
+@frozen
+public struct FocusId: Sendable, Equatable, Hashable, RawRepresentable {
+    public var rawValue: UInt64
+
+    public init(rawValue: UInt64) {
+        self.rawValue = rawValue
+    }
+
+    public init(_ rawValue: UInt64) {
+        self.rawValue = rawValue
+    }
+}
+
