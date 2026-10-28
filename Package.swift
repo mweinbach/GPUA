@@ -1,0 +1,146 @@
+// swift-tools-version: 6.2
+//
+// GPUA — a file-for-file Swift port of GPUI (https://github.com/Glass-HQ/gpui).
+//
+// Every Rust crate maps 1:1 to a SwiftPM target and every `.rs` file maps 1:1 to
+// a `.swift` file. The mapping lives in `porting.json` and is enforced by
+// `Scripts/port.py check`. See docs/ARCHITECTURE.md and docs/PORTING_GUIDE.md.
+
+import PackageDescription
+
+// MARK: - Shared settings
+
+let swiftSettings: [SwiftSetting] = [
+    // Rust `dyn Trait` ↔ Swift `any Protocol`: make existentials explicit, like upstream.
+    .enableUpcomingFeature("ExistentialAny"),
+]
+
+// Platform conditions, mirroring upstream `#[cfg(target_os = ...)]` dependencies.
+let apple: [Platform] = [.macOS, .iOS, .visionOS, .macCatalyst]
+let wgpuPlatforms: [Platform] = [.linux, .windows, .android, .wasi]
+
+/// Upstream crate → SwiftPM target. Keep this list in the same order as porting.json.
+func crate(
+    _ name: String,
+    _ dependencies: [Target.Dependency] = [],
+    exclude: [String] = [],
+    resources: [Resource]? = nil
+) -> Target {
+    .target(
+        name: name,
+        dependencies: dependencies,
+        exclude: exclude,
+        resources: resources,
+        swiftSettings: swiftSettings
+    )
+}
+
+func crateTests(_ name: String, _ extra: [Target.Dependency] = []) -> Target {
+    .testTarget(name: "\(name)Tests", dependencies: [.target(name: name)] + extra, swiftSettings: swiftSettings)
+}
+
+// MARK: - Package
+
+let package = Package(
+    name: "GPUA",
+    platforms: [
+        .macOS(.v14),
+        .iOS(.v17),
+        .visionOS(.v1),
+        .macCatalyst(.v17),
+    ],
+    products: [
+        // The framework: core types, elements, styling, entities, windows.
+        .library(name: "GPUI", targets: ["GPUI"]),
+        // `application()` / `current_platform()` — picks the right backend for the OS.
+        .library(name: "GPUIPlatform", targets: ["GPUIPlatform"]),
+        // Upstream example gallery: `swift run gpui-examples hello_world`.
+        .executable(name: "gpui-examples", targets: ["GPUIExamples"]),
+    ],
+    // Cargo features ↔ SwiftPM package traits. `#[cfg(feature = "test-support")]`
+    // becomes `#if TestSupport`, etc. See docs/PORTING_GUIDE.md#cfg-and-features.
+    traits: [
+        .trait(name: "TestSupport", description: "gpui `test-support`: TestPlatform, TestAppContext, leak detection."),
+        .trait(name: "Inspector", description: "gpui `inspector`: element inspector support."),
+        .trait(name: "ScreenCapture", description: "gpui `screen-capture`."),
+        .trait(name: "Wayland", description: "gpui `wayland` (Linux)."),
+        .trait(name: "X11", description: "gpui `x11` (Linux)."),
+        .trait(name: "RuntimeShaders", description: "gpui `runtime_shaders`: compile shaders from source at runtime."),
+        // TestSupport is on by default while porting; revisit before 1.0.
+        .default(enabledTraits: ["TestSupport", "Wayland", "X11"]),
+    ],
+    targets: [
+        // ---- Support crates ------------------------------------------------
+        crate("GPUICollections"),                                   // crates/collections
+        crate("ZedUtil", ["GPUICollections"]),                      // crates/util
+        crate("GPUIUtil"),                                          // crates/gpui_util
+        crate("SumTree"),                                           // crates/sum_tree
+        crate("Scheduler"),                                         // crates/scheduler
+        crate("DeriveRefineable"),                                  // crates/refineable/derive_refineable (→ Swift macro later)
+        crate("Refineable", ["DeriveRefineable"]),                  // crates/refineable
+        crate("HTTPClient", ["ZedUtil"]),                           // crates/http_client
+        crate("Media"),                                             // crates/media
+        crate("GPUIMacros"),                                        // crates/gpui_macros (→ `.macro` target later)
+
+        // ---- Core ----------------------------------------------------------
+        crate(                                                      // crates/gpui
+            "GPUI",
+            ["GPUICollections", "GPUIMacros", "GPUIUtil", "HTTPClient", "Media", "Refineable", "Scheduler", "SumTree"],
+            resources: [.copy("platform/mac/shaders.metal")]
+        ),
+
+        // ---- Renderers -----------------------------------------------------
+        crate("GPUIMetal", ["GPUI", "GPUICollections", "Media"],    // crates/gpui_metal
+              resources: [.copy("shaders.metal")]),
+        crate("GPUIWGPU", ["GPUI", "GPUICollections", "GPUIUtil"],  // crates/gpui_wgpu
+              resources: [.copy("shaders.wgsl"), .copy("shaders_subpixel.wgsl")]),
+
+        // ---- Platforms -----------------------------------------------------
+        crate("GPUIApple", ["GPUI", "GPUICollections", "GPUIMetal"]),                         // crates/gpui_apple
+        crate("GPUIMacOS", ["GPUI", "GPUIApple", "GPUIMetal", "GPUICollections", "Media", "ZedUtil"]), // crates/gpui_macos
+        crate("GPUIiOS", ["GPUI", "GPUIApple", "GPUIMetal", "GPUICollections"]),              // crates/gpui_ios
+        crate("GPUILinux", ["GPUI", "GPUIWGPU", "GPUICollections", "HTTPClient", "ZedUtil"]), // crates/gpui_linux
+        crate("GPUIWindows", ["GPUI", "GPUICollections", "GPUIUtil", "ZedUtil"],              // crates/gpui_windows
+              resources: [.copy("shaders.hlsl"), .copy("alpha_correction.hlsl"), .copy("color_text_raster.hlsl")]),
+        crate("GPUIWeb", ["GPUI", "GPUIWGPU", "HTTPClient"]),                                 // crates/gpui_web
+        crate("GPUIAndroid", ["GPUI", "GPUIWGPU", "GPUICollections"]),                        // Swift-only (no upstream crate)
+
+        crate(                                                      // crates/gpui_platform
+            "GPUIPlatform",
+            [
+                "GPUI",
+                .target(name: "GPUIMacOS", condition: .when(platforms: [.macOS])),
+                .target(name: "GPUIiOS", condition: .when(platforms: [.iOS, .visionOS, .macCatalyst])),
+                .target(name: "GPUIWindows", condition: .when(platforms: [.windows])),
+                .target(name: "GPUILinux", condition: .when(platforms: [.linux])),
+                .target(name: "GPUIAndroid", condition: .when(platforms: [.android])),
+                .target(name: "GPUIWeb", condition: .when(platforms: [.wasi])),
+            ]
+        ),
+
+        // ---- Examples ------------------------------------------------------
+        .executableTarget(                                          // crates/gpui_examples
+            name: "GPUIExamples",
+            dependencies: ["GPUI", "GPUIPlatform"],
+            resources: [.copy("examples/image"), .copy("examples/svg")],
+            swiftSettings: swiftSettings
+        ),
+
+        // ---- Tests (inline `#[cfg(test)]` modules + crates/*/tests) ---------
+        crateTests("GPUICollections"),
+        crateTests("ZedUtil"),
+        crateTests("SumTree"),
+        crateTests("Scheduler"),
+        crateTests("HTTPClient"),
+        crateTests("GPUIMacros"),
+        crateTests("GPUI"),
+        crateTests("GPUIMetal"),
+        crateTests("GPUIWGPU"),
+        crateTests("GPUIMacOS"),
+        crateTests("GPUIiOS"),
+        crateTests("GPUILinux"),
+        crateTests("GPUIWindows"),
+        crateTests("GPUIWeb"),
+        crateTests("GPUIPlatform"),
+    ]
+)

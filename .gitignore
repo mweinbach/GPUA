@@ -1,0 +1,27 @@
+# SwiftPM / Xcode
+.build/
+.swiftpm/
+/Packages
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+
+# Pinned upstream checkout (Scripts/port.py fetch)
+.upstream/
+
+# Generated host projects
+Hosts/iOS/*.xcodeproj/
+Hosts/iOS/build/
+Hosts/android/.gradle/
+Hosts/android/build/
+Hosts/android/app/build/
+Hosts/web/dist/
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Python
+__pycache__/

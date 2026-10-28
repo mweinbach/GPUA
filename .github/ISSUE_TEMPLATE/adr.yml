@@ -1,0 +1,22 @@
+name: Propose a decision (ADR)
+description: New dependency, deviation from the mapping, platform technology choice, ...
+title: "ADR: <title>"
+labels: ["adr"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What problem are we solving? What does upstream do?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed decision
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered

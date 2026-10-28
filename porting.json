@@ -1,0 +1,42 @@
+{
+  "$comment": "Source of truth for the file-for-file port. Read by Scripts/port.py. See docs/PORTING_GUIDE.md.",
+  "upstream": {
+    "repo": "https://github.com/Glass-HQ/gpui.git",
+    "commit": "650aab59d54f4f6f85d42c965831935568ac1162",
+    "checkout": ".upstream/gpui"
+  },
+  "crates": [
+    { "crate": "gpui",              "path": "crates/gpui",                          "target": "GPUI",              "decision": "port" },
+    { "crate": "gpui_platform",     "path": "crates/gpui_platform",                 "target": "GPUIPlatform",      "decision": "port" },
+    { "crate": "gpui_apple",        "path": "crates/gpui_apple",                    "target": "GPUIApple",         "decision": "port", "guard": "canImport(ObjectiveC)" },
+    { "crate": "gpui_macos",        "path": "crates/gpui_macos",                    "target": "GPUIMacOS",         "decision": "port", "guard": "os(macOS)" },
+    { "crate": "gpui_ios",          "path": "crates/gpui_ios",                      "target": "GPUIiOS",           "decision": "port", "guard": "os(iOS) || os(visionOS)" },
+    { "crate": "gpui_metal",        "path": "crates/gpui_metal",                    "target": "GPUIMetal",         "decision": "port", "guard": "canImport(Metal)" },
+    { "crate": "gpui_linux",        "path": "crates/gpui_linux",                    "target": "GPUILinux",         "decision": "port", "guard": "os(Linux)" },
+    { "crate": "gpui_windows",      "path": "crates/gpui_windows",                  "target": "GPUIWindows",       "decision": "port", "guard": "os(Windows)" },
+    { "crate": "gpui_wgpu",         "path": "crates/gpui_wgpu",                     "target": "GPUIWGPU",          "decision": "port", "guard": "os(Linux) || os(Windows) || os(Android) || os(WASI)" },
+    { "crate": "gpui_web",          "path": "crates/gpui_web",                      "target": "GPUIWeb",           "decision": "port", "guard": "os(WASI)" },
+    { "crate": "gpui_macros",       "path": "crates/gpui_macros",                   "target": "GPUIMacros",        "decision": "port" },
+    { "crate": "gpui_util",         "path": "crates/gpui_util",                     "target": "GPUIUtil",          "decision": "port" },
+    { "crate": "gpui_examples",     "path": "crates/gpui_examples",                 "target": "GPUIExamples",      "decision": "port" },
+    { "crate": "collections",       "path": "crates/collections",                   "target": "GPUICollections",   "decision": "port", "note": "Renamed: `Collections` clashes with apple/swift-collections." },
+    { "crate": "util",              "path": "crates/util",                          "target": "ZedUtil",           "decision": "port", "note": "Renamed: `Util` is too generic and `GPUIUtil` is taken by gpui_util. Port files on demand; Zed-only files may be marked skipped." },
+    { "crate": "sum_tree",          "path": "crates/sum_tree",                      "target": "SumTree",           "decision": "port" },
+    { "crate": "scheduler",         "path": "crates/scheduler",                     "target": "Scheduler",         "decision": "port" },
+    { "crate": "refineable",        "path": "crates/refineable",                    "target": "Refineable",        "decision": "port", "exclude": ["derive_refineable"] },
+    { "crate": "derive_refineable", "path": "crates/refineable/derive_refineable",  "target": "DeriveRefineable",  "decision": "port" },
+    { "crate": "http_client",       "path": "crates/http_client",                   "target": "HTTPClient",        "decision": "port" },
+    { "crate": "media",             "path": "crates/media",                         "target": "Media",             "decision": "port", "guard": "canImport(CoreVideo)" },
+
+    { "crate": "gpui_tokio",        "path": "crates/gpui_tokio",      "target": null, "decision": "skip",     "note": "Tokio interop. Swift Concurrency bridging lives in GPUI's executor instead." },
+    { "crate": "reqwest_client",    "path": "crates/reqwest_client",  "target": null, "decision": "replace",  "note": "Replaced by a Swift-only URLSession-backed client inside HTTPClient." },
+    { "crate": "http_client_tls",   "path": "crates/http_client_tls", "target": null, "decision": "skip",     "note": "rustls config; URLSession / platform TLS covers this." },
+    { "crate": "util_macros",       "path": "crates/util_macros",     "target": null, "decision": "skip",     "note": "Test-path proc macros; not needed by GPUI." },
+    { "crate": "cargo-gpui",        "path": "tooling/cargo-gpui",     "target": null, "decision": "deferred", "note": "Will become a SwiftPM command plugin / `gpui` CLI for host sync (iOS, Android)." },
+    { "crate": "perf",              "path": "tooling/perf",           "target": null, "decision": "deferred", "note": "Benchmark tooling; port after core renders." }
+  ],
+  "swift_only_targets": [
+    { "target": "GPUIAndroid", "guard": "os(Android)", "note": "No upstream crate. Mirrors the shape of gpui_linux/gpui_ios (platform, dispatcher, display, window, events, keyboard, text_system) on top of the NDK + GPUIWGPU." }
+  ],
+  "asset_extensions": [".metal", ".wgsl", ".hlsl", ".svg", ".png", ".gif"]
+}

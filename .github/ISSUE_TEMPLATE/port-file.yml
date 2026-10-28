@@ -1,0 +1,31 @@
+name: Port a file
+description: Claim an upstream file (or a tightly-coupled cluster) to port.
+title: "port(<Target>): <upstream path>"
+labels: ["port"]
+body:
+  - type: input
+    id: upstream
+    attributes:
+      label: Upstream path(s)
+      description: e.g. crates/gpui/src/geometry.rs
+    validations:
+      required: true
+  - type: input
+    id: swift
+    attributes:
+      label: Swift path(s)
+      description: Output of `Scripts/port.py map <path>`
+  - type: textarea
+    id: deps
+    attributes:
+      label: Dependencies / blockers
+      description: Other files that must be ported first, macros needed, open ADRs.
+  - type: checkboxes
+    id: dod
+    attributes:
+      label: Definition of done
+      options:
+        - label: All items translated in upstream order (or omitted with PORT NOTE)
+        - label: Inline tests ported to the paired Tests/ file and passing
+        - label: Header status + upstream commit updated
+        - label: "`Scripts/port.py status --write && Scripts/port.py check` passes"

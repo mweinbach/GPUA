@@ -1,0 +1,20 @@
+GPUA
+Copyright 2026 The GPUA Authors
+
+This product is a Swift port of GPUI, a derivative work licensed under the
+Apache License, Version 2.0.
+
+GPUI
+  Copyright Zed Industries, Inc. and contributors
+  https://github.com/zed-industries/zed (crates/gpui and related crates)
+
+GPUI (Glass-HQ fork), the pinned upstream for this port
+  Copyright Glass-HQ contributors
+  https://github.com/Glass-HQ/gpui
+
+Files under Sources/ and Tests/ that carry a "Ported from:" header are
+translations of the corresponding upstream Rust source files. Shader files
+(*.metal, *.wgsl, *.hlsl) and example assets are copied from upstream verbatim.
+
+Example assets in Sources/GPUIExamples/examples/ come from the upstream
+repository and remain under their original licenses.
