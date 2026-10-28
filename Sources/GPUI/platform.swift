@@ -58,3 +58,71 @@ public enum CursorStyle: Sendable, Equatable, Hashable, Codable, DefaultInitiali
         self = .arrow
     }
 }
+
+// MARK: - Atlas Types
+
+/// The unique ID of a tile within an atlas texture.
+@frozen
+public struct TileId: RawRepresentable, Sendable, Equatable, Hashable, Comparable, Codable {
+    public var rawValue: UInt32
+
+    public init(rawValue: UInt32) {
+        self.rawValue = rawValue
+    }
+
+    public init(_ rawValue: UInt32) {
+        self.rawValue = rawValue
+    }
+
+    public static func < (lhs: TileId, rhs: TileId) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+}
+
+/// The kind of content stored in an atlas texture.
+@frozen
+public enum AtlasTextureKind: UInt32, Sendable, Equatable, Hashable, Codable {
+    case monochrome = 0
+    case polychrome = 1
+    case subpixel = 2
+}
+
+/// The identifier of a texture within the atlas.
+@frozen
+public struct AtlasTextureId: Sendable, Equatable, Hashable, Codable {
+    /// The index of this texture in the atlas.
+    public var index: UInt32
+    /// The kind of content stored in this texture.
+    public var kind: AtlasTextureKind
+
+    public init(index: UInt32, kind: AtlasTextureKind) {
+        self.index = index
+        self.kind = kind
+    }
+}
+
+/// A descriptor for a subregion tile within a texture atlas.
+@frozen
+public struct AtlasTile: Sendable, Equatable, Hashable {
+    /// The texture this tile belongs to.
+    public var textureId: AtlasTextureId
+    /// The unique ID of this tile within its texture.
+    public var tileId: TileId
+    /// Padding around the tile content in pixels.
+    public var padding: UInt32
+    /// The bounds of this tile within the texture.
+    public var bounds: Bounds<DevicePixels>
+
+    public init(
+        textureId: AtlasTextureId,
+        tileId: TileId,
+        padding: UInt32 = 0,
+        bounds: Bounds<DevicePixels>
+    ) {
+        self.textureId = textureId
+        self.tileId = tileId
+        self.padding = padding
+        self.bounds = bounds
+    }
+}
+

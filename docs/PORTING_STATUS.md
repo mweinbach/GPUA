@@ -10,7 +10,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Target | Files | Not started | In progress | Ported | Verified | Skipped | Upstream lines | Lines done |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `GPUI` | 81 | 71 | 3 | 7 | 0 | 0 | 53,398 | 14% |
+| `GPUI` | 81 | 71 | 2 | 8 | 0 | 0 | 53,398 | 16% |
 | `Taffy` | 47 | 3 | 0 | 44 | 0 | 0 | 18,695 | 98% |
 | `GPUILinux` | 24 | 24 | 0 | 0 | 0 | 0 | 12,710 | 0% |
 | `GPUIExamples` | 40 | 40 | 0 | 0 | 0 | 0 | 12,441 | 0% |
@@ -32,7 +32,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **338** | 246 | 3 | 70 | 0 | 19 | 154,333 | 27% |
+| **Total** | **338** | 246 | 2 | 71 | 0 | 19 | 154,333 | 28% |
 
 ## Files
 
@@ -107,7 +107,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui/src/presentations/mod.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/presentations/mod.rs) | [Sources/GPUI/presentations/presentations.swift](../Sources/GPUI/presentations/presentations.swift) | source | 4 | not-started |
 | [crates/gpui/src/profiler.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/profiler.rs) | [Sources/GPUI/profiler.swift](../Sources/GPUI/profiler.swift) | source | 358 | not-started |
 | [crates/gpui/src/queue.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/queue.rs) | [Sources/GPUI/queue.swift](../Sources/GPUI/queue.swift) | source | 423 | not-started |
-| [crates/gpui/src/scene.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/scene.rs) | [Sources/GPUI/scene.swift](../Sources/GPUI/scene.swift) | source | 895 | in-progress |
+| [crates/gpui/src/scene.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/scene.rs) | [Sources/GPUI/scene.swift](../Sources/GPUI/scene.swift) | source | 895 | ported |
 | [crates/gpui/src/shared_string.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/shared_string.rs) | [Sources/GPUI/shared_string.swift](../Sources/GPUI/shared_string.swift) | source | 145 | ported |
 | [crates/gpui/src/shared_uri.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/shared_uri.rs) | [Sources/GPUI/shared_uri.swift](../Sources/GPUI/shared_uri.swift) | source | 25 | not-started |
 | [crates/gpui/src/style.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/style.rs) | [Sources/GPUI/style.swift](../Sources/GPUI/style.swift) | source | 1538 | ported |
