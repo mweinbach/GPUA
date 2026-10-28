@@ -10,7 +10,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Target | Files | Not started | In progress | Ported | Verified | Skipped | Upstream lines | Lines done |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `GPUI` | 81 | 71 | 4 | 6 | 0 | 0 | 53,398 | 13% |
+| `GPUI` | 81 | 71 | 3 | 7 | 0 | 0 | 53,398 | 14% |
 | `Taffy` | 47 | 3 | 0 | 44 | 0 | 0 | 18,695 | 98% |
 | `GPUILinux` | 24 | 24 | 0 | 0 | 0 | 0 | 12,710 | 0% |
 | `GPUIExamples` | 40 | 40 | 0 | 0 | 0 | 0 | 12,441 | 0% |
@@ -32,7 +32,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **338** | 246 | 4 | 69 | 0 | 19 | 154,333 | 27% |
+| **Total** | **338** | 246 | 3 | 70 | 0 | 19 | 154,333 | 27% |
 
 ## Files
 
@@ -115,7 +115,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui/src/subscription.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/subscription.rs) | [Sources/GPUI/subscription.swift](../Sources/GPUI/subscription.swift) | source | 344 | not-started |
 | [crates/gpui/src/svg_renderer.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/svg_renderer.rs) | [Sources/GPUI/svg_renderer.swift](../Sources/GPUI/svg_renderer.swift) | source | 406 | not-started |
 | [crates/gpui/src/tab_stop.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/tab_stop.rs) | [Sources/GPUI/tab_stop.swift](../Sources/GPUI/tab_stop.swift) | source | 611 | not-started |
-| [crates/gpui/src/taffy.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/taffy.rs) | [Sources/GPUI/taffy.swift](../Sources/GPUI/taffy.swift) | source | 583 | in-progress |
+| [crates/gpui/src/taffy.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/taffy.rs) | [Sources/GPUI/taffy.swift](../Sources/GPUI/taffy.swift) | source | 583 | ported |
 | [crates/gpui/src/test.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/test.rs) | [Sources/GPUI/test.swift](../Sources/GPUI/test.swift) | source | 195 | not-started |
 | [crates/gpui/src/text_system.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/text_system.rs) | [Sources/GPUI/text_system.swift](../Sources/GPUI/text_system.swift) | source | 984 | in-progress |
 | [crates/gpui/src/text_system/font_fallbacks.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/text_system/font_fallbacks.rs) | [Sources/GPUI/text_system/font_fallbacks.swift](../Sources/GPUI/text_system/font_fallbacks.swift) | source | 21 | not-started |
