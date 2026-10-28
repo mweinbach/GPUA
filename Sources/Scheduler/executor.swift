@@ -62,15 +62,51 @@ public final class CancellationToken: @unchecked Sendable {
     }
 }
 
-public final class TaskBox<T: Sendable>: @unchecked Sendable {
+public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
     private let lock = NSLock()
     private let readyCondition = NSCondition()
     private var result: T?
     private var isFinished = false
     private var _isCancelled = false
+    private var _isSuspended = false
+    private weak var scheduler: TestScheduler?
     private var continuations: [CheckedContinuation<T?, Never>] = []
 
     public init() {}
+
+    public func setScheduler(_ scheduler: TestScheduler) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.scheduler = scheduler
+    }
+
+    public func notifySuspended() {
+        lock.lock()
+        guard !_isSuspended && !isFinished && !_isCancelled else {
+            lock.unlock()
+            return
+        }
+        _isSuspended = true
+        let sched = self.scheduler
+        lock.unlock()
+        sched?.taskSuspended()
+
+        readyCondition.lock()
+        readyCondition.broadcast()
+        readyCondition.unlock()
+    }
+
+    public func notifyResumed() {
+        lock.lock()
+        guard _isSuspended else {
+            lock.unlock()
+            return
+        }
+        _isSuspended = false
+        let sched = self.scheduler
+        lock.unlock()
+        sched?.taskResumed()
+    }
 
     public func finish(with value: T) {
         lock.lock()
@@ -80,9 +116,16 @@ public final class TaskBox<T: Sendable>: @unchecked Sendable {
         }
         result = value
         isFinished = true
+        let wasSuspended = _isSuspended
+        _isSuspended = false
+        let sched = self.scheduler
         let waiters = continuations
         continuations.removeAll()
         lock.unlock()
+
+        if wasSuspended {
+            sched?.taskResumed()
+        }
 
         readyCondition.lock()
         readyCondition.broadcast()
@@ -101,9 +144,16 @@ public final class TaskBox<T: Sendable>: @unchecked Sendable {
         }
         _isCancelled = true
         isFinished = true
+        let wasSuspended = _isSuspended
+        _isSuspended = false
+        let sched = self.scheduler
         let waiters = continuations
         continuations.removeAll()
         lock.unlock()
+
+        if wasSuspended {
+            sched?.taskResumed()
+        }
 
         readyCondition.lock()
         readyCondition.broadcast()
@@ -114,14 +164,40 @@ public final class TaskBox<T: Sendable>: @unchecked Sendable {
         }
     }
 
+    public func waitForReadyOrSuspended(timeout: TimeInterval = 2.0) -> Bool {
+        readyCondition.lock()
+        defer { readyCondition.unlock() }
+        let deadline = Date().addingTimeInterval(timeout)
+        while true {
+            lock.lock()
+            let done = isFinished || _isCancelled || _isSuspended
+            lock.unlock()
+            if done { return true }
+            if !readyCondition.wait(until: deadline) {
+                lock.lock()
+                let timedOutDone = isFinished || _isCancelled || _isSuspended
+                lock.unlock()
+                return timedOutDone
+            }
+        }
+    }
+
     public func waitForReady(timeout: TimeInterval = 0.005) -> Bool {
         readyCondition.lock()
         defer { readyCondition.unlock() }
-        lock.lock()
-        let ready = isFinished || _isCancelled
-        lock.unlock()
-        if ready { return true }
-        return readyCondition.wait(until: Date().addingTimeInterval(timeout))
+        let deadline = Date().addingTimeInterval(timeout)
+        while true {
+            lock.lock()
+            let ready = isFinished || _isCancelled
+            lock.unlock()
+            if ready { return true }
+            if !readyCondition.wait(until: deadline) {
+                lock.lock()
+                let timedOutReady = isFinished || _isCancelled
+                lock.unlock()
+                return timedOutReady
+            }
+        }
     }
 
     public var isCancelled: Bool {
@@ -134,6 +210,12 @@ public final class TaskBox<T: Sendable>: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return isFinished
+    }
+
+    public var isSuspended: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return _isSuspended
     }
 
     public var syncValue: T? {

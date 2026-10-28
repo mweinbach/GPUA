@@ -80,6 +80,24 @@ public final class Runnable: @unchecked Sendable {
     }
 }
 
+public protocol AnyTaskBox: AnyObject, Sendable {
+    func notifySuspended()
+    func notifyResumed()
+}
+
+public enum TestSchedulerContext {
+    @TaskLocal public static var currentBox: (any AnyTaskBox)?
+    @TaskLocal public static var currentScheduler: TestScheduler?
+
+    public static func notifySuspended() {
+        currentBox?.notifySuspended()
+    }
+
+    public static func notifyResumed() {
+        currentBox?.notifyResumed()
+    }
+}
+
 public final class TimerRef: @unchecked Sendable {
     private let lock = NSLock()
     private var isFired = false
@@ -125,7 +143,9 @@ public final class TimerRef: @unchecked Sendable {
                 }
                 continuations.append(cont)
                 lock.unlock()
+                TestSchedulerContext.notifySuspended()
             }
+            TestSchedulerContext.notifyResumed()
         } onCancel: {
             lock.lock()
             let waiters = continuations
