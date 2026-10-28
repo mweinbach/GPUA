@@ -69,8 +69,8 @@ public struct TransformationMatrix: Sendable, Equatable, Hashable, DefaultInitia
 
     /// Clockwise rotation in radians around the origin.
     public func rotate(_ angle: Radians) -> TransformationMatrix {
-        let cosA = cos(angle.value)
-        let sinA = sin(angle.value)
+        let cosA = Float(cos(Double(angle.value)))
+        let sinA = Float(sin(Double(angle.value)))
         return compose(TransformationMatrix(
             rotationScale: (
                 (cosA, -sinA),
