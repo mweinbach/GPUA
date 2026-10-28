@@ -207,6 +207,41 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
     public let clockInstance: TestClock
     public let rngInstance: SharedRng
     private let creatorThreadId: NativeThreadId
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+    private var _taskExecutor: Any? = nil
+    @available(macOS 15.0, iOS 18.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *)
+    public var taskExecutor: TestSchedulerExecutor {
+        if let exec = _taskExecutor as? TestSchedulerExecutor {
+            return exec
+        }
+        let exec = TestSchedulerExecutor()
+        _taskExecutor = exec
+        return exec
+    }
+#else
+    public let taskExecutor = TestSchedulerExecutor()
+#endif
+
+    @discardableResult
+    private func spawnTask(
+        operation: @escaping @Sendable () async -> Void
+    ) -> _Concurrency.Task<Void, Never> {
+        #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+        if #available(macOS 15.0, iOS 18.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *) {
+            return _Concurrency.Task(executorPreference: self.taskExecutor) {
+                await operation()
+            }
+        } else {
+            return _Concurrency.Task {
+                await operation()
+            }
+        }
+        #else
+        return _Concurrency.Task(executorPreference: self.taskExecutor) {
+            await operation()
+        }
+        #endif
+    }
 
     public init(config: TestSchedulerConfig = TestSchedulerConfig()) {
         self.state = State(
@@ -451,6 +486,7 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
     }
 
     public func run() {
+        let hardDeadline = Date().addingTimeInterval(15.0)
         while true {
             while step() {}
 
@@ -473,46 +509,54 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                 break
             }
 
-            let signaled = workAvailableCondition.wait(until: Date().addingTimeInterval(1.0))
+            let signaled = workAvailableCondition.wait(until: hardDeadline)
             workAvailableCondition.unlock()
-
-            if !signaled || !hasActiveInFlightTasks {
-                break
+            if !signaled || Date() >= hardDeadline {
+                stateLock.lock()
+                let pendingCount = state.runnables.count
+                let timerCount = state.timers.count
+                let pendingTraces = state.runnables.map { "\($0.runnable.meta.file):\($0.runnable.meta.line) (session: \($0.sessionId?.id.description ?? "bg"))" }.joined(separator: ", ")
+                stateLock.unlock()
+                fatalError("Deadlock detected in run(): timed out after 15 seconds waiting for active in-flight tasks. In-flight: \(inFlightCount), suspended: \(suspendedCount), pending runnables: \(pendingCount) [\(pendingTraces)], pending timers: \(timerCount)")
             }
         }
     }
 
     public func runWithClockAdvancement() {
+        let hardDeadline = Date().addingTimeInterval(15.0)
         while true {
             while step() {}
 
-            if hasInFlightTasks {
-                workAvailableCondition.lock()
-                stateLock.lock()
-                let hasRunnables = !state.runnables.isEmpty
-                stateLock.unlock()
+            workAvailableCondition.lock()
+            stateLock.lock()
+            let hasRunnables = !state.runnables.isEmpty
+            stateLock.unlock()
 
-                if !hasRunnables && hasInFlightTasks {
-                    _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.005))
-                }
+            if hasRunnables {
                 workAvailableCondition.unlock()
-
-                if step() {
-                    continue
-                }
+                continue
             }
+
+            if hasActiveInFlightTasks {
+                let signaled = workAvailableCondition.wait(until: hardDeadline)
+                workAvailableCondition.unlock()
+                if !signaled || Date() >= hardDeadline {
+                    stateLock.lock()
+                    let pendingCount = state.runnables.count
+                    let timerCount = state.timers.count
+                    let pendingTraces = state.runnables.map { "\($0.runnable.meta.file):\($0.runnable.meta.line) (session: \($0.sessionId?.id.description ?? "bg"))" }.joined(separator: ", ")
+                    stateLock.unlock()
+                    fatalError("Deadlock detected in runWithClockAdvancement(): timed out after 15 seconds waiting for active in-flight tasks. In-flight: \(inFlightCount), suspended: \(suspendedCount), pending runnables: \(pendingCount) [\(pendingTraces)], pending timers: \(timerCount)")
+                }
+                continue
+            }
+            workAvailableCondition.unlock()
 
             if advanceClockToNextTimer() {
                 continue
             }
 
-            if !hasInFlightTasks {
-                break
-            }
-
-            workAvailableCondition.lock()
-            _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.1))
-            workAvailableCondition.unlock()
+            break
         }
     }
 
@@ -704,7 +748,7 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         doneBox.setScheduler(self)
         taskStarted()
 
-        let taskHandle = _Concurrency.Task { [weak self] in
+        let taskHandle = spawnTask { [weak self] in
             guard let self = self else {
                 doneBox.cancel()
                 return
@@ -728,12 +772,12 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
             }
         }()
 
-        var idleTicks = 0
+        let hardDeadline = Date().addingTimeInterval(15.0)
+
         for _ in 0..<maxTicks {
             if doneBox.isReady { return true }
             let stepped = step()
             if stepped {
-                idleTicks = 0
                 continue
             }
 
@@ -743,13 +787,16 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
 
             let advanced = !parkingAllowed && advanceClockToNextTimer()
             if advanced {
-                idleTicks = 0
                 continue
             }
 
             if parkingAllowed {
+                let now = Date()
+                if now >= hardDeadline {
+                    fatalError("Test timed out after 15 seconds while parking. This may indicate a deadlock or missing waker.")
+                }
                 workAvailableCondition.lock()
-                _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.01))
+                _ = workAvailableCondition.wait(until: min(hardDeadline, Date().addingTimeInterval(0.01)))
                 workAvailableCondition.unlock()
                 clockInstance.advance(by: .milliseconds(10))
             } else if timeout != nil {
@@ -758,9 +805,7 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                     workAvailableCondition.unlock()
                     return true
                 }
-                _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.005))
                 workAvailableCondition.unlock()
-                if doneBox.isReady { return true }
                 return false
             } else {
                 workAvailableCondition.lock()
@@ -769,27 +814,36 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                     return true
                 }
                 let hasActive = hasActiveInFlightTasks
-                let signaled = workAvailableCondition.wait(until: Date().addingTimeInterval(0.05))
+                if hasActive {
+                    let signaled = workAvailableCondition.wait(until: hardDeadline)
+                    workAvailableCondition.unlock()
+                    if !signaled || Date() >= hardDeadline {
+                        taskHandle.cancel()
+                        stateLock.lock()
+                        let pendingCount = state.runnables.count
+                        let timerCount = state.timers.count
+                        let pendingTraces = state.runnables.map { "\($0.runnable.meta.file):\($0.runnable.meta.line) (session: \($0.sessionId?.id.description ?? "bg"))" }.joined(separator: ", ")
+                        stateLock.unlock()
+                        fatalError("Deadlock detected in block(): timed out after 15 seconds waiting for active in-flight tasks. Pending runnables: \(pendingCount) [\(pendingTraces)], pending timers: \(timerCount)")
+                    }
+                    continue
+                }
                 workAvailableCondition.unlock()
-
-                if doneBox.isReady { return true }
 
                 stateLock.lock()
                 let emptyState = state.runnables.isEmpty && state.timers.isEmpty
+                let pendingCount = state.runnables.count
+                let timerCount = state.timers.count
+                let pendingTraces = state.runnables.map { "\($0.runnable.meta.file):\($0.runnable.meta.line) (session: \($0.sessionId?.id.description ?? "bg"))" }.joined(separator: ", ")
                 stateLock.unlock()
 
-                if emptyState && !hasActive && !signaled {
-                    idleTicks += 1
-                    if idleTicks >= 10 {
-                        taskHandle.cancel()
-                        if state.capturePendingTraces {
-                            fatalError("Parking forbidden. Pending traces:")
-                        } else {
-                            fatalError("Parking forbidden. Re-run with PENDING_TRACES=1 to show pending traces")
-                        }
+                if emptyState && !hasActive {
+                    taskHandle.cancel()
+                    if state.capturePendingTraces {
+                        fatalError("Parking forbidden: Deadlock detected in block(). Pending runnables: \(pendingCount) [\(pendingTraces)], pending timers: \(timerCount)")
+                    } else {
+                        fatalError("Parking forbidden. Re-run with PENDING_TRACES=1 to show pending traces")
                     }
-                } else {
-                    idleTicks = 0
                 }
             }
         }
@@ -815,7 +869,11 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                 self?.taskFinished()
                 return
             }
-            let taskHandle = _Concurrency.Task { [weak self, weak box] in
+            guard let self = self else {
+                box.cancel()
+                return
+            }
+            let taskHandle = self.spawnTask { [weak self, weak box] in
                 guard let self = self else {
                     box?.cancel()
                     return
@@ -838,7 +896,7 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                 }
             }
             token.attachTaskHandle(taskHandle)
-            _ = box.waitForReadyOrSuspended(timeout: 2.0)
+            _ = box.waitForReadyOrSuspended()
         }
 
         token.onCancel { [weak self, weak runnable] in
@@ -876,7 +934,11 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                 self?.taskFinished()
                 return
             }
-            let taskHandle = _Concurrency.Task { [weak self, weak box] in
+            guard let self = self else {
+                box.cancel()
+                return
+            }
+            let taskHandle = self.spawnTask { [weak self, weak box] in
                 guard let self = self else {
                     box?.cancel()
                     return
@@ -899,7 +961,7 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                 }
             }
             token.attachTaskHandle(taskHandle)
-            _ = box.waitForReadyOrSuspended(timeout: 2.0)
+            _ = box.waitForReadyOrSuspended()
         }
 
         token.onCancel { [weak self, weak runnable] in
@@ -938,7 +1000,7 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         taskStarted()
         let token = CancellationToken()
 
-        let taskHandle = _Concurrency.Task { [weak self] in
+        let taskHandle = spawnTask { [weak self] in
             guard let self = self else {
                 box.cancel()
                 return
@@ -961,11 +1023,11 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         }
         token.attachTaskHandle(taskHandle)
 
-        var idleTicks = 0
+        let hardDeadline = Date().addingTimeInterval(15.0)
+
         while !box.isReady {
             let stepped = step()
             if stepped {
-                idleTicks = 0
                 continue
             }
 
@@ -975,13 +1037,15 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
 
             let advanced = !parkingAllowed && advanceClockToNextTimer()
             if advanced {
-                idleTicks = 0
                 continue
             }
 
             if parkingAllowed {
+                if Date() >= hardDeadline {
+                    throw SchedulerError("Test timed out after 15 seconds while parking in blockOnForeground. This may indicate a deadlock.")
+                }
                 workAvailableCondition.lock()
-                _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.01))
+                _ = workAvailableCondition.wait(until: min(hardDeadline, Date().addingTimeInterval(0.01)))
                 workAvailableCondition.unlock()
                 clockInstance.advance(by: .milliseconds(10))
             } else {
@@ -991,27 +1055,34 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                     break
                 }
                 let hasActive = hasActiveInFlightTasks
-                let signaled = workAvailableCondition.wait(until: Date().addingTimeInterval(0.05))
+                if hasActive {
+                    let signaled = workAvailableCondition.wait(until: hardDeadline)
+                    workAvailableCondition.unlock()
+                    if !signaled || Date() >= hardDeadline {
+                        token.cancel()
+                        stateLock.lock()
+                        let pendingCount = state.runnables.count
+                        let timerCount = state.timers.count
+                        let pendingTraces = state.runnables.map { "\($0.runnable.meta.file):\($0.runnable.meta.line) (session: \($0.sessionId?.id.description ?? "bg"))" }.joined(separator: ", ")
+                        stateLock.unlock()
+                        throw SchedulerError("Deadlock detected in blockOnForeground: timed out after 15 seconds waiting for active in-flight tasks. In-flight: \(inFlightCount), suspended: \(suspendedCount), pending runnables: \(pendingCount) [\(pendingTraces)], pending timers: \(timerCount)")
+                    }
+                    continue
+                }
                 workAvailableCondition.unlock()
-
-                if box.isReady { break }
 
                 stateLock.lock()
                 let emptyState = state.runnables.isEmpty && state.timers.isEmpty
+                let pendingTraces = state.runnables.map { "\($0.runnable.meta.file):\($0.runnable.meta.line) (session: \($0.sessionId?.id.description ?? "bg"))" }.joined(separator: ", ")
                 stateLock.unlock()
 
-                if emptyState && !hasActive && !signaled {
-                    idleTicks += 1
-                    if idleTicks >= 10 {
-                        token.cancel()
-                        if state.capturePendingTraces {
-                            throw SchedulerError("Parking forbidden. Pending traces:")
-                        } else {
-                            throw SchedulerError("Parking forbidden. Re-run with PENDING_TRACES=1 to show pending traces")
-                        }
+                if emptyState && !hasActive {
+                    token.cancel()
+                    if state.capturePendingTraces {
+                        throw SchedulerError("Parking forbidden. Pending traces: [\(pendingTraces)]")
+                    } else {
+                        throw SchedulerError("Parking forbidden. Re-run with PENDING_TRACES=1 to show pending traces")
                     }
-                } else {
-                    idleTicks = 0
                 }
             }
         }
@@ -1040,25 +1111,21 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
 
         let task = foreground().spawn(future)
 
+        let hardDeadline = Date().addingTimeInterval(15.0)
         for _ in 0..<ticksBudget {
             if task.isReady { break }
             let stepped = step()
             if !stepped {
                 if !advanceClockToNextTimer() {
                     workAvailableCondition.lock()
-                    _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.001))
+                    if hasActiveInFlightTasks {
+                        _ = workAvailableCondition.wait(until: hardDeadline)
+                    }
                     workAvailableCondition.unlock()
                     if task.isReady { break }
+                    if !hasActiveInFlightTasks { break }
                 }
             }
-        }
-
-        if !task.isReady {
-            workAvailableCondition.lock()
-            if !task.isReady {
-                _ = workAvailableCondition.wait(until: Date().addingTimeInterval(0.002))
-            }
-            workAvailableCondition.unlock()
         }
 
         if task.isReady, let result = task.boxSyncValue {
@@ -1117,9 +1184,15 @@ public final class OneshotReceiver<T: Sendable>: @unchecked Sendable {
 }
 
 public final class Oneshot<T: Sendable>: @unchecked Sendable {
+    private struct ReceiverWaiter: Sendable {
+        let continuation: CheckedContinuation<T?, Never>
+        let box: (any AnyTaskBox)?
+        let scheduler: TestScheduler?
+    }
     private let lock = NSLock()
     private var value: T?
-    private var continuation: CheckedContinuation<T?, Never>?
+    private var isCompleted = false
+    private var waiter: ReceiverWaiter?
 
     public static func channel() -> (OneshotSender<T>, OneshotReceiver<T>) {
         let ch = Oneshot<T>()
@@ -1129,31 +1202,39 @@ public final class Oneshot<T: Sendable>: @unchecked Sendable {
     @discardableResult
     public func send(_ val: T) -> Bool {
         lock.lock()
+        if isCompleted {
+            lock.unlock()
+            return false
+        }
+        isCompleted = true
         value = val
-        let cont = continuation
-        continuation = nil
+        let w = waiter
+        waiter = nil
         lock.unlock()
-        cont?.resume(returning: val)
+        if let box = w?.box {
+            box.notifyResumed()
+        } else {
+            w?.scheduler?.taskResumed()
+        }
+        w?.continuation.resume(returning: val)
         return true
     }
 
-    private func registerReceiver(_ cont: CheckedContinuation<T?, Never>) -> T? {
-        lock.lock()
-        defer { lock.unlock() }
-        if let val = value {
-            return val
-        }
-        continuation = cont
-        return nil
-    }
-
     public func receive() async -> T? {
+        let currentBox = TestSchedulerContext.currentBox
+        let currentScheduler = TestSchedulerContext.currentScheduler
         let res = await withCheckedContinuation { cont in
-            if let val = registerReceiver(cont) {
+            TestSchedulerContext.notifySuspended()
+            lock.lock()
+            if isCompleted {
+                let val = value
+                lock.unlock()
+                TestSchedulerContext.notifyResumed()
                 cont.resume(returning: val)
-            } else {
-                TestSchedulerContext.notifySuspended()
+                return
             }
+            waiter = ReceiverWaiter(continuation: cont, box: currentBox, scheduler: currentScheduler)
+            lock.unlock()
         }
         TestSchedulerContext.notifyResumed()
         return res
@@ -1189,10 +1270,15 @@ public final class UnboundedReceiver<T: Sendable>: @unchecked Sendable {
 }
 
 public final class UnboundedChannel<T: Sendable>: @unchecked Sendable {
+    private struct CollectorWaiter: Sendable {
+        let continuation: CheckedContinuation<[T], Never>
+        let box: (any AnyTaskBox)?
+        let scheduler: TestScheduler?
+    }
     private let lock = NSLock()
     private var buffer: [T] = []
     private var isClosed = false
-    private var continuation: CheckedContinuation<[T], Never>?
+    private var waiter: CollectorWaiter?
 
     public static func channel() -> (UnboundedSender<T>, UnboundedReceiver<T>) {
         let ch = UnboundedChannel<T>()
@@ -1208,30 +1294,33 @@ public final class UnboundedChannel<T: Sendable>: @unchecked Sendable {
     public func close() {
         lock.lock()
         isClosed = true
-        let cont = continuation
-        continuation = nil
+        let w = waiter
+        waiter = nil
         let items = buffer
-        lock.unlock()
-        cont?.resume(returning: items)
-    }
-
-    private func registerCollector(_ cont: CheckedContinuation<[T], Never>) -> [T]? {
-        lock.lock()
-        defer { lock.unlock() }
-        if isClosed {
-            return buffer
+        if let box = w?.box {
+            box.notifyResumed()
+        } else {
+            w?.scheduler?.taskResumed()
         }
-        continuation = cont
-        return nil
+        lock.unlock()
+        w?.continuation.resume(returning: items)
     }
 
     public func collect() async -> [T] {
+        let currentBox = TestSchedulerContext.currentBox
+        let currentScheduler = TestSchedulerContext.currentScheduler
         let items = await withCheckedContinuation { cont in
-            if let items = registerCollector(cont) {
-                cont.resume(returning: items)
-            } else {
-                TestSchedulerContext.notifySuspended()
+            TestSchedulerContext.notifySuspended()
+            lock.lock()
+            if isClosed {
+                let currentItems = buffer
+                lock.unlock()
+                TestSchedulerContext.notifyResumed()
+                cont.resume(returning: currentItems)
+                return
             }
+            waiter = CollectorWaiter(continuation: cont, box: currentBox, scheduler: currentScheduler)
+            lock.unlock()
         }
         TestSchedulerContext.notifyResumed()
         return items

@@ -62,7 +62,50 @@ public final class CancellationToken: @unchecked Sendable {
     }
 }
 
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+@available(macOS 15.0, iOS 18.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *)
+public final class TestSchedulerExecutor: TaskExecutor, @unchecked Sendable {
+    private let queue = DispatchQueue(label: "gpui.test-scheduler.executor", attributes: .concurrent)
+
+    public init() {}
+
+    public func enqueue(_ job: consuming ExecutorJob) {
+        let unowned = UnownedJob(job)
+        queue.async {
+            unowned.runSynchronously(on: self.asUnownedTaskExecutor())
+        }
+    }
+
+    public func asUnownedTaskExecutor() -> UnownedTaskExecutor {
+        UnownedTaskExecutor(ordinary: self)
+    }
+}
+#else
+public final class TestSchedulerExecutor: TaskExecutor, @unchecked Sendable {
+    private let queue = DispatchQueue(label: "gpui.test-scheduler.executor", attributes: .concurrent)
+
+    public init() {}
+
+    public func enqueue(_ job: consuming ExecutorJob) {
+        let unowned = UnownedJob(job)
+        queue.async {
+            unowned.runSynchronously(on: self.asUnownedTaskExecutor())
+        }
+    }
+
+    public func asUnownedTaskExecutor() -> UnownedTaskExecutor {
+        UnownedTaskExecutor(ordinary: self)
+    }
+}
+#endif
+
 public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
+    private struct TaskWaiter: Sendable {
+        let continuation: CheckedContinuation<T?, Never>
+        let box: (any AnyTaskBox)?
+        let scheduler: TestScheduler?
+    }
+
     private let lock = NSLock()
     private let readyCondition = NSCondition()
     private var result: T?
@@ -70,7 +113,7 @@ public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
     private var _isCancelled = false
     private var _isSuspended = false
     private weak var scheduler: TestScheduler?
-    private var continuations: [CheckedContinuation<T?, Never>] = []
+    private var waiters: [TaskWaiter] = []
 
     public init() {}
 
@@ -119,8 +162,8 @@ public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
         let wasSuspended = _isSuspended
         _isSuspended = false
         let sched = self.scheduler
-        let waiters = continuations
-        continuations.removeAll()
+        let pendingWaiters = waiters
+        waiters.removeAll()
         lock.unlock()
 
         if wasSuspended {
@@ -131,8 +174,13 @@ public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
         readyCondition.broadcast()
         readyCondition.unlock()
 
-        for waiter in waiters {
-            waiter.resume(returning: value)
+        for waiter in pendingWaiters {
+            if let box = waiter.box {
+                box.notifyResumed()
+            } else {
+                waiter.scheduler?.taskResumed()
+            }
+            waiter.continuation.resume(returning: value)
         }
     }
 
@@ -147,8 +195,8 @@ public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
         let wasSuspended = _isSuspended
         _isSuspended = false
         let sched = self.scheduler
-        let waiters = continuations
-        continuations.removeAll()
+        let pendingWaiters = waiters
+        waiters.removeAll()
         lock.unlock()
 
         if wasSuspended {
@@ -159,15 +207,20 @@ public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
         readyCondition.broadcast()
         readyCondition.unlock()
 
-        for waiter in waiters {
-            waiter.resume(returning: nil)
+        for waiter in pendingWaiters {
+            if let box = waiter.box {
+                box.notifyResumed()
+            } else {
+                waiter.scheduler?.taskResumed()
+            }
+            waiter.continuation.resume(returning: nil)
         }
     }
 
-    public func waitForReadyOrSuspended(timeout: TimeInterval = 2.0) -> Bool {
+    public func waitForReadyOrSuspended() -> Bool {
         readyCondition.lock()
         defer { readyCondition.unlock() }
-        let deadline = Date().addingTimeInterval(timeout)
+        let deadline = Date().addingTimeInterval(15.0)
         while true {
             lock.lock()
             let done = isFinished || _isCancelled || _isSuspended
@@ -177,25 +230,10 @@ public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
                 lock.lock()
                 let timedOutDone = isFinished || _isCancelled || _isSuspended
                 lock.unlock()
+                if !timedOutDone {
+                    fatalError("Deadlock detected: TaskBox waited >15s for task to complete, suspend, or cancel.")
+                }
                 return timedOutDone
-            }
-        }
-    }
-
-    public func waitForReady(timeout: TimeInterval = 0.005) -> Bool {
-        readyCondition.lock()
-        defer { readyCondition.unlock() }
-        let deadline = Date().addingTimeInterval(timeout)
-        while true {
-            lock.lock()
-            let ready = isFinished || _isCancelled
-            lock.unlock()
-            if ready { return true }
-            if !readyCondition.wait(until: deadline) {
-                lock.lock()
-                let timedOutReady = isFinished || _isCancelled
-                lock.unlock()
-                return timedOutReady
             }
         }
     }
@@ -224,23 +262,24 @@ public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
         return result
     }
 
-    private func registerWaiter(_ cont: CheckedContinuation<T?, Never>) -> (finished: Bool, value: T?) {
-        lock.lock()
-        defer { lock.unlock() }
-        if isFinished {
-            return (true, result)
-        }
-        continuations.append(cont)
-        return (false, nil)
-    }
-
     public func awaitOptionalValue() async -> T? {
-        await withCheckedContinuation { cont in
-            let reg = registerWaiter(cont)
-            if reg.finished {
-                cont.resume(returning: reg.value)
+        let currentBox = TestSchedulerContext.currentBox
+        let currentScheduler = TestSchedulerContext.currentScheduler
+        let res = await withCheckedContinuation { cont in
+            TestSchedulerContext.notifySuspended()
+            lock.lock()
+            if isFinished {
+                let val = result
+                lock.unlock()
+                TestSchedulerContext.notifyResumed()
+                cont.resume(returning: val)
+                return
             }
+            waiters.append(TaskWaiter(continuation: cont, box: currentBox, scheduler: currentScheduler))
+            lock.unlock()
         }
+        TestSchedulerContext.notifyResumed()
+        return res
     }
 
     public func awaitValue() async -> T {

@@ -99,9 +99,15 @@ public enum TestSchedulerContext {
 }
 
 public final class TimerRef: @unchecked Sendable {
+    private struct Waiter: Sendable {
+        let continuation: CheckedContinuation<Void, Never>
+        let box: (any AnyTaskBox)?
+        let scheduler: TestScheduler?
+    }
+
     private let lock = NSLock()
     private var isFired = false
-    private var continuations: [CheckedContinuation<Void, Never>] = []
+    private var waiters: [Waiter] = []
 
     public init() {}
 
@@ -112,47 +118,54 @@ public final class TimerRef: @unchecked Sendable {
             return
         }
         isFired = true
-        let waiters = continuations
-        continuations.removeAll()
+        let pending = waiters
+        waiters.removeAll()
+        for waiter in pending {
+            if let box = waiter.box {
+                box.notifyResumed()
+            } else {
+                waiter.scheduler?.taskResumed()
+            }
+        }
         lock.unlock()
 
-        for waiter in waiters {
-            waiter.resume()
+        for waiter in pending {
+            waiter.continuation.resume()
         }
-    }
-
-    private func registerWaiter(_ cont: CheckedContinuation<Void, Never>) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        if isFired {
-            return true
-        }
-        continuations.append(cont)
-        return false
     }
 
     public func wait() async {
         if _Concurrency.Task.isCancelled { return }
+        let currentBox = TestSchedulerContext.currentBox
+        let currentScheduler = TestSchedulerContext.currentScheduler
         await withTaskCancellationHandler {
             await withCheckedContinuation { cont in
+                TestSchedulerContext.notifySuspended()
                 lock.lock()
                 if isFired || _Concurrency.Task.isCancelled {
                     lock.unlock()
+                    TestSchedulerContext.notifyResumed()
                     cont.resume()
                     return
                 }
-                continuations.append(cont)
+                waiters.append(Waiter(continuation: cont, box: currentBox, scheduler: currentScheduler))
                 lock.unlock()
-                TestSchedulerContext.notifySuspended()
             }
             TestSchedulerContext.notifyResumed()
         } onCancel: {
             lock.lock()
-            let waiters = continuations
-            continuations.removeAll()
+            let pending = waiters
+            waiters.removeAll()
+            for waiter in pending {
+                if let box = waiter.box {
+                    box.notifyResumed()
+                } else {
+                    waiter.scheduler?.taskResumed()
+                }
+            }
             lock.unlock()
-            for waiter in waiters {
-                waiter.resume()
+            for waiter in pending {
+                waiter.continuation.resume()
             }
         }
     }
