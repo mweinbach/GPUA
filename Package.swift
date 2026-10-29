@@ -24,19 +24,30 @@ func crate(
     _ name: String,
     _ dependencies: [Target.Dependency] = [],
     exclude: [String] = [],
-    resources: [Resource]? = nil
+    resources: [Resource]? = nil,
+    linkerSettings: [LinkerSetting]? = nil
 ) -> Target {
     .target(
         name: name,
         dependencies: dependencies,
         exclude: exclude,
         resources: resources,
-        swiftSettings: swiftSettings
+        swiftSettings: swiftSettings,
+        linkerSettings: linkerSettings
     )
 }
 
-func crateTests(_ name: String, _ extra: [Target.Dependency] = []) -> Target {
-    .testTarget(name: "\(name)Tests", dependencies: [.target(name: name)] + extra, swiftSettings: swiftSettings)
+func crateTests(
+    _ name: String,
+    _ extra: [Target.Dependency] = [],
+    exclude: [String] = []
+) -> Target {
+    .testTarget(
+        name: "\(name)Tests",
+        dependencies: [.target(name: name)] + extra,
+        exclude: exclude,
+        swiftSettings: swiftSettings
+    )
 }
 
 // MARK: - Package
@@ -85,6 +96,23 @@ let package = Package(
         crate("GPUIMacros"),                                        // crates/gpui_macros (→ `.macro` target later)
         crate("Taffy"),                                             // upstream taffy (flexbox, grid, block layout)
 
+        // ---- C interop packaging -------------------------------------------
+        .target(
+            name: "CWebGPU",
+            publicHeadersPath: "include",
+            cSettings: [
+                .headerSearchPath("include"),
+            ]
+        ),
+        .target(
+            name: "CLinuxSys",
+            publicHeadersPath: "include",
+            cSettings: [
+                .headerSearchPath("include"),
+                .unsafeFlags(["-I/usr/include/freetype2", "-I/usr/include/harfbuzz"], .when(platforms: [.linux])),
+            ]
+        ),
+
         // ---- Core ----------------------------------------------------------
         crate(                                                      // crates/gpui
             "GPUI",
@@ -95,14 +123,35 @@ let package = Package(
         // ---- Renderers -----------------------------------------------------
         crate("GPUIMetal", ["GPUI", "GPUICollections", "Media"],    // crates/gpui_metal
               resources: [.copy("shaders.metal")]),
-        crate("GPUIWGPU", ["GPUI", "GPUICollections", "GPUIUtil"],  // crates/gpui_wgpu
-              resources: [.copy("shaders.wgsl"), .copy("shaders_subpixel.wgsl")]),
+        crate(
+            "GPUIWGPU",
+            ["GPUI", "GPUICollections", "GPUIUtil", "CWebGPU"],
+            resources: [.copy("shaders.wgsl"), .copy("shaders_subpixel.wgsl")],
+            linkerSettings: [
+                .unsafeFlags(["-L/usr/local/lib"], .when(platforms: [.linux])),
+                .linkedLibrary("wgpu_native", .when(platforms: [.linux])),
+            ]
+        ),
 
         // ---- Platforms -----------------------------------------------------
         crate("GPUIApple", ["GPUI", "GPUICollections", "GPUIMetal"]),                         // crates/gpui_apple
         crate("GPUIMacOS", ["GPUI", "GPUIApple", "GPUIMetal", "GPUICollections", "Media", "ZedUtil"]), // crates/gpui_macos
         crate("GPUIiOS", ["GPUI", "GPUIApple", "GPUIMetal", "GPUICollections"]),              // crates/gpui_ios
-        crate("GPUILinux", ["GPUI", "GPUIWGPU", "GPUICollections", "HTTPClient", "ZedUtil"]), // crates/gpui_linux
+        crate(
+            "GPUILinux",
+            ["GPUI", "GPUIWGPU", "GPUICollections", "HTTPClient", "ZedUtil", "CWebGPU", "CLinuxSys"],
+            linkerSettings: [
+                .linkedLibrary("wayland-client", .when(platforms: [.linux])),
+                .linkedLibrary("X11", .when(platforms: [.linux])),
+                .linkedLibrary("X11-xcb", .when(platforms: [.linux])),
+                .linkedLibrary("xcb", .when(platforms: [.linux])),
+                .linkedLibrary("xkbcommon", .when(platforms: [.linux])),
+                .linkedLibrary("xkbcommon-x11", .when(platforms: [.linux])),
+                .linkedLibrary("freetype", .when(platforms: [.linux])),
+                .linkedLibrary("harfbuzz", .when(platforms: [.linux])),
+                .linkedLibrary("fontconfig", .when(platforms: [.linux])),
+            ]
+        ),
         crate("GPUIWindows", ["GPUI", "GPUICollections", "GPUIUtil", "ZedUtil"],              // crates/gpui_windows
               resources: [.copy("shaders.hlsl"), .copy("alpha_correction.hlsl"), .copy("color_text_raster.hlsl")]),
         crate("GPUIWeb", ["GPUI", "GPUIWGPU", "HTTPClient"]),                                 // crates/gpui_web
@@ -139,7 +188,7 @@ let package = Package(
         crateTests("HTTPClient"),
         crateTests("GPUIMacros"),
         crateTests("Taffy"),
-        crateTests("GPUI"),
+        crateTests("GPUI", exclude: ["Fixtures"]),
         crateTests("GPUIMetal"),
         crateTests("GPUIWGPU"),
         crateTests("GPUIMacOS"),

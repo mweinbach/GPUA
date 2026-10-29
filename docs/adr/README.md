@@ -19,3 +19,4 @@ Copy [0000-template.md](0000-template.md), take the next number, and open it as 
 | [0006](0006-text-stack.md) | Text: CoreText / DirectWrite / FreeType + HarfBuzz | Accepted |
 | [0007](0007-macros.md) | Proc macros → Swift macros (swift-syntax) | Accepted |
 | [0008](0008-features-as-traits.md) | Cargo features → SwiftPM package traits | Accepted |
+| [0009](0009-linux-windowing-deps.md) | Linux windowing, input, and system library dependencies | Accepted |

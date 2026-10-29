@@ -1,0 +1,5 @@
+// Swift-only: modulemap for CWebGPU
+module CWebGPU {
+    umbrella header "CWebGPU.h"
+    export *
+}

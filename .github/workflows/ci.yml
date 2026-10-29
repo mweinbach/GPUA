@@ -42,9 +42,17 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Install Linux dependencies and wgpu-native
+        run: |
+          bash Scripts/install_linux_deps.sh
+          LVP_ICD="$(ls /usr/share/vulkan/icd.d/lvp_icd*.json 2>/dev/null | head -n1 || true)"
+          if [ -n "${LVP_ICD}" ]; then
+            echo "VK_ICD_FILENAMES=${LVP_ICD}" >> $GITHUB_ENV
+          fi
       - run: swift --version
       - run: swift build --build-tests
-      - run: swift test
+      - name: Run tests with virtual display
+        run: xvfb-run -a swift test
 
   windows:
     name: Windows
