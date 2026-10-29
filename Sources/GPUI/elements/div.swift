@@ -5,19 +5,63 @@
 import Foundation
 import Refineable
 
+// MARK: - StyleRefinementBox
+
+/// A heap-allocated reference box for StyleRefinement matching upstream Box<StyleRefinement>.
+// PORT NOTE: StyleRefinementBox stores StyleRefinement on the heap matching upstream Box<StyleRefinement>
+// to prevent deep element trees from overflowing the thread stack (especially on Windows 1MB default stack).
+public final class StyleRefinementBox: @unchecked Sendable, Equatable {
+    public var value: StyleRefinement
+
+    public init(_ value: StyleRefinement = StyleRefinement()) {
+        self.value = value
+    }
+
+    public static func == (lhs: StyleRefinementBox, rhs: StyleRefinementBox) -> Bool {
+        lhs.value == rhs.value
+    }
+}
+
 // MARK: - GroupStyle
 
 /// The styling information for a given group.
-public struct GroupStyle: Sendable {
+public struct GroupStyle: Sendable, Equatable {
     /// The identifier for this group.
     public var group: SharedString
 
     /// The specific style refinement that this group would apply to its children.
-    public var style: StyleRefinement
+    // PORT NOTE: GroupStyle.style is heap-boxed matching upstream Box<StyleRefinement>.
+    private var styleBox: StyleRefinementBox
+
+    public var style: StyleRefinement {
+        get { styleBox.value }
+        set {
+            if isKnownUniquelyReferenced(&styleBox) {
+                styleBox.value = newValue
+            } else {
+                styleBox = StyleRefinementBox(newValue)
+            }
+        }
+        _modify {
+            if !isKnownUniquelyReferenced(&styleBox) {
+                styleBox = StyleRefinementBox(styleBox.value)
+            }
+            yield &styleBox.value
+        }
+    }
 
     public init(group: SharedString, style: StyleRefinement) {
         self.group = group
-        self.style = style
+        self.styleBox = StyleRefinementBox(style)
+    }
+
+    public init(group: SharedString, styleBox: StyleRefinementBox) {
+        self.group = group
+        self.styleBox = styleBox
+    }
+
+    public static func == (lhs: GroupStyle, rhs: GroupStyle) -> Bool {
+        lhs.group == rhs.group && lhs.styleBox.value == rhs.styleBox.value
     }
 }
 
@@ -271,61 +315,61 @@ public struct GroupHitboxes: Global, DefaultInitializable, @unchecked Sendable {
     }
 }
 
-// MARK: - Interactivity
+// MARK: - InteractivityStorage
 
-/// The interactivity struct. Powers all of the general-purpose interactivity in the `Div` element.
-// PORT NOTE: Interactivity contains closures and event listeners matching upstream Interactivity.
-public struct Interactivity: @unchecked Sendable {
-    public var elementId: ElementId?
-    public var active: Bool?
-    public var hovered: Bool?
-    public var tooltipId: TooltipId?
-    public var contentSize: Size<Pixels> = .zero
-    public var keyContext: KeyContext?
-    public var focusable: Bool = false
-    public var trackedFocusHandle: FocusHandle?
-    public var trackedScrollHandle: ScrollHandle?
-    public var scrollAnchor: ScrollAnchor?
-    public var scrollOffset: Point<Pixels>?
-    public var group: SharedString?
+// PORT NOTE: InteractivityStorage holds interactivity state on the heap matching upstream Interactivity,
+// avoiding deep element stack bloat and Windows 1MB thread stack overflows.
+final class InteractivityStorage: @unchecked Sendable {
+    var elementId: ElementId?
+    var active: Bool?
+    var hovered: Bool?
+    var tooltipId: TooltipId?
+    var contentSize: Size<Pixels> = .zero
+    var keyContext: KeyContext?
+    var focusable: Bool = false
+    var trackedFocusHandle: FocusHandle?
+    var trackedScrollHandle: ScrollHandle?
+    var scrollAnchor: ScrollAnchor?
+    var scrollOffset: Point<Pixels>?
+    var group: SharedString?
 
-    public var baseStyle: StyleRefinement = StyleRefinement()
-    public var focusStyle: StyleRefinement?
-    public var inFocusStyle: StyleRefinement?
-    public var focusVisibleStyle: StyleRefinement?
-    public var hoverStyle: StyleRefinement?
-    public var groupHoverStyle: GroupStyle?
-    public var activeStyle: StyleRefinement?
-    public var groupActiveStyle: GroupStyle?
-    public var dragOverStyles: [(ObjectIdentifier, @Sendable (Any, inout Window, inout App) -> StyleRefinement)] = []
-    public var groupDragOverStyles: [(ObjectIdentifier, GroupStyle)] = []
+    var baseStyleBox: StyleRefinementBox = StyleRefinementBox()
+    var focusStyleBox: StyleRefinementBox?
+    var inFocusStyleBox: StyleRefinementBox?
+    var focusVisibleStyleBox: StyleRefinementBox?
+    var hoverStyleBox: StyleRefinementBox?
+    var groupHoverStyle: GroupStyle?
+    var activeStyleBox: StyleRefinementBox?
+    var groupActiveStyle: GroupStyle?
+    var dragOverStyles: [(ObjectIdentifier, @Sendable (Any, inout Window, inout App) -> StyleRefinement)] = []
+    var groupDragOverStyles: [(ObjectIdentifier, GroupStyle)] = []
 
-    public var mouseDownListeners: [MouseDownListener] = []
-    public var mouseUpListeners: [MouseUpListener] = []
-    public var mousePressureListeners: [MousePressureListener] = []
-    public var mouseMoveListeners: [MouseMoveListener] = []
-    public var scrollWheelListeners: [ScrollWheelListener] = []
-    public var pinchListeners: [PinchListener] = []
-    public var rotationListeners: [RotationListener] = []
-    public var keyDownListeners: [KeyDownListener] = []
-    public var keyUpListeners: [KeyUpListener] = []
-    public var modifiersChangedListeners: [ModifiersChangedListener] = []
-    public var actionListeners: [(ObjectIdentifier, ActionListener)] = []
-    public var dropListeners: [(ObjectIdentifier, DropListener)] = []
-    public var canDropPredicate: CanDropPredicate?
-    public var clickListeners: [ClickListener] = []
-    public var auxClickListeners: [ClickListener] = []
-    public var dragListener: DragInfo?
-    public var hoverListener: (@Sendable (Bool, inout Window, inout App) -> Void)?
-    public var tooltipBuilder: TooltipBuilder?
-    public var windowControl: WindowControlArea?
-    public var hitboxBehavior: HitboxBehavior = .normal
-    public var tabIndex: Int?
-    public var tabGroup: Bool = false
-    public var tabStop: Bool = false
-    public var sourceLocationValue: String?
+    var mouseDownListeners: [MouseDownListener] = []
+    var mouseUpListeners: [MouseUpListener] = []
+    var mousePressureListeners: [MousePressureListener] = []
+    var mouseMoveListeners: [MouseMoveListener] = []
+    var scrollWheelListeners: [ScrollWheelListener] = []
+    var pinchListeners: [PinchListener] = []
+    var rotationListeners: [RotationListener] = []
+    var keyDownListeners: [KeyDownListener] = []
+    var keyUpListeners: [KeyUpListener] = []
+    var modifiersChangedListeners: [ModifiersChangedListener] = []
+    var actionListeners: [(ObjectIdentifier, ActionListener)] = []
+    var dropListeners: [(ObjectIdentifier, DropListener)] = []
+    var canDropPredicate: CanDropPredicate?
+    var clickListeners: [ClickListener] = []
+    var auxClickListeners: [ClickListener] = []
+    var dragListener: DragInfo?
+    var hoverListener: (@Sendable (Bool, inout Window, inout App) -> Void)?
+    var tooltipBuilder: TooltipBuilder?
+    var windowControl: WindowControlArea?
+    var hitboxBehavior: HitboxBehavior = .normal
+    var tabIndex: Int?
+    var tabGroup: Bool = false
+    var tabStop: Bool = false
+    var sourceLocationValue: String?
 
-    public init(file: String = #fileID, line: Int = #line) {
+    init(file: String = #fileID, line: Int = #line) {
         #if DEBUG
         self.sourceLocationValue = "\(file):\(line)"
         #else
@@ -333,12 +377,516 @@ public struct Interactivity: @unchecked Sendable {
         #endif
     }
 
+    init(copying other: InteractivityStorage) {
+        self.elementId = other.elementId
+        self.active = other.active
+        self.hovered = other.hovered
+        self.tooltipId = other.tooltipId
+        self.contentSize = other.contentSize
+        self.keyContext = other.keyContext
+        self.focusable = other.focusable
+        self.trackedFocusHandle = other.trackedFocusHandle
+        self.trackedScrollHandle = other.trackedScrollHandle
+        self.scrollAnchor = other.scrollAnchor
+        self.scrollOffset = other.scrollOffset
+        self.group = other.group
+
+        self.baseStyleBox = other.baseStyleBox
+        self.focusStyleBox = other.focusStyleBox
+        self.inFocusStyleBox = other.inFocusStyleBox
+        self.focusVisibleStyleBox = other.focusVisibleStyleBox
+        self.hoverStyleBox = other.hoverStyleBox
+        self.groupHoverStyle = other.groupHoverStyle
+        self.activeStyleBox = other.activeStyleBox
+        self.groupActiveStyle = other.groupActiveStyle
+        self.dragOverStyles = other.dragOverStyles
+        self.groupDragOverStyles = other.groupDragOverStyles
+
+        self.mouseDownListeners = other.mouseDownListeners
+        self.mouseUpListeners = other.mouseUpListeners
+        self.mousePressureListeners = other.mousePressureListeners
+        self.mouseMoveListeners = other.mouseMoveListeners
+        self.scrollWheelListeners = other.scrollWheelListeners
+        self.pinchListeners = other.pinchListeners
+        self.rotationListeners = other.rotationListeners
+        self.keyDownListeners = other.keyDownListeners
+        self.keyUpListeners = other.keyUpListeners
+        self.modifiersChangedListeners = other.modifiersChangedListeners
+        self.actionListeners = other.actionListeners
+        self.dropListeners = other.dropListeners
+        self.canDropPredicate = other.canDropPredicate
+        self.clickListeners = other.clickListeners
+        self.auxClickListeners = other.auxClickListeners
+        self.dragListener = other.dragListener
+        self.hoverListener = other.hoverListener
+        self.tooltipBuilder = other.tooltipBuilder
+        self.windowControl = other.windowControl
+        self.hitboxBehavior = other.hitboxBehavior
+        self.tabIndex = other.tabIndex
+        self.tabGroup = other.tabGroup
+        self.tabStop = other.tabStop
+        self.sourceLocationValue = other.sourceLocationValue
+    }
+}
+
+// MARK: - Interactivity
+
+/// The interactivity struct. Powers all of the general-purpose interactivity in the `Div` element.
+// PORT NOTE: Interactivity wraps heap storage with copy-on-write semantics matching upstream
+// Box<StyleRefinement> to keep stack frame size tiny (8 bytes) and prevent Windows 1MB thread stack overflows.
+public struct Interactivity: @unchecked Sendable {
+    internal var storage: InteractivityStorage
+
+    internal mutating func ensureUnique() {
+        if !isKnownUniquelyReferenced(&storage) {
+            storage = InteractivityStorage(copying: storage)
+        }
+    }
+
+    public var elementId: ElementId? {
+        get { storage.elementId }
+        set { ensureUnique(); storage.elementId = newValue }
+    }
+    public var active: Bool? {
+        get { storage.active }
+        set { ensureUnique(); storage.active = newValue }
+    }
+    public var hovered: Bool? {
+        get { storage.hovered }
+        set { ensureUnique(); storage.hovered = newValue }
+    }
+    public var tooltipId: TooltipId? {
+        get { storage.tooltipId }
+        set { ensureUnique(); storage.tooltipId = newValue }
+    }
+    public var contentSize: Size<Pixels> {
+        get { storage.contentSize }
+        set { ensureUnique(); storage.contentSize = newValue }
+    }
+    public var keyContext: KeyContext? {
+        get { storage.keyContext }
+        set { ensureUnique(); storage.keyContext = newValue }
+    }
+    public var focusable: Bool {
+        get { storage.focusable }
+        set { ensureUnique(); storage.focusable = newValue }
+    }
+    public var trackedFocusHandle: FocusHandle? {
+        get { storage.trackedFocusHandle }
+        set { ensureUnique(); storage.trackedFocusHandle = newValue }
+    }
+    public var trackedScrollHandle: ScrollHandle? {
+        get { storage.trackedScrollHandle }
+        set { ensureUnique(); storage.trackedScrollHandle = newValue }
+    }
+    public var scrollAnchor: ScrollAnchor? {
+        get { storage.scrollAnchor }
+        set { ensureUnique(); storage.scrollAnchor = newValue }
+    }
+    public var scrollOffset: Point<Pixels>? {
+        get { storage.scrollOffset }
+        set { ensureUnique(); storage.scrollOffset = newValue }
+    }
+    public var group: SharedString? {
+        get { storage.group }
+        set { ensureUnique(); storage.group = newValue }
+    }
+
+    public var baseStyle: StyleRefinement {
+        get { storage.baseStyleBox.value }
+        set {
+            ensureUnique()
+            if isKnownUniquelyReferenced(&storage.baseStyleBox) {
+                storage.baseStyleBox.value = newValue
+            } else {
+                storage.baseStyleBox = StyleRefinementBox(newValue)
+            }
+        }
+        _modify {
+            ensureUnique()
+            if !isKnownUniquelyReferenced(&storage.baseStyleBox) {
+                storage.baseStyleBox = StyleRefinementBox(storage.baseStyleBox.value)
+            }
+            yield &storage.baseStyleBox.value
+        }
+    }
+
+    public var focusStyle: StyleRefinement? {
+        get { storage.focusStyleBox?.value }
+        set {
+            ensureUnique()
+            if let newValue {
+                if let box = storage.focusStyleBox, isKnownUniquelyReferenced(&storage.focusStyleBox) {
+                    box.value = newValue
+                } else {
+                    storage.focusStyleBox = StyleRefinementBox(newValue)
+                }
+            } else {
+                storage.focusStyleBox = nil
+            }
+        }
+        _modify {
+            ensureUnique()
+            var current = storage.focusStyleBox?.value
+            yield &current
+            if let current {
+                if let box = storage.focusStyleBox, isKnownUniquelyReferenced(&storage.focusStyleBox) {
+                    box.value = current
+                } else {
+                    storage.focusStyleBox = StyleRefinementBox(current)
+                }
+            } else {
+                storage.focusStyleBox = nil
+            }
+        }
+    }
+
+    public var inFocusStyle: StyleRefinement? {
+        get { storage.inFocusStyleBox?.value }
+        set {
+            ensureUnique()
+            if let newValue {
+                if let box = storage.inFocusStyleBox, isKnownUniquelyReferenced(&storage.inFocusStyleBox) {
+                    box.value = newValue
+                } else {
+                    storage.inFocusStyleBox = StyleRefinementBox(newValue)
+                }
+            } else {
+                storage.inFocusStyleBox = nil
+            }
+        }
+        _modify {
+            ensureUnique()
+            var current = storage.inFocusStyleBox?.value
+            yield &current
+            if let current {
+                if let box = storage.inFocusStyleBox, isKnownUniquelyReferenced(&storage.inFocusStyleBox) {
+                    box.value = current
+                } else {
+                    storage.inFocusStyleBox = StyleRefinementBox(current)
+                }
+            } else {
+                storage.inFocusStyleBox = nil
+            }
+        }
+    }
+
+    public var focusVisibleStyle: StyleRefinement? {
+        get { storage.focusVisibleStyleBox?.value }
+        set {
+            ensureUnique()
+            if let newValue {
+                if let box = storage.focusVisibleStyleBox, isKnownUniquelyReferenced(&storage.focusVisibleStyleBox) {
+                    box.value = newValue
+                } else {
+                    storage.focusVisibleStyleBox = StyleRefinementBox(newValue)
+                }
+            } else {
+                storage.focusVisibleStyleBox = nil
+            }
+        }
+        _modify {
+            ensureUnique()
+            var current = storage.focusVisibleStyleBox?.value
+            yield &current
+            if let current {
+                if let box = storage.focusVisibleStyleBox, isKnownUniquelyReferenced(&storage.focusVisibleStyleBox) {
+                    box.value = current
+                } else {
+                    storage.focusVisibleStyleBox = StyleRefinementBox(current)
+                }
+            } else {
+                storage.focusVisibleStyleBox = nil
+            }
+        }
+    }
+
+    public var hoverStyle: StyleRefinement? {
+        get { storage.hoverStyleBox?.value }
+        set {
+            ensureUnique()
+            if let newValue {
+                if let box = storage.hoverStyleBox, isKnownUniquelyReferenced(&storage.hoverStyleBox) {
+                    box.value = newValue
+                } else {
+                    storage.hoverStyleBox = StyleRefinementBox(newValue)
+                }
+            } else {
+                storage.hoverStyleBox = nil
+            }
+        }
+        _modify {
+            ensureUnique()
+            var current = storage.hoverStyleBox?.value
+            yield &current
+            if let current {
+                if let box = storage.hoverStyleBox, isKnownUniquelyReferenced(&storage.hoverStyleBox) {
+                    box.value = current
+                } else {
+                    storage.hoverStyleBox = StyleRefinementBox(current)
+                }
+            } else {
+                storage.hoverStyleBox = nil
+            }
+        }
+    }
+
+    public var groupHoverStyle: GroupStyle? {
+        get { storage.groupHoverStyle }
+        set { ensureUnique(); storage.groupHoverStyle = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.groupHoverStyle
+        }
+    }
+
+    public var activeStyle: StyleRefinement? {
+        get { storage.activeStyleBox?.value }
+        set {
+            ensureUnique()
+            if let newValue {
+                if let box = storage.activeStyleBox, isKnownUniquelyReferenced(&storage.activeStyleBox) {
+                    box.value = newValue
+                } else {
+                    storage.activeStyleBox = StyleRefinementBox(newValue)
+                }
+            } else {
+                storage.activeStyleBox = nil
+            }
+        }
+        _modify {
+            ensureUnique()
+            var current = storage.activeStyleBox?.value
+            yield &current
+            if let current {
+                if let box = storage.activeStyleBox, isKnownUniquelyReferenced(&storage.activeStyleBox) {
+                    box.value = current
+                } else {
+                    storage.activeStyleBox = StyleRefinementBox(current)
+                }
+            } else {
+                storage.activeStyleBox = nil
+            }
+        }
+    }
+
+    public var groupActiveStyle: GroupStyle? {
+        get { storage.groupActiveStyle }
+        set { ensureUnique(); storage.groupActiveStyle = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.groupActiveStyle
+        }
+    }
+
+    public var dragOverStyles: [(ObjectIdentifier, @Sendable (Any, inout Window, inout App) -> StyleRefinement)] {
+        get { storage.dragOverStyles }
+        set { ensureUnique(); storage.dragOverStyles = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.dragOverStyles
+        }
+    }
+
+    public var groupDragOverStyles: [(ObjectIdentifier, GroupStyle)] {
+        get { storage.groupDragOverStyles }
+        set { ensureUnique(); storage.groupDragOverStyles = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.groupDragOverStyles
+        }
+    }
+
+    public var mouseDownListeners: [MouseDownListener] {
+        get { storage.mouseDownListeners }
+        set { ensureUnique(); storage.mouseDownListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.mouseDownListeners
+        }
+    }
+
+    public var mouseUpListeners: [MouseUpListener] {
+        get { storage.mouseUpListeners }
+        set { ensureUnique(); storage.mouseUpListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.mouseUpListeners
+        }
+    }
+
+    public var mousePressureListeners: [MousePressureListener] {
+        get { storage.mousePressureListeners }
+        set { ensureUnique(); storage.mousePressureListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.mousePressureListeners
+        }
+    }
+
+    public var mouseMoveListeners: [MouseMoveListener] {
+        get { storage.mouseMoveListeners }
+        set { ensureUnique(); storage.mouseMoveListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.mouseMoveListeners
+        }
+    }
+
+    public var scrollWheelListeners: [ScrollWheelListener] {
+        get { storage.scrollWheelListeners }
+        set { ensureUnique(); storage.scrollWheelListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.scrollWheelListeners
+        }
+    }
+
+    public var pinchListeners: [PinchListener] {
+        get { storage.pinchListeners }
+        set { ensureUnique(); storage.pinchListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.pinchListeners
+        }
+    }
+
+    public var rotationListeners: [RotationListener] {
+        get { storage.rotationListeners }
+        set { ensureUnique(); storage.rotationListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.rotationListeners
+        }
+    }
+
+    public var keyDownListeners: [KeyDownListener] {
+        get { storage.keyDownListeners }
+        set { ensureUnique(); storage.keyDownListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.keyDownListeners
+        }
+    }
+
+    public var keyUpListeners: [KeyUpListener] {
+        get { storage.keyUpListeners }
+        set { ensureUnique(); storage.keyUpListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.keyUpListeners
+        }
+    }
+
+    public var modifiersChangedListeners: [ModifiersChangedListener] {
+        get { storage.modifiersChangedListeners }
+        set { ensureUnique(); storage.modifiersChangedListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.modifiersChangedListeners
+        }
+    }
+
+    public var actionListeners: [(ObjectIdentifier, ActionListener)] {
+        get { storage.actionListeners }
+        set { ensureUnique(); storage.actionListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.actionListeners
+        }
+    }
+
+    public var dropListeners: [(ObjectIdentifier, DropListener)] {
+        get { storage.dropListeners }
+        set { ensureUnique(); storage.dropListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.dropListeners
+        }
+    }
+
+    public var canDropPredicate: CanDropPredicate? {
+        get { storage.canDropPredicate }
+        set { ensureUnique(); storage.canDropPredicate = newValue }
+    }
+
+    public var clickListeners: [ClickListener] {
+        get { storage.clickListeners }
+        set { ensureUnique(); storage.clickListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.clickListeners
+        }
+    }
+
+    public var auxClickListeners: [ClickListener] {
+        get { storage.auxClickListeners }
+        set { ensureUnique(); storage.auxClickListeners = newValue }
+        _modify {
+            ensureUnique()
+            yield &storage.auxClickListeners
+        }
+    }
+
+    public var dragListener: DragInfo? {
+        get { storage.dragListener }
+        set { ensureUnique(); storage.dragListener = newValue }
+    }
+
+    public var hoverListener: (@Sendable (Bool, inout Window, inout App) -> Void)? {
+        get { storage.hoverListener }
+        set { ensureUnique(); storage.hoverListener = newValue }
+    }
+
+    public var tooltipBuilder: TooltipBuilder? {
+        get { storage.tooltipBuilder }
+        set { ensureUnique(); storage.tooltipBuilder = newValue }
+    }
+
+    public var windowControl: WindowControlArea? {
+        get { storage.windowControl }
+        set { ensureUnique(); storage.windowControl = newValue }
+    }
+
+    public var hitboxBehavior: HitboxBehavior {
+        get { storage.hitboxBehavior }
+        set { ensureUnique(); storage.hitboxBehavior = newValue }
+    }
+
+    public var tabIndex: Int? {
+        get { storage.tabIndex }
+        set { ensureUnique(); storage.tabIndex = newValue }
+    }
+
+    public var tabGroup: Bool {
+        get { storage.tabGroup }
+        set { ensureUnique(); storage.tabGroup = newValue }
+    }
+
+    public var tabStop: Bool {
+        get { storage.tabStop }
+        set { ensureUnique(); storage.tabStop = newValue }
+    }
+
+    public var sourceLocationValue: String? {
+        get { storage.sourceLocationValue }
+        set { ensureUnique(); storage.sourceLocationValue = newValue }
+    }
+
+    public init(file: String = #fileID, line: Int = #line) {
+        self.storage = InteractivityStorage(file: file, line: line)
+    }
+
+    internal init(storage: InteractivityStorage) {
+        self.storage = storage
+    }
+
     public static func new(file: String = #fileID, line: Int = #line) -> Interactivity {
         Interactivity(file: file, line: line)
     }
 
     public func sourceLocation() -> String? {
-        sourceLocationValue
+        storage.sourceLocationValue
     }
 
     public mutating func onMouseDown(
@@ -1839,6 +2387,7 @@ public struct Div: Styled, InteractiveElement, ParentElement, Element, IntoEleme
     public var style: StyleRefinement {
         get { interactivity.baseStyle }
         set { interactivity.baseStyle = newValue }
+        _modify { yield &interactivity.baseStyle }
     }
 
     public func onChildrenPrepainted(
@@ -2056,7 +2605,26 @@ public struct DivFrameState: Sendable {
 }
 
 public struct DivInspectorState: Sendable {
-    public var baseStyle: StyleRefinement
+    // PORT NOTE: DivInspectorState.baseStyle is heap-boxed matching upstream Box<StyleRefinement>.
+    private var baseStyleBox: StyleRefinementBox
+
+    public var baseStyle: StyleRefinement {
+        get { baseStyleBox.value }
+        set {
+            if isKnownUniquelyReferenced(&baseStyleBox) {
+                baseStyleBox.value = newValue
+            } else {
+                baseStyleBox = StyleRefinementBox(newValue)
+            }
+        }
+        _modify {
+            if !isKnownUniquelyReferenced(&baseStyleBox) {
+                baseStyleBox = StyleRefinementBox(baseStyleBox.value)
+            }
+            yield &baseStyleBox.value
+        }
+    }
+
     public var bounds: Bounds<Pixels>
     public var contentSize: Size<Pixels>
 
@@ -2065,7 +2633,7 @@ public struct DivInspectorState: Sendable {
         bounds: Bounds<Pixels> = Bounds(origin: .zero, size: .zero),
         contentSize: Size<Pixels> = Size(width: .zero, height: .zero)
     ) {
-        self.baseStyle = baseStyle
+        self.baseStyleBox = StyleRefinementBox(baseStyle)
         self.bounds = bounds
         self.contentSize = contentSize
     }

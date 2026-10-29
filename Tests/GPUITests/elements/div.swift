@@ -58,4 +58,15 @@ struct DivTests {
 
         #expect(parent.children.count == 2)
     }
+
+    @Test("div memory layout")
+    func divMemoryLayout() {
+        // Assert stack footprint is compact to prevent thread stack overflow during deep element nesting (e.g. Windows 1MB stack)
+        #expect(MemoryLayout<Div>.size <= 256)
+        #expect(MemoryLayout<Div>.stride <= 256)
+        #expect(MemoryLayout<Interactivity>.size <= 256)
+        #expect(MemoryLayout<Interactivity>.stride <= 256)
+        #expect(MemoryLayout<GroupStyle>.size <= 256)
+        #expect(MemoryLayout<DivInspectorState>.size <= 256)
+    }
 }
