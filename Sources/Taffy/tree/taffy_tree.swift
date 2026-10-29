@@ -563,41 +563,93 @@ extension TaffyTree: LayoutPartialTree {
             return computeHiddenLayout(tree: &self, node: nodeId)
         }
 
-        return computeCachedLayout(tree: &self, node: nodeId, inputs: inputs) { tree, node, inputs in
-            let displayMode = tree.nodes[node].style.display
-            let hasChildren = tree.childCount(parentNodeId: node) > 0
-
-            switch (displayMode, hasChildren) {
-            case (.none, _):
-                return computeHiddenLayout(tree: &tree, node: node)
-            case (.block, true):
-                return computeBlockLayout(tree: &tree, nodeId: node, inputs: inputs)
-            case (.flex, true):
-                return computeFlexboxLayout(tree: &tree, node: node, inputs: inputs)
-            case (.grid, true):
-                return computeGridLayout(tree: &tree, node: node, inputs: inputs)
-            case (_, false):
-                let style = tree.nodes[node].style
-                let hasContext = tree.nodes[node].hasContext
-                var context: NodeContext? = hasContext ? tree.nodeContextData[node] : nil
-                let measureFn = { (knownDimensions: Size<Float?>, availableSpace: Size<AvailableSpace>) -> Size<Float> in
-                    if let fn = tree.measureFunction {
-                        let res = fn(knownDimensions, availableSpace, node, &context, style)
-                        if hasContext, let c = context {
-                            tree.nodeContextData[node] = c
-                        }
-                        return res
-                    }
-                    return Size.ZERO
-                }
-                return computeLeafLayout(
-                    inputs: inputs,
-                    style: style,
-                    resolveCalcValue: { _, _ in 0.0 },
-                    measureFunction: measureFn
-                )
-            }
+        if let cached = checkLayoutCache(nodeId: nodeId, inputs: inputs) {
+            return cached
         }
+
+        let computedSizeAndBaselines = dispatchChildLayout(nodeId: nodeId, inputs: inputs)
+
+        storeLayoutCache(nodeId: nodeId, inputs: inputs, layoutOutput: computedSizeAndBaselines)
+
+        return computedSizeAndBaselines
+    }
+
+    @inline(never)
+    private func checkLayoutCache(nodeId: NodeId, inputs: LayoutInput) -> LayoutOutput? {
+        self.cacheGet(
+            nodeId: nodeId,
+            knownDimensions: inputs.knownDimensions,
+            availableSpace: inputs.availableSpace,
+            runMode: inputs.runMode
+        )
+    }
+
+    @inline(never)
+    private mutating func storeLayoutCache(nodeId: NodeId, inputs: LayoutInput, layoutOutput: LayoutOutput) {
+        self.cacheStore(
+            nodeId: nodeId,
+            knownDimensions: inputs.knownDimensions,
+            availableSpace: inputs.availableSpace,
+            runMode: inputs.runMode,
+            layoutOutput: layoutOutput
+        )
+    }
+
+    @inline(never)
+    private mutating func dispatchChildLayout(nodeId: NodeId, inputs: LayoutInput) -> LayoutOutput {
+        let displayMode = self.nodes[nodeId].style.display
+        let hasChildren = self.childCount(parentNodeId: nodeId) > 0
+
+        if !hasChildren {
+            return computeLeafChildLayout(nodeId: nodeId, inputs: inputs)
+        }
+        switch displayMode {
+        case .block:
+            return runBlockLayout(nodeId: nodeId, inputs: inputs)
+        case .flex:
+            return runFlexLayout(nodeId: nodeId, inputs: inputs)
+        case .grid:
+            return runGridLayout(nodeId: nodeId, inputs: inputs)
+        case .none:
+            return computeHiddenLayout(tree: &self, node: nodeId)
+        }
+    }
+
+    @inline(never)
+    private mutating func runBlockLayout(nodeId: NodeId, inputs: LayoutInput) -> LayoutOutput {
+        computeBlockLayout(tree: &self, nodeId: nodeId, inputs: inputs)
+    }
+
+    @inline(never)
+    private mutating func runFlexLayout(nodeId: NodeId, inputs: LayoutInput) -> LayoutOutput {
+        computeFlexboxLayout(tree: &self, node: nodeId, inputs: inputs)
+    }
+
+    @inline(never)
+    private mutating func runGridLayout(nodeId: NodeId, inputs: LayoutInput) -> LayoutOutput {
+        computeGridLayout(tree: &self, node: nodeId, inputs: inputs)
+    }
+
+    private mutating func computeLeafChildLayout(nodeId: NodeId, inputs: LayoutInput) -> LayoutOutput {
+        let style = self.nodes[nodeId].style
+        let hasContext = self.nodes[nodeId].hasContext
+        var context: NodeContext? = hasContext ? self.nodeContextData[nodeId] : nil
+        let measureFn = { (knownDimensions: Size<Float?>, availableSpace: Size<AvailableSpace>) -> Size<Float> in
+            if let fn = self.measureFunction {
+                let res = fn(knownDimensions, availableSpace, nodeId, &context, style)
+                if hasContext, let c = context {
+                    self.nodeContextData[nodeId] = c
+                }
+                return res
+            }
+            return Size.ZERO
+        }
+        return computeLeafLayout(
+            inputs: inputs,
+            style: style,
+            resolveCalcValue: { _, _ in 0.0 },
+            measureFunction: measureFn
+        )
     }
 }
 

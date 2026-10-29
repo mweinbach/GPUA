@@ -91,7 +91,8 @@ struct FlexLine {
 }
 
 /// Values that can be cached during the flexbox algorithm
-struct AlgoConstants {
+// PORT NOTE: Heap-allocated class to reduce stack frame pressure during deep flexbox recursion.
+final class AlgoConstants {
     var dir: FlexDirection
     var isRow: Bool
     var isColumn: Bool
@@ -114,6 +115,48 @@ struct AlgoConstants {
 
     var containerSize: Size<Float>
     var innerContainerSize: Size<Float>
+
+    init(
+        dir: FlexDirection,
+        isRow: Bool,
+        isColumn: Bool,
+        isWrap: Bool,
+        isWrapReverse: Bool,
+        minSize: Size<Float?>,
+        maxSize: Size<Float?>,
+        margin: Rect<Float>,
+        border: Rect<Float>,
+        contentBoxInset: Rect<Float>,
+        scrollbarGutter: Point<Float>,
+        gap: Size<Float>,
+        alignItems: AlignItems,
+        alignContent: AlignContent,
+        justifyContent: JustifyContent?,
+        nodeOuterSize: Size<Float?>,
+        nodeInnerSize: Size<Float?>,
+        containerSize: Size<Float>,
+        innerContainerSize: Size<Float>
+    ) {
+        self.dir = dir
+        self.isRow = isRow
+        self.isColumn = isColumn
+        self.isWrap = isWrap
+        self.isWrapReverse = isWrapReverse
+        self.minSize = minSize
+        self.maxSize = maxSize
+        self.margin = margin
+        self.border = border
+        self.contentBoxInset = contentBoxInset
+        self.scrollbarGutter = scrollbarGutter
+        self.gap = gap
+        self.alignItems = alignItems
+        self.alignContent = alignContent
+        self.justifyContent = justifyContent
+        self.nodeOuterSize = nodeOuterSize
+        self.nodeInnerSize = nodeInnerSize
+        self.containerSize = containerSize
+        self.innerContainerSize = innerContainerSize
+    }
 }
 
 /// Computes the layout of a box according to the flexbox algorithm

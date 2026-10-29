@@ -2,8 +2,9 @@
 // Upstream commit: 599b1b7d7410d97e13bafc4c01fbe6d7a9cf060a
 // Port status: ported
 
+// PORT NOTE: Internal class used within single-threaded layout computation without concurrent mutation.
 /// Per-child data that is accumulated and modified over the course of the layout algorithm
-struct BlockItem {
+final class BlockItem: @unchecked Sendable {
     var nodeId: NodeId
     var order: UInt32
     var isTable: Bool
@@ -21,6 +22,106 @@ struct BlockItem {
     var computedSize: Size<Float>
     var staticPosition: Point<Float>
     var canBeCollapsedThrough: Bool
+
+    init(
+        nodeId: NodeId,
+        order: UInt32,
+        isTable: Bool,
+        size: Size<Float?>,
+        minSize: Size<Float?>,
+        maxSize: Size<Float?>,
+        overflow: Point<Overflow>,
+        scrollbarWidth: Float,
+        position: Position,
+        inset: Rect<LengthPercentageAuto>,
+        margin: Rect<LengthPercentageAuto>,
+        padding: Rect<Float>,
+        border: Rect<Float>,
+        paddingBorderSum: Size<Float>,
+        computedSize: Size<Float>,
+        staticPosition: Point<Float>,
+        canBeCollapsedThrough: Bool
+    ) {
+        self.nodeId = nodeId
+        self.order = order
+        self.isTable = isTable
+        self.size = size
+        self.minSize = minSize
+        self.maxSize = maxSize
+        self.overflow = overflow
+        self.scrollbarWidth = scrollbarWidth
+        self.position = position
+        self.inset = inset
+        self.margin = margin
+        self.padding = padding
+        self.border = border
+        self.paddingBorderSum = paddingBorderSum
+        self.computedSize = computedSize
+        self.staticPosition = staticPosition
+        self.canBeCollapsedThrough = canBeCollapsedThrough
+    }
+}
+
+// PORT NOTE: Internal context class used within single-threaded block layout without concurrent mutation.
+final class BlockLayoutContext: @unchecked Sendable {
+    var knownDimensions: Size<Float?> = Size.NONE
+    var parentSize: Size<Float?> = Size.NONE
+    var availableSpace: Size<AvailableSpace> = Size(width: .minContent, height: .minContent)
+    var runMode: RunMode = .performLayout
+    var verticalMarginsAreCollapsible: Line<Bool> = Line.FALSE
+    var style: Style<String>? = nil
+
+    var rawPadding: Rect<LengthPercentage>? = nil
+    var rawBorder: Rect<LengthPercentage>? = nil
+    var rawMargin: Rect<LengthPercentageAuto>? = nil
+    var aspectRatio: Float? = nil
+    var padding: Rect<Float> = Rect.ZERO
+    var border: Rect<Float> = Rect.ZERO
+    var paddingBorderSize: Size<Float> = Size.ZERO
+    var boxSizingAdjustment: Size<Float> = Size.ZERO
+
+    var size: Size<Float?> = Size.NONE
+    var minSize: Size<Float?> = Size.NONE
+    var maxSize: Size<Float?> = Size.NONE
+
+    var clampedStyleSize: Size<Float?> = Size.NONE
+    var minMaxDefiniteSize: Size<Float?> = Size.NONE
+    var styledBasedKnownDimensions: Size<Float?> = Size.NONE
+
+    var scrollbarGutter: Rect<Float> = Rect.ZERO
+    var contentBoxInset: Rect<Float> = Rect.ZERO
+    var containerContentBoxSize: Size<Float?> = Size.NONE
+
+    var ownMarginsCollapseWithChildren: Line<Bool> = Line.FALSE
+    var hasStylesPreventingBeingCollapsedThrough: Bool = false
+    var textAlign: TextAlign = .auto
+
+    var items: [BlockItem] = []
+    var containerOuterWidth: Float = 0.0
+
+    var resolvedPadding: Rect<Float> = Rect.ZERO
+    var resolvedBorder: Rect<Float> = Rect.ZERO
+    var resolvedContentBoxInset: Rect<Float> = Rect.ZERO
+    var containerInnerWidth: Float = 0.0
+    var childParentSize: Size<Float?> = Size.NONE
+    var childAvailableSpace: Size<AvailableSpace> = Size(width: .minContent, height: .minContent)
+
+    var inflowContentSize: Size<Float> = Size.ZERO
+    var committedYOffset: Float = 0.0
+    var yOffsetForAbsolute: Float = 0.0
+    var firstChildTopMarginSet: CollapsibleMarginSet = CollapsibleMarginSet.ZERO
+    var activeCollapsibleMarginSet: CollapsibleMarginSet = CollapsibleMarginSet.ZERO
+    var isCollapsingWithFirstMarginSet: Bool = true
+
+    var lastChildBottomMarginSet: CollapsibleMarginSet = CollapsibleMarginSet.ZERO
+    var intrinsicOuterHeight: Float = 0.0
+    var containerOuterHeight: Float = 0.0
+    var finalOuterSize: Size<Float> = Size.ZERO
+    var absoluteContentSize: Size<Float> = Size.ZERO
+    var canBeCollapsedThrough: Bool = false
+    var contentSize: Size<Float> = Size.ZERO
+    var topMargin: CollapsibleMarginSet = CollapsibleMarginSet.ZERO
+    var bottomMargin: CollapsibleMarginSet = CollapsibleMarginSet.ZERO
 }
 
 /// Computes the layout of `LayoutBlockContainer` according to the block layout algorithm
@@ -29,253 +130,453 @@ public func computeBlockLayout<Tree: LayoutBlockContainer>(
     nodeId: NodeId,
     inputs: LayoutInput
 ) -> LayoutOutput {
-    let knownDimensions = inputs.knownDimensions
-    let parentSize = inputs.parentSize
-    let runMode = inputs.runMode
+    let ctx = BlockLayoutContext()
+    if let earlyOutput = initBlockContext(ctx: ctx, tree: &tree, nodeId: nodeId, inputs: inputs) {
+        return earlyOutput
+    }
+    if let earlyOutput = computeBlockContainerWidth(ctx: ctx, tree: &tree, nodeId: nodeId) {
+        return earlyOutput
+    }
+    setupInFlowContext(ctx: ctx)
+    for i in 0..<ctx.items.count {
+        layoutSingleInFlowChild(ctx: ctx, tree: &tree, index: i)
+    }
+    finishInFlowContext(ctx: ctx)
+    if ctx.runMode == .computeSize {
+        return LayoutOutput.fromOuterSize(ctx.finalOuterSize)
+    }
+    layoutAbsoluteChildren(ctx: ctx, tree: &tree)
+    layoutHiddenChildren(ctx: ctx, tree: &tree, nodeId: nodeId)
+    return finalizeBlockLayout(ctx: ctx, tree: &tree)
+}
+
+@inline(never)
+private func initBlockContext<Tree: LayoutBlockContainer>(
+    ctx: BlockLayoutContext,
+    tree: inout Tree,
+    nodeId: NodeId,
+    inputs: LayoutInput
+) -> LayoutOutput? {
+    ctx.knownDimensions = inputs.knownDimensions
+    ctx.parentSize = inputs.parentSize
+    ctx.availableSpace = inputs.availableSpace
+    ctx.runMode = inputs.runMode
+    ctx.verticalMarginsAreCollapsible = inputs.verticalMarginsAreCollapsible
     let style = tree.getBlockContainerStyle(nodeId: nodeId)
+    ctx.style = style
 
+    let rawPadding = style.padding
+    let rawBorder = style.border
+    let rawMargin = style.margin
+    ctx.rawPadding = rawPadding
+    ctx.rawBorder = rawBorder
+    ctx.rawMargin = rawMargin
     let aspectRatio = style.aspectRatio
-    let padding = style.padding.resolveOrZero(parentSize.width) { tree.calc($0, $1) }
-    let border = style.border.resolveOrZero(parentSize.width) { tree.calc($0, $1) }
-    let paddingBorderSize = (padding + border).sumAxes()
-    let boxSizingAdjustment = style.boxSizing == .contentBox ? paddingBorderSize : Size<Float>.ZERO
+    ctx.aspectRatio = aspectRatio
+    ctx.padding = rawPadding.resolveOrZero(ctx.parentSize.width)
+    ctx.border = rawBorder.resolveOrZero(ctx.parentSize.width)
+    ctx.paddingBorderSize = (ctx.padding + ctx.border).sumAxes()
+    ctx.boxSizingAdjustment = style.boxSizing == .contentBox ? ctx.paddingBorderSize : Size<Float>.ZERO
 
-    let minSize = style.minSize
-        .maybeResolve(parentSize) { tree.calc($0, $1) }
+    ctx.size = style.size
+        .maybeResolve(ctx.parentSize)
         .maybeApplyAspectRatio(aspectRatio)
-        .maybeAdd(boxSizingAdjustment)
-    let maxSize = style.maxSize
-        .maybeResolve(parentSize) { tree.calc($0, $1) }
+        .maybeAdd(ctx.boxSizingAdjustment)
+    ctx.minSize = style.minSize
+        .maybeResolve(ctx.parentSize)
         .maybeApplyAspectRatio(aspectRatio)
-        .maybeAdd(boxSizingAdjustment)
+        .maybeAdd(ctx.boxSizingAdjustment)
+    ctx.maxSize = style.maxSize
+        .maybeResolve(ctx.parentSize)
+        .maybeApplyAspectRatio(aspectRatio)
+        .maybeAdd(ctx.boxSizingAdjustment)
 
-    let clampedStyleSize: Size<Float?>
     if inputs.sizingMode == .inherentSize {
-        clampedStyleSize = style.size
-            .maybeResolve(parentSize) { tree.calc($0, $1) }
-            .maybeApplyAspectRatio(aspectRatio)
-            .maybeAdd(boxSizingAdjustment)
-            .maybeClamp(minSize, maxSize)
+        ctx.clampedStyleSize = ctx.size.maybeClamp(ctx.minSize, ctx.maxSize)
     } else {
-        clampedStyleSize = Size<Float?>.NONE
+        ctx.clampedStyleSize = Size<Float?>.NONE
     }
 
-    let minMaxDefiniteSize = minSize.zipMap(maxSize) { min, max -> Float? in
+    ctx.minMaxDefiniteSize = ctx.minSize.zipMap(ctx.maxSize) { min, max -> Float? in
         if let minVal = min, let maxVal = max, maxVal <= minVal {
             return minVal
         }
         return nil
     }
 
-    let styledBasedKnownDimensions = knownDimensions
-        .or(minMaxDefiniteSize)
-        .or(clampedStyleSize)
-        .maybeMax(paddingBorderSize)
+    ctx.styledBasedKnownDimensions = ctx.knownDimensions
+        .or(ctx.minMaxDefiniteSize)
+        .or(ctx.clampedStyleSize)
+        .maybeMax(ctx.paddingBorderSize)
 
-    if runMode == .computeSize {
-        if let width = styledBasedKnownDimensions.width, let height = styledBasedKnownDimensions.height {
+    if ctx.runMode == .computeSize {
+        if let width = ctx.styledBasedKnownDimensions.width, let height = ctx.styledBasedKnownDimensions.height {
             return LayoutOutput.fromOuterSize(Size(width: width, height: height))
         }
     }
 
-    return computeInner(
-        tree: &tree,
-        nodeId: nodeId,
-        inputs: LayoutInput(
-            runMode: inputs.runMode,
-            sizingMode: inputs.sizingMode,
-            axis: inputs.axis,
-            knownDimensions: styledBasedKnownDimensions,
-            parentSize: inputs.parentSize,
-            availableSpace: inputs.availableSpace,
-            verticalMarginsAreCollapsible: inputs.verticalMarginsAreCollapsible
-        )
-    )
-}
-
-private func computeInner<Tree: LayoutBlockContainer>(
-    tree: inout Tree,
-    nodeId: NodeId,
-    inputs: LayoutInput
-) -> LayoutOutput {
-    let knownDimensions = inputs.knownDimensions
-    let parentSize = inputs.parentSize
-    let availableSpace = inputs.availableSpace
-    let runMode = inputs.runMode
-    let verticalMarginsAreCollapsible = inputs.verticalMarginsAreCollapsible
-
-    let style = tree.getBlockContainerStyle(nodeId: nodeId)
-    let rawPadding = style.padding
-    let rawBorder = style.border
-    let rawMargin = style.margin
-    let aspectRatio = style.aspectRatio
-    let padding = rawPadding.resolveOrZero(parentSize.width) { tree.calc($0, $1) }
-    let border = rawBorder.resolveOrZero(parentSize.width) { tree.calc($0, $1) }
-
-    let scrollbarGutter: Rect<Float> = {
+    ctx.scrollbarGutter = {
         let offsets = style.overflow.transpose().map { overflow in
             overflow == .scroll ? style.scrollbarWidth : 0.0
         }
         return Rect(left: 0.0, right: offsets.x, top: 0.0, bottom: offsets.y)
     }()
 
-    let paddingBorder = padding + border
-    let paddingBorderSize = paddingBorder.sumAxes()
-    let contentBoxInset = paddingBorder + scrollbarGutter
-    let containerContentBoxSize = knownDimensions.maybeSub(contentBoxInset.sumAxes())
+    let paddingBorder = ctx.padding + ctx.border
+    ctx.contentBoxInset = paddingBorder + ctx.scrollbarGutter
+    ctx.containerContentBoxSize = ctx.styledBasedKnownDimensions.maybeSub(ctx.contentBoxInset.sumAxes())
 
-    let boxSizingAdjustment = style.boxSizing == .contentBox ? paddingBorderSize : Size<Float>.ZERO
-    let size = style.size
-        .maybeResolve(parentSize) { tree.calc($0, $1) }
-        .maybeApplyAspectRatio(aspectRatio)
-        .maybeAdd(boxSizingAdjustment)
-    let minSize = style.minSize
-        .maybeResolve(parentSize) { tree.calc($0, $1) }
-        .maybeApplyAspectRatio(aspectRatio)
-        .maybeAdd(boxSizingAdjustment)
-    let maxSize = style.maxSize
-        .maybeResolve(parentSize) { tree.calc($0, $1) }
-        .maybeApplyAspectRatio(aspectRatio)
-        .maybeAdd(boxSizingAdjustment)
-
-    let ownMarginsCollapseWithChildren = Line<Bool>(
-        start: verticalMarginsAreCollapsible.start
+    ctx.ownMarginsCollapseWithChildren = Line<Bool>(
+        start: ctx.verticalMarginsAreCollapsible.start
             && !style.overflow.x.isScrollContainer
             && !style.overflow.y.isScrollContainer
             && style.position == .relative
-            && padding.top == 0.0
-            && border.top == 0.0,
-        end: verticalMarginsAreCollapsible.end
+            && ctx.padding.top == 0.0
+            && ctx.border.top == 0.0,
+        end: ctx.verticalMarginsAreCollapsible.end
             && !style.overflow.x.isScrollContainer
             && !style.overflow.y.isScrollContainer
             && style.position == .relative
-            && padding.bottom == 0.0
-            && border.bottom == 0.0
-            && size.height == nil
+            && ctx.padding.bottom == 0.0
+            && ctx.border.bottom == 0.0
+            && ctx.size.height == nil
     )
 
-    let hasStylesPreventingBeingCollapsedThrough = !style.isBlock
+    ctx.hasStylesPreventingBeingCollapsedThrough = !style.isBlock
         || style.overflow.x.isScrollContainer
         || style.overflow.y.isScrollContainer
         || style.position == .absolute
-        || padding.top > 0.0
-        || padding.bottom > 0.0
-        || border.top > 0.0
-        || border.bottom > 0.0
-        || (size.height.map { $0 > 0.0 } ?? false)
-        || (minSize.height.map { $0 > 0.0 } ?? false)
+        || ctx.padding.top > 0.0
+        || ctx.padding.bottom > 0.0
+        || ctx.border.top > 0.0
+        || ctx.border.bottom > 0.0
+        || (ctx.size.height.map { $0 > 0.0 } ?? false)
+        || (ctx.minSize.height.map { $0 > 0.0 } ?? false)
 
-    let textAlign = style.textAlign
+    ctx.textAlign = style.textAlign
+    return nil
+}
 
+@inline(never)
+private func computeBlockContainerWidth<Tree: LayoutBlockContainer>(
+    ctx: BlockLayoutContext,
+    tree: inout Tree,
+    nodeId: NodeId
+) -> LayoutOutput? {
     // 1. Generate items
-    var items = generateItemList(tree: tree, node: nodeId, nodeInnerSize: containerContentBoxSize)
+    ctx.items = generateItemList(tree: &tree, node: nodeId, nodeInnerSize: ctx.containerContentBoxSize)
 
     // 2. Compute container width
-    let containerOuterWidth: Float
-    if let width = knownDimensions.width {
-        containerOuterWidth = width
+    if let width = ctx.styledBasedKnownDimensions.width {
+        ctx.containerOuterWidth = width
     } else {
-        let availableWidth = availableSpace.width.maybeSub(contentBoxInset.horizontalAxisSum())
-        let intrinsicWidth = determineContentBasedContainerWidth(tree: &tree, items: items, availableWidth: availableWidth)
-            + contentBoxInset.horizontalAxisSum()
-        containerOuterWidth = intrinsicWidth
-            .maybeClamp(minSize.width, maxSize.width)
-            .maybeMax(Float?(paddingBorderSize.width))
+        let availableWidth = ctx.availableSpace.width.maybeSub(ctx.contentBoxInset.horizontalAxisSum())
+        let intrinsicWidth = determineContentBasedContainerWidth(tree: &tree, items: ctx.items, availableWidth: availableWidth)
+            + ctx.contentBoxInset.horizontalAxisSum()
+        ctx.containerOuterWidth = intrinsicWidth
+            .maybeClamp(ctx.minSize.width, ctx.maxSize.width)
+            .maybeMax(Float?(ctx.paddingBorderSize.width))
     }
 
     // Short-circuit if computing size and both dimensions known
-    if runMode == .computeSize, let containerOuterHeight = knownDimensions.height {
-        return LayoutOutput.fromOuterSize(Size(width: containerOuterWidth, height: containerOuterHeight))
+    if ctx.runMode == .computeSize, let containerOuterHeight = ctx.styledBasedKnownDimensions.height {
+        return LayoutOutput.fromOuterSize(Size(width: ctx.containerOuterWidth, height: containerOuterHeight))
     }
 
-    // 3. Perform final item layout and return content height
-    let resolvedPadding = rawPadding.resolveOrZero(containerOuterWidth) { tree.calc($0, $1) }
-    let resolvedBorder = rawBorder.resolveOrZero(containerOuterWidth) { tree.calc($0, $1) }
-    let resolvedContentBoxInset = resolvedPadding + resolvedBorder + scrollbarGutter
+    return nil
+}
 
-    let (inflowContentSize, intrinsicOuterHeight, firstChildTopMarginSet, lastChildBottomMarginSet) =
-        performFinalLayoutOnInFlowChildren(
-            tree: &tree,
-            items: &items,
-            containerOuterWidth: containerOuterWidth,
-            contentBoxInset: contentBoxInset,
-            resolvedContentBoxInset: resolvedContentBoxInset,
-            textAlign: textAlign,
-            ownMarginsCollapseWithChildren: ownMarginsCollapseWithChildren
+private struct ChildLayoutPrep {
+    let knownDimensions: Size<Float?>
+    let itemMargin: Rect<Float?>
+    let itemNonAutoXMarginSum: Float
+}
+
+@inline(never)
+private func prepareSingleInFlowChild(
+    ctx: BlockLayoutContext,
+    item: BlockItem
+) -> ChildLayoutPrep {
+    let itemMargin = item.margin.map { margin in
+        margin.maybeResolve(ctx.containerOuterWidth)
+    }
+    let itemNonAutoMargin = itemMargin.map { $0 ?? 0.0 }
+    let itemNonAutoXMarginSum = itemNonAutoMargin.horizontalAxisSum()
+
+    let knownDimensions: Size<Float?>
+    if item.isTable {
+        knownDimensions = Size.NONE
+    } else {
+        let innerW = ctx.containerInnerWidth
+        let minW = item.minSize.width
+        let maxW = item.maxSize.width
+        knownDimensions = item.size
+            .mapWidth { width in
+                let w = width ?? (innerW - itemNonAutoXMarginSum)
+                return w.maybeClamp(minW, maxW)
+            }
+            .maybeClamp(item.minSize, item.maxSize)
+    }
+    return ChildLayoutPrep(
+        knownDimensions: knownDimensions,
+        itemMargin: itemMargin,
+        itemNonAutoXMarginSum: itemNonAutoXMarginSum
+    )
+}
+
+@inline(never)
+private func finishSingleInFlowChild<Tree: LayoutBlockContainer>(
+    ctx: BlockLayoutContext,
+    tree: inout Tree,
+    item: BlockItem,
+    itemLayout: LayoutOutput,
+    prep: ChildLayoutPrep
+) {
+    let finalSize = itemLayout.size
+
+    let topMarginSet = itemLayout.topMargin.collapseWithMargin(prep.itemMargin.top ?? 0.0)
+    let bottomMarginSet = itemLayout.bottomMargin.collapseWithMargin(prep.itemMargin.bottom ?? 0.0)
+
+    let freeXSpace = f32_max(0.0, ctx.containerInnerWidth - finalSize.width - prep.itemNonAutoXMarginSum)
+    let autoMarginCount = (prep.itemMargin.left == nil ? 1 : 0) + (prep.itemMargin.right == nil ? 1 : 0)
+    let xAxisAutoMarginSize: Float = autoMarginCount > 0 ? (freeXSpace / Float(autoMarginCount)) : 0.0
+
+    let resolvedMargin = Rect<Float>(
+        left: prep.itemMargin.left ?? xAxisAutoMarginSize,
+        right: prep.itemMargin.right ?? xAxisAutoMarginSize,
+        top: topMarginSet.resolve(),
+        bottom: bottomMarginSet.resolve()
+    )
+
+    let inset = item.inset.zipSize(size: Size(width: ctx.containerInnerWidth, height: 0.0)) { p, s in
+        p.maybeResolve(s)
+    }
+    let insetOffset = Point<Float>(
+        x: inset.left ?? inset.right.map { -$0 } ?? 0.0,
+        y: inset.top ?? inset.bottom.map { -$0 } ?? 0.0
+    )
+
+    let yMarginOffset: Float
+    if ctx.isCollapsingWithFirstMarginSet && ctx.ownMarginsCollapseWithChildren.start {
+        yMarginOffset = 0.0
+    } else {
+        yMarginOffset = ctx.activeCollapsibleMarginSet.collapseWithMargin(resolvedMargin.top).resolve()
+    }
+
+    item.computedSize = itemLayout.size
+    item.canBeCollapsedThrough = itemLayout.marginsCanCollapseThrough
+    item.staticPosition = Point(
+        x: ctx.resolvedContentBoxInset.left,
+        y: ctx.committedYOffset + ctx.activeCollapsibleMarginSet.resolve()
+    )
+
+    var location = Point<Float>(
+        x: ctx.resolvedContentBoxInset.left + insetOffset.x + resolvedMargin.left,
+        y: ctx.committedYOffset + insetOffset.y + yMarginOffset
+    )
+
+    // Apply alignment
+    let itemOuterWidth = itemLayout.size.width + resolvedMargin.horizontalAxisSum()
+    if itemOuterWidth < ctx.containerInnerWidth {
+        switch ctx.textAlign {
+        case .auto, .legacyLeft:
+            break
+        case .legacyRight:
+            location.x += ctx.containerInnerWidth - itemOuterWidth
+        case .legacyCenter:
+            location.x += (ctx.containerInnerWidth - itemOuterWidth) / 2.0
+        }
+    }
+
+    let scrollbarSize = Size<Float>(
+        width: item.overflow.y == .scroll ? item.scrollbarWidth : 0.0,
+        height: item.overflow.x == .scroll ? item.scrollbarWidth : 0.0
+    )
+
+    tree.setUnroundedLayout(
+        nodeId: item.nodeId,
+        layout: Layout(
+            order: item.order,
+            location: location,
+            size: itemLayout.size,
+            contentSize: itemLayout.contentSize,
+            scrollbarSize: scrollbarSize,
+            border: item.border,
+            padding: item.padding,
+            margin: resolvedMargin
         )
+    )
 
-    let containerOuterHeight = knownDimensions.height
-        ?? intrinsicOuterHeight.maybeClamp(minSize.height, maxSize.height).maybeMax(Float?(paddingBorderSize.height))
-    let finalOuterSize = Size(width: containerOuterWidth, height: containerOuterHeight)
+    ctx.inflowContentSize = ctx.inflowContentSize.f32Max(
+        computeContentSizeContribution(
+            location: location,
+            size: finalSize,
+            contentSize: itemLayout.contentSize,
+            overflow: item.overflow
+        )
+    )
 
-    if runMode == .computeSize {
-        return LayoutOutput.fromOuterSize(finalOuterSize)
+    if ctx.isCollapsingWithFirstMarginSet {
+        if item.canBeCollapsedThrough {
+            ctx.firstChildTopMarginSet = ctx.firstChildTopMarginSet
+                .collapseWithSet(topMarginSet)
+                .collapseWithSet(bottomMarginSet)
+        } else {
+            ctx.firstChildTopMarginSet = ctx.firstChildTopMarginSet.collapseWithSet(topMarginSet)
+            ctx.isCollapsingWithFirstMarginSet = false
+        }
     }
 
-    // 4. Layout absolutely positioned children
-    let absolutePositionInset = resolvedBorder + scrollbarGutter
-    let absolutePositionArea = finalOuterSize - absolutePositionInset.sumAxes()
+    if item.canBeCollapsedThrough {
+        ctx.activeCollapsibleMarginSet = ctx.activeCollapsibleMarginSet
+            .collapseWithSet(topMarginSet)
+            .collapseWithSet(bottomMarginSet)
+        ctx.yOffsetForAbsolute = ctx.committedYOffset + itemLayout.size.height + yMarginOffset
+    } else {
+        ctx.committedYOffset += itemLayout.size.height + yMarginOffset
+        ctx.activeCollapsibleMarginSet = bottomMarginSet
+        ctx.yOffsetForAbsolute = ctx.committedYOffset + ctx.activeCollapsibleMarginSet.resolve()
+    }
+}
+
+@inline(never)
+private func setupInFlowContext(ctx: BlockLayoutContext) {
+    ctx.resolvedPadding = ctx.rawPadding!.resolveOrZero(ctx.containerOuterWidth)
+    ctx.resolvedBorder = ctx.rawBorder!.resolveOrZero(ctx.containerOuterWidth)
+    ctx.resolvedContentBoxInset = ctx.resolvedPadding + ctx.resolvedBorder + ctx.scrollbarGutter
+
+    ctx.containerInnerWidth = ctx.containerOuterWidth - ctx.contentBoxInset.horizontalAxisSum()
+    ctx.childParentSize = Size<Float?>(width: ctx.containerOuterWidth, height: nil)
+    ctx.childAvailableSpace = Size<AvailableSpace>(width: .definite(ctx.containerInnerWidth), height: .minContent)
+
+    ctx.inflowContentSize = Size<Float>.ZERO
+    ctx.committedYOffset = ctx.resolvedContentBoxInset.top
+    ctx.yOffsetForAbsolute = ctx.resolvedContentBoxInset.top
+    ctx.firstChildTopMarginSet = CollapsibleMarginSet.ZERO
+    ctx.activeCollapsibleMarginSet = CollapsibleMarginSet.ZERO
+    ctx.isCollapsingWithFirstMarginSet = true
+}
+
+@inline(never)
+private func finishInFlowContext(ctx: BlockLayoutContext) {
+    ctx.lastChildBottomMarginSet = ctx.activeCollapsibleMarginSet
+    let bottomYMarginOffset: Float = ctx.ownMarginsCollapseWithChildren.end ? 0.0 : ctx.lastChildBottomMarginSet.resolve()
+
+    ctx.committedYOffset += ctx.resolvedContentBoxInset.bottom + bottomYMarginOffset
+    ctx.intrinsicOuterHeight = f32_max(0.0, ctx.committedYOffset)
+
+    ctx.containerOuterHeight = ctx.styledBasedKnownDimensions.height
+        ?? ctx.intrinsicOuterHeight.maybeClamp(ctx.minSize.height, ctx.maxSize.height).maybeMax(Float?(ctx.paddingBorderSize.height))
+    ctx.finalOuterSize = Size(width: ctx.containerOuterWidth, height: ctx.containerOuterHeight)
+}
+
+@inline(never)
+private func layoutSingleInFlowChild<Tree: LayoutBlockContainer>(
+    ctx: BlockLayoutContext,
+    tree: inout Tree,
+    index i: Int
+) {
+    let item = ctx.items[i]
+    if item.position == .absolute {
+        item.staticPosition = Point(x: ctx.resolvedContentBoxInset.left, y: ctx.yOffsetForAbsolute)
+        return
+    }
+
+    let prep = prepareSingleInFlowChild(ctx: ctx, item: item)
+    let inputs = LayoutInput(
+        runMode: .performLayout,
+        sizingMode: .inherentSize,
+        axis: .both,
+        knownDimensions: prep.knownDimensions,
+        parentSize: ctx.childParentSize,
+        availableSpace: ctx.childAvailableSpace.mapWidth { w in w.maybeSub(prep.itemNonAutoXMarginSum) },
+        verticalMarginsAreCollapsible: Line.TRUE
+    )
+    let itemLayout = tree.computeChildLayout(nodeId: item.nodeId, inputs: inputs)
+    finishSingleInFlowChild(ctx: ctx, tree: &tree, item: item, itemLayout: itemLayout, prep: prep)
+}
+
+@inline(never)
+private func layoutAbsoluteChildren<Tree: LayoutBlockContainer>(
+    ctx: BlockLayoutContext,
+    tree: inout Tree
+) {
+    let absolutePositionInset = ctx.resolvedBorder + ctx.scrollbarGutter
+    let absolutePositionArea = ctx.finalOuterSize - absolutePositionInset.sumAxes()
     let absolutePositionOffset = Point(x: absolutePositionInset.left, y: absolutePositionInset.top)
-    let absoluteContentSize = performAbsoluteLayoutOnAbsoluteChildren(
+    ctx.absoluteContentSize = performAbsoluteLayoutOnAbsoluteChildren(
         tree: &tree,
-        items: items,
+        items: ctx.items,
         areaSize: absolutePositionArea,
         areaOffset: absolutePositionOffset
     )
+}
 
-    // 5. Perform hidden layout on hidden children
+@inline(never)
+private func layoutHiddenChildren<Tree: LayoutBlockContainer>(
+    ctx: BlockLayoutContext,
+    tree: inout Tree,
+    nodeId: NodeId
+) {
     let childCount = tree.childCount(parentNodeId: nodeId)
     for order in 0..<childCount {
         let child = tree.getChildId(parentNodeId: nodeId, childIndex: order)
         if tree.getBlockChildStyle(childNodeId: child).boxGenerationMode == .none {
             tree.setUnroundedLayout(nodeId: child, layout: Layout.withOrder(UInt32(order)))
-            _ = tree.performChildLayout(
-                child,
-                Size.NONE,
-                Size.NONE,
-                Size.MAX_CONTENT,
-                .inherentSize,
-                Line.FALSE
+            _ = tree.computeChildLayout(
+                nodeId: child,
+                inputs: LayoutInput(
+                    runMode: .performLayout,
+                    sizingMode: .inherentSize,
+                    axis: .both,
+                    knownDimensions: Size.NONE,
+                    parentSize: Size.NONE,
+                    availableSpace: Size.MAX_CONTENT,
+                    verticalMarginsAreCollapsible: Line.FALSE
+                )
             )
         }
     }
+}
 
-    // 6. Determine whether this node can be collapsed through
-    let allInFlowChildrenCanBeCollapsedThrough = items.allSatisfy { item in
+@inline(never)
+private func finalizeBlockLayout<Tree: LayoutBlockContainer>(
+    ctx: BlockLayoutContext,
+    tree: inout Tree
+) -> LayoutOutput {
+    let allInFlowChildrenCanBeCollapsedThrough = ctx.items.allSatisfy { item in
         item.position == .absolute || item.canBeCollapsedThrough
     }
-    let canBeCollapsedThrough = !hasStylesPreventingBeingCollapsedThrough && allInFlowChildrenCanBeCollapsedThrough
+    ctx.canBeCollapsedThrough = !ctx.hasStylesPreventingBeingCollapsedThrough && allInFlowChildrenCanBeCollapsedThrough
 
-    let contentSize = inflowContentSize.f32Max(absoluteContentSize)
+    ctx.contentSize = ctx.inflowContentSize.f32Max(ctx.absoluteContentSize)
 
-    let topMargin: CollapsibleMarginSet
-    if ownMarginsCollapseWithChildren.start {
-        topMargin = firstChildTopMarginSet
+    if ctx.ownMarginsCollapseWithChildren.start {
+        ctx.topMargin = ctx.firstChildTopMarginSet
     } else {
-        let marginTop = rawMargin.top.resolveOrZero(parentSize.width) { tree.calc($0, $1) }
-        topMargin = CollapsibleMarginSet.fromMargin(marginTop)
+        let marginTop = ctx.rawMargin!.top.resolveOrZero(ctx.parentSize.width)
+        ctx.topMargin = CollapsibleMarginSet.fromMargin(marginTop)
     }
 
-    let bottomMargin: CollapsibleMarginSet
-    if ownMarginsCollapseWithChildren.end {
-        bottomMargin = lastChildBottomMarginSet
+    if ctx.ownMarginsCollapseWithChildren.end {
+        ctx.bottomMargin = ctx.lastChildBottomMarginSet
     } else {
-        let marginBottom = rawMargin.bottom.resolveOrZero(parentSize.width) { tree.calc($0, $1) }
-        bottomMargin = CollapsibleMarginSet.fromMargin(marginBottom)
+        let marginBottom = ctx.rawMargin!.bottom.resolveOrZero(ctx.parentSize.width)
+        ctx.bottomMargin = CollapsibleMarginSet.fromMargin(marginBottom)
     }
 
     return LayoutOutput(
-        size: finalOuterSize,
-        contentSize: contentSize,
+        size: ctx.finalOuterSize,
+        contentSize: ctx.contentSize,
         firstBaselines: Point.NONE,
-        topMargin: topMargin,
-        bottomMargin: bottomMargin,
-        marginsCanCollapseThrough: canBeCollapsedThrough
+        topMargin: ctx.topMargin,
+        bottomMargin: ctx.bottomMargin,
+        marginsCanCollapseThrough: ctx.canBeCollapsedThrough
     )
 }
 
 private func generateItemList<Tree: LayoutBlockContainer>(
-    tree: Tree,
+    tree: inout Tree,
     node: NodeId,
     nodeInnerSize: Size<Float?>
 ) -> [BlockItem] {
@@ -288,8 +589,8 @@ private func generateItemList<Tree: LayoutBlockContainer>(
         guard childStyle.boxGenerationMode != .none else { continue }
 
         let aspectRatio = childStyle.aspectRatio
-        let padding = childStyle.padding.resolveOrZero(nodeInnerSize.width) { tree.calc($0, $1) }
-        let border = childStyle.border.resolveOrZero(nodeInnerSize.width) { tree.calc($0, $1) }
+        let padding = childStyle.padding.resolveOrZero(nodeInnerSize.width)
+        let border = childStyle.border.resolveOrZero(nodeInnerSize.width)
         let pbSum = (padding + border).sumAxes()
         let boxSizingAdjustment = childStyle.boxSizing == .contentBox ? pbSum : Size<Float>.ZERO
 
@@ -298,15 +599,15 @@ private func generateItemList<Tree: LayoutBlockContainer>(
             order: UInt32(order),
             isTable: childStyle.itemIsTable,
             size: childStyle.size
-                .maybeResolve(nodeInnerSize) { tree.calc($0, $1) }
+                .maybeResolve(nodeInnerSize)
                 .maybeApplyAspectRatio(aspectRatio)
                 .maybeAdd(boxSizingAdjustment),
             minSize: childStyle.minSize
-                .maybeResolve(nodeInnerSize) { tree.calc($0, $1) }
+                .maybeResolve(nodeInnerSize)
                 .maybeApplyAspectRatio(aspectRatio)
                 .maybeAdd(boxSizingAdjustment),
             maxSize: childStyle.maxSize
-                .maybeResolve(nodeInnerSize) { tree.calc($0, $1) }
+                .maybeResolve(nodeInnerSize)
                 .maybeApplyAspectRatio(aspectRatio)
                 .maybeAdd(boxSizingAdjustment),
             overflow: childStyle.overflow,
@@ -341,16 +642,20 @@ private func determineContentBasedContainerWidth<Tree: LayoutPartialTree>(
             width = w
         } else {
             let itemXMarginSum = item.margin
-                .resolveOrZero(availableSpace.width.intoOption()) { tree.calc($0, $1) }
+                .resolveOrZero(availableSpace.width.intoOption())
                 .horizontalAxisSum()
 
-            let childOutput = tree.performChildLayout(
-                item.nodeId,
-                knownDimensions,
-                Size.NONE,
-                availableSpace.mapWidth { w in w.maybeSub(itemXMarginSum) },
-                .inherentSize,
-                Line.TRUE
+            let childOutput = tree.computeChildLayout(
+                nodeId: item.nodeId,
+                inputs: LayoutInput(
+                    runMode: .performLayout,
+                    sizingMode: .inherentSize,
+                    axis: .both,
+                    knownDimensions: knownDimensions,
+                    parentSize: Size.NONE,
+                    availableSpace: availableSpace.mapWidth { w in w.maybeSub(itemXMarginSum) },
+                    verticalMarginsAreCollapsible: Line.TRUE
+                )
             )
             width = childOutput.size.width + itemXMarginSum
         }
@@ -360,172 +665,6 @@ private func determineContentBasedContainerWidth<Tree: LayoutPartialTree>(
     }
 
     return maxChildWidth
-}
-
-private func performFinalLayoutOnInFlowChildren<Tree: LayoutPartialTree>(
-    tree: inout Tree,
-    items: inout [BlockItem],
-    containerOuterWidth: Float,
-    contentBoxInset: Rect<Float>,
-    resolvedContentBoxInset: Rect<Float>,
-    textAlign: TextAlign,
-    ownMarginsCollapseWithChildren: Line<Bool>
-) -> (Size<Float>, Float, CollapsibleMarginSet, CollapsibleMarginSet) {
-    let containerInnerWidth = containerOuterWidth - contentBoxInset.horizontalAxisSum()
-    let parentSize = Size<Float?>(width: containerOuterWidth, height: nil)
-    let availableSpace = Size<AvailableSpace>(width: .definite(containerInnerWidth), height: .minContent)
-
-    var inflowContentSize = Size<Float>.ZERO
-    var committedYOffset = resolvedContentBoxInset.top
-    var yOffsetForAbsolute = resolvedContentBoxInset.top
-    var firstChildTopMarginSet = CollapsibleMarginSet.ZERO
-    var activeCollapsibleMarginSet = CollapsibleMarginSet.ZERO
-    var isCollapsingWithFirstMarginSet = true
-
-    for i in 0..<items.count {
-        if items[i].position == .absolute {
-            items[i].staticPosition = Point(x: resolvedContentBoxInset.left, y: yOffsetForAbsolute)
-        } else {
-            let itemMargin = items[i].margin.map { margin in
-                margin.maybeResolve(containerOuterWidth) { tree.calc($0, $1) }
-            }
-            let itemNonAutoMargin = itemMargin.map { $0 ?? 0.0 }
-            let itemNonAutoXMarginSum = itemNonAutoMargin.horizontalAxisSum()
-
-            let knownDimensions: Size<Float?>
-            if items[i].isTable {
-                knownDimensions = Size.NONE
-            } else {
-                knownDimensions = items[i].size
-                    .mapWidth { width in
-                        let w = width ?? (containerInnerWidth - itemNonAutoXMarginSum)
-                        return w.maybeClamp(items[i].minSize.width, items[i].maxSize.width)
-                    }
-                    .maybeClamp(items[i].minSize, items[i].maxSize)
-            }
-
-            let itemLayout = tree.performChildLayout(
-                items[i].nodeId,
-                knownDimensions,
-                parentSize,
-                availableSpace.mapWidth { w in w.maybeSub(itemNonAutoXMarginSum) },
-                .inherentSize,
-                Line.TRUE
-            )
-            let finalSize = itemLayout.size
-
-            let topMarginSet = itemLayout.topMargin.collapseWithMargin(itemMargin.top ?? 0.0)
-            let bottomMarginSet = itemLayout.bottomMargin.collapseWithMargin(itemMargin.bottom ?? 0.0)
-
-            let freeXSpace = f32_max(0.0, containerInnerWidth - finalSize.width - itemNonAutoXMarginSum)
-            let autoMarginCount = (itemMargin.left == nil ? 1 : 0) + (itemMargin.right == nil ? 1 : 0)
-            let xAxisAutoMarginSize: Float = autoMarginCount > 0 ? (freeXSpace / Float(autoMarginCount)) : 0.0
-
-            let resolvedMargin = Rect<Float>(
-                left: itemMargin.left ?? xAxisAutoMarginSize,
-                right: itemMargin.right ?? xAxisAutoMarginSize,
-                top: topMarginSet.resolve(),
-                bottom: bottomMarginSet.resolve()
-            )
-
-            let inset = items[i].inset.zipSize(size: Size(width: containerInnerWidth, height: 0.0)) { p, s in
-                p.maybeResolve(s) { tree.calc($0, $1) }
-            }
-            let insetOffset = Point<Float>(
-                x: inset.left ?? inset.right.map { -$0 } ?? 0.0,
-                y: inset.top ?? inset.bottom.map { -$0 } ?? 0.0
-            )
-
-            let yMarginOffset: Float
-            if isCollapsingWithFirstMarginSet && ownMarginsCollapseWithChildren.start {
-                yMarginOffset = 0.0
-            } else {
-                yMarginOffset = activeCollapsibleMarginSet.collapseWithMargin(resolvedMargin.top).resolve()
-            }
-
-            items[i].computedSize = itemLayout.size
-            items[i].canBeCollapsedThrough = itemLayout.marginsCanCollapseThrough
-            items[i].staticPosition = Point(
-                x: resolvedContentBoxInset.left,
-                y: committedYOffset + activeCollapsibleMarginSet.resolve()
-            )
-
-            var location = Point<Float>(
-                x: resolvedContentBoxInset.left + insetOffset.x + resolvedMargin.left,
-                y: committedYOffset + insetOffset.y + yMarginOffset
-            )
-
-            // Apply alignment
-            let itemOuterWidth = itemLayout.size.width + resolvedMargin.horizontalAxisSum()
-            if itemOuterWidth < containerInnerWidth {
-                switch textAlign {
-                case .auto, .legacyLeft:
-                    break
-                case .legacyRight:
-                    location.x += containerInnerWidth - itemOuterWidth
-                case .legacyCenter:
-                    location.x += (containerInnerWidth - itemOuterWidth) / 2.0
-                }
-            }
-
-            let scrollbarSize = Size<Float>(
-                width: items[i].overflow.y == .scroll ? items[i].scrollbarWidth : 0.0,
-                height: items[i].overflow.x == .scroll ? items[i].scrollbarWidth : 0.0
-            )
-
-            tree.setUnroundedLayout(
-                nodeId: items[i].nodeId,
-                layout: Layout(
-                    order: items[i].order,
-                    location: location,
-                    size: itemLayout.size,
-                    contentSize: itemLayout.contentSize,
-                    scrollbarSize: scrollbarSize,
-                    border: items[i].border,
-                    padding: items[i].padding,
-                    margin: resolvedMargin
-                )
-            )
-
-            inflowContentSize = inflowContentSize.f32Max(
-                computeContentSizeContribution(
-                    location: location,
-                    size: finalSize,
-                    contentSize: itemLayout.contentSize,
-                    overflow: items[i].overflow
-                )
-            )
-
-            if isCollapsingWithFirstMarginSet {
-                if items[i].canBeCollapsedThrough {
-                    firstChildTopMarginSet = firstChildTopMarginSet
-                        .collapseWithSet(topMarginSet)
-                        .collapseWithSet(bottomMarginSet)
-                } else {
-                    firstChildTopMarginSet = firstChildTopMarginSet.collapseWithSet(topMarginSet)
-                    isCollapsingWithFirstMarginSet = false
-                }
-            }
-
-            if items[i].canBeCollapsedThrough {
-                activeCollapsibleMarginSet = activeCollapsibleMarginSet
-                    .collapseWithSet(topMarginSet)
-                    .collapseWithSet(bottomMarginSet)
-                yOffsetForAbsolute = committedYOffset + itemLayout.size.height + yMarginOffset
-            } else {
-                committedYOffset += itemLayout.size.height + yMarginOffset
-                activeCollapsibleMarginSet = bottomMarginSet
-                yOffsetForAbsolute = committedYOffset + activeCollapsibleMarginSet.resolve()
-            }
-        }
-    }
-
-    let lastChildBottomMarginSet = activeCollapsibleMarginSet
-    let bottomYMarginOffset: Float = ownMarginsCollapseWithChildren.end ? 0.0 : lastChildBottomMarginSet.resolve()
-
-    committedYOffset += resolvedContentBoxInset.bottom + bottomYMarginOffset
-    let contentHeight = f32_max(0.0, committedYOffset)
-    return (inflowContentSize, contentHeight, firstChildTopMarginSet, lastChildBottomMarginSet)
 }
 
 private func performAbsoluteLayoutOnAbsoluteChildren<Tree: LayoutBlockContainer>(

@@ -40,7 +40,7 @@ struct CriticalBugReproductionTests {
 
 // MARK: - Suite 1: Deep Element Nesting Stress
 
-@Suite("Challenger Suite 1: Deep Element Nesting Lifecycle Stress")
+@Suite("Challenger Suite 1: Deep Element Nesting Lifecycle Stress", .serialized)
 struct DeepNestingStressTests {
 
     final class DeepNestingView: Render, @unchecked Sendable {

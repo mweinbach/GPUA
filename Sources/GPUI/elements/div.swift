@@ -31,7 +31,7 @@ public struct GroupStyle: Sendable, Equatable {
 
     /// The specific style refinement that this group would apply to its children.
     // PORT NOTE: GroupStyle.style is heap-boxed matching upstream Box<StyleRefinement>.
-    private var styleBox: StyleRefinementBox
+    var styleBox: StyleRefinementBox
 
     public var style: StyleRefinement {
         get { styleBox.value }
@@ -1211,13 +1211,12 @@ public struct Interactivity: @unchecked Sendable {
     }
 
     @MainActor
-    public mutating func requestLayout(
+    public mutating func prepareRequestLayout(
         _ globalId: GlobalElementId?,
         _ inspectorId: InspectorElementId?,
         _ window: inout Window,
-        _ cx: inout App,
-        _ f: (Style, inout Window, inout App) -> LayoutId
-    ) -> LayoutId {
+        _ cx: inout App
+    ) -> (InteractiveElementState, Style) {
         var state: InteractiveElementState? = nil
         if let id = globalId {
             state = window.elementStates[id] as? InteractiveElementState
@@ -1243,30 +1242,98 @@ public struct Interactivity: @unchecked Sendable {
 
         if let scrollHandle = self.trackedScrollHandle {
             self.scrollOffset = scrollHandle.offset()
-        } else if self.baseStyle.overflow.x == .scroll || self.baseStyle.overflow.y == .scroll {
+        } else if self.storage.baseStyleBox.value.overflow.x == .scroll || self.storage.baseStyleBox.value.overflow.y == .scroll {
             self.scrollOffset = actualState.scrollOffset
         }
 
         let style = self.computeStyleInternal(hitbox: nil, elementState: actualState, window: &window, cx: &cx)
-        let layoutId = f(style, &window, &cx)
-
-        if let id = globalId {
-            window.elementStates[id] = actualState
-        }
-
-        return layoutId
+        return (actualState, style)
     }
 
     @MainActor
-    public mutating func prepaint<R>(
+    public mutating func finishRequestLayout(
+        _ globalId: GlobalElementId?,
+        _ actualState: InteractiveElementState,
+        _ window: inout Window
+    ) {
+        if let id = globalId {
+            window.elementStates[id] = actualState
+        }
+    }
+
+    @MainActor
+    public mutating func requestLayout(
+        _ globalId: GlobalElementId?,
+        _ inspectorId: InspectorElementId?,
+        _ window: inout Window,
+        _ cx: inout App,
+        _ f: (Style, inout Window, inout App) -> LayoutId
+    ) -> LayoutId {
+        let (actualState, style) = prepareRequestLayout(globalId, inspectorId, &window, &cx)
+        let layoutId = f(style, &window, &cx)
+        finishRequestLayout(globalId, actualState, &window)
+        return layoutId
+    }
+
+    // PORT NOTE: Heap-allocated to eliminate large stack frame allocations during deep recursion.
+    public final class PreparedPrepaint: @unchecked Sendable {
+        public let state: InteractiveElementState
+        public let style: Style
+        public let scrollOffset: Point<Pixels>
+        public let hitbox: Hitbox?
+        public let overflowMask: ContentMask<Pixels>?
+
+        public init(
+            state: InteractiveElementState,
+            style: Style,
+            scrollOffset: Point<Pixels>,
+            hitbox: Hitbox?,
+            overflowMask: ContentMask<Pixels>?
+        ) {
+            self.state = state
+            self.style = style
+            self.scrollOffset = scrollOffset
+            self.hitbox = hitbox
+            self.overflowMask = overflowMask
+        }
+    }
+
+    // PORT NOTE: Heap-allocated to eliminate large stack frame allocations during deep recursion.
+    public final class PreparedPaint: @unchecked Sendable {
+        public let state: InteractiveElementState
+        public let style: Style
+        public let cornerRadii: Corners<Pixels>
+        public let prevOpacity: Float
+        public let textStyle: TextStyleRefinement?
+        public let overflowMask: ContentMask<Pixels>?
+
+        public init(
+            state: InteractiveElementState,
+            style: Style,
+            cornerRadii: Corners<Pixels>,
+            prevOpacity: Float,
+            textStyle: TextStyleRefinement?,
+            overflowMask: ContentMask<Pixels>?
+        ) {
+            self.state = state
+            self.style = style
+            self.cornerRadii = cornerRadii
+            self.prevOpacity = prevOpacity
+            self.textStyle = textStyle
+            self.overflowMask = overflowMask
+        }
+    }
+
+    @MainActor
+    @inline(never)
+    public mutating func preparePrepaint(
         _ globalId: GlobalElementId?,
         _ inspectorId: InspectorElementId?,
         _ bounds: Bounds<Pixels>,
         _ contentSize: Size<Pixels>,
         _ window: inout Window,
-        _ cx: inout App,
-        _ f: (Style, Point<Pixels>, Hitbox?, inout Window, inout App) -> R
-    ) -> R {
+        _ cx: inout App
+    ) -> PreparedPrepaint {
         self.contentSize = contentSize
 
         if let focusHandle = self.trackedFocusHandle {
@@ -1296,11 +1363,6 @@ public struct Interactivity: @unchecked Sendable {
         if let mask = overflowMask {
             window.pushContentMask(mask)
         }
-        defer {
-            if overflowMask != nil {
-                window.popContentMask()
-            }
-        }
 
         let hitbox: Hitbox?
         if self.shouldInsertHitbox(style: style, window: window, cx: cx) {
@@ -1310,25 +1372,64 @@ public struct Interactivity: @unchecked Sendable {
         }
 
         let scrollOffset = self.clampScrollPosition(bounds: bounds, style: style, window: &window)
-        let result = f(style, scrollOffset, hitbox, &window, &cx)
-
-        if let id = globalId {
-            window.elementStates[id] = actualState
-        }
-
-        return result
+        return PreparedPrepaint(
+            state: actualState,
+            style: style,
+            scrollOffset: scrollOffset,
+            hitbox: hitbox,
+            overflowMask: overflowMask
+        )
     }
 
     @MainActor
-    public mutating func paint(
+    @inline(never)
+    public mutating func finishPrepaint(
+        _ globalId: GlobalElementId?,
+        _ prepared: PreparedPrepaint,
+        _ window: inout Window
+    ) {
+        if prepared.overflowMask != nil {
+            window.popContentMask()
+        }
+        if let id = globalId {
+            window.elementStates[id] = prepared.state
+        }
+    }
+
+    @MainActor
+    public mutating func prepaint<R>(
+        _ globalId: GlobalElementId?,
+        _ inspectorId: InspectorElementId?,
+        _ bounds: Bounds<Pixels>,
+        _ contentSize: Size<Pixels>,
+        _ window: inout Window,
+        _ cx: inout App,
+        _ f: (Style, Point<Pixels>, Hitbox?, inout Window, inout App) -> R
+    ) -> R {
+        let prepared = preparePrepaint(
+            globalId,
+            inspectorId,
+            bounds,
+            contentSize,
+            &window,
+            &cx
+        )
+        defer {
+            finishPrepaint(globalId, prepared, &window)
+        }
+        return f(prepared.style, prepared.scrollOffset, prepared.hitbox, &window, &cx)
+    }
+
+    @MainActor
+    @inline(never)
+    public mutating func preparePaint(
         _ globalId: GlobalElementId?,
         _ inspectorId: InspectorElementId?,
         _ bounds: Bounds<Pixels>,
         _ hitbox: Hitbox?,
         _ window: inout Window,
-        _ cx: inout App,
-        _ f: (Style, inout Window, inout App) -> Void
-    ) {
+        _ cx: inout App
+    ) -> PreparedPaint? {
         self.hovered = hitbox?.isHovered(window)
 
         var state: InteractiveElementState? = nil
@@ -1346,7 +1447,7 @@ public struct Interactivity: @unchecked Sendable {
             if let id = globalId {
                 window.elementStates[id] = actualState
             }
-            return
+            return nil
         }
 
         if let focusHandle = self.trackedFocusHandle {
@@ -1356,11 +1457,6 @@ public struct Interactivity: @unchecked Sendable {
         let prevOpacity = window.elementOpacity
         if let opacity = style.opacity {
             window.elementOpacity *= opacity
-        }
-        defer {
-            if style.opacity != nil {
-                window.elementOpacity = prevOpacity
-            }
         }
 
         let remSize = window.remSize
@@ -1374,20 +1470,10 @@ public struct Interactivity: @unchecked Sendable {
         if let textStyle {
             window.textStyleStack.append(textStyle)
         }
-        defer {
-            if textStyle != nil {
-                _ = window.textStyleStack.removeLast()
-            }
-        }
 
         let overflowMask = style.overflowMask(bounds: bounds, remSize: remSize)
         if let mask = overflowMask {
             window.pushContentMask(mask)
-        }
-        defer {
-            if overflowMask != nil {
-                window.popContentMask()
-            }
         }
 
         if let hb = hitbox {
@@ -1413,19 +1499,82 @@ public struct Interactivity: @unchecked Sendable {
 
         self.paintKeyboardListeners(&window, &cx)
 
-        f(style, &window, &cx)
+        return PreparedPaint(
+            state: actualState,
+            style: style,
+            cornerRadii: cornerRadii,
+            prevOpacity: prevOpacity,
+            textStyle: textStyle,
+            overflowMask: overflowMask
+        )
+    }
 
+    @MainActor
+    @inline(never)
+    public mutating func finishPaint(
+        _ globalId: GlobalElementId?,
+        _ bounds: Bounds<Pixels>,
+        _ hitbox: Hitbox?,
+        _ prepared: PreparedPaint,
+        _ window: inout Window,
+        _ cx: inout App
+    ) {
         if hitbox != nil {
             if let groupName = self.group {
                 GroupHitboxes.pop(groupName, &cx)
             }
         }
 
-        style.paintBorder(bounds, cornerRadii: cornerRadii, &window)
+        if prepared.overflowMask != nil {
+            window.popContentMask()
+        }
+
+        if prepared.textStyle != nil {
+            _ = window.textStyleStack.removeLast()
+        }
+
+        if prepared.style.opacity != nil {
+            window.elementOpacity = prepared.prevOpacity
+        }
+
+        prepared.style.paintBorder(bounds, cornerRadii: prepared.cornerRadii, &window)
 
         if let id = globalId {
-            window.elementStates[id] = actualState
+            window.elementStates[id] = prepared.state
         }
+    }
+
+    @MainActor
+    public mutating func paint(
+        _ globalId: GlobalElementId?,
+        _ inspectorId: InspectorElementId?,
+        _ bounds: Bounds<Pixels>,
+        _ hitbox: Hitbox?,
+        _ window: inout Window,
+        _ cx: inout App,
+        _ f: (Style, inout Window, inout App) -> Void
+    ) {
+        guard let prepared = preparePaint(
+            globalId,
+            inspectorId,
+            bounds,
+            hitbox,
+            &window,
+            &cx
+        ) else {
+            return
+        }
+        defer {
+            finishPaint(
+                globalId,
+                bounds,
+                hitbox,
+                prepared,
+                &window,
+                &cx
+            )
+        }
+        f(prepared.style, &window, &cx)
     }
 
     @MainActor
@@ -1444,6 +1593,7 @@ public struct Interactivity: @unchecked Sendable {
     }
 
     @MainActor
+    @inline(never)
     func computeStyleInternal(
         hitbox: Hitbox?,
         elementState: InteractiveElementState?,
@@ -1451,22 +1601,22 @@ public struct Interactivity: @unchecked Sendable {
         cx: inout App
     ) -> Style {
         var style = Style()
-        style.refine(with: self.baseStyle)
+        style.refine(with: self.storage.baseStyleBox)
 
         if let focusHandle = self.trackedFocusHandle {
-            if let inFocus = self.inFocusStyle, focusHandle.withinFocused(window, cx) {
-                style.refine(with: inFocus)
+            if let inFocusBox = self.storage.inFocusStyleBox, focusHandle.withinFocused(window, cx) {
+                style.refine(with: inFocusBox)
             }
-            if let focus = self.focusStyle, focusHandle.isFocused(window) {
-                style.refine(with: focus)
+            if let focusBox = self.storage.focusStyleBox, focusHandle.isFocused(window) {
+                style.refine(with: focusBox)
             }
-            if let focusVisible = self.focusVisibleStyle, focusHandle.isFocused(window), window.lastInputWasKeyboard() {
-                style.refine(with: focusVisible)
+            if let focusVisibleBox = self.storage.focusVisibleStyleBox, focusHandle.isFocused(window), window.lastInputWasKeyboard() {
+                style.refine(with: focusVisibleBox)
             }
         }
 
         if !cx.hasActiveDrag() {
-            if let groupHover = self.groupHoverStyle {
+            if let groupHover = self.storage.groupHoverStyle {
                 var isGroupHovered = false
                 if let groupHitboxId = GroupHitboxes.get(groupHover.group, &cx) {
                     isGroupHovered = groupHitboxId.isHovered(window)
@@ -1474,11 +1624,11 @@ public struct Interactivity: @unchecked Sendable {
                     isGroupHovered = es.hoverState.group
                 }
                 if isGroupHovered {
-                    style.refine(with: groupHover.style)
+                    style.refine(with: groupHover.styleBox)
                 }
             }
 
-            if let hoverStyle = self.hoverStyle {
+            if let hoverStyleBox = self.storage.hoverStyleBox {
                 var isHovered = false
                 if let hb = hitbox {
                     isHovered = hb.isHovered(window)
@@ -1486,7 +1636,7 @@ public struct Interactivity: @unchecked Sendable {
                     isHovered = es.hoverState.element
                 }
                 if isHovered {
-                    style.refine(with: hoverStyle)
+                    style.refine(with: hoverStyleBox)
                 }
             }
         }
@@ -1503,7 +1653,7 @@ public struct Interactivity: @unchecked Sendable {
                         if typeId == dragTypeId,
                            let ghId = GroupHitboxes.get(groupDragStyle.group, &cx),
                            ghId.isHovered(window) {
-                            style.refine(with: groupDragStyle.style)
+                            style.refine(with: groupDragStyle.styleBox)
                         }
                     }
                     for (typeId, buildDragOverStyle) in self.dragOverStyles {
@@ -1517,11 +1667,11 @@ public struct Interactivity: @unchecked Sendable {
         }
 
         if let es = elementState {
-            if es.clickedState.group, let group = self.groupActiveStyle {
-                style.refine(with: group.style)
+            if es.clickedState.group, let group = self.storage.groupActiveStyle {
+                style.refine(with: group.styleBox)
             }
-            if es.clickedState.element, let activeStyle = self.activeStyle {
-                style.refine(with: activeStyle)
+            if es.clickedState.element, let activeStyleBox = self.storage.activeStyleBox {
+                style.refine(with: activeStyleBox)
             }
         }
 
@@ -2491,36 +2641,161 @@ public struct Div: Styled, InteractiveElement, ParentElement, Element, IntoEleme
     }
 
     @MainActor
+    @inline(never)
+    private mutating func layoutChildren(
+        _ window: inout Window,
+        _ cx: inout App
+    ) -> [LayoutId] {
+        let count = self.children.count
+        if count == 0 { return [] }
+        var childLayoutIds: [LayoutId] = []
+        childLayoutIds.reserveCapacity(count)
+        var i = 0
+        while i < count {
+            childLayoutIds.append(self.children[i].requestLayout(&window, &cx))
+            i &+= 1
+        }
+        return childLayoutIds
+    }
+
+    @MainActor
     public mutating func requestLayout(
         _ id: GlobalElementId?,
         _ inspectorId: InspectorElementId?,
         _ window: inout Window,
         _ cx: inout App
     ) -> (LayoutId, DivFrameState) {
-        var childLayoutIds: [LayoutId] = []
-
-        let layoutId = self.interactivity.requestLayout(
+        let (actualState, style) = self.interactivity.prepareRequestLayout(
             id,
             inspectorId,
             &window,
             &cx
-        ) { style, window, cx in
-            let textStyle = style.textStyle()
-            if let textStyle {
-                window.textStyleStack.append(textStyle)
-            }
-            defer {
-                if textStyle != nil {
-                    _ = window.textStyleStack.removeLast()
-                }
-            }
-            childLayoutIds = self.children.indices.map { i in
-                self.children[i].requestLayout(&window, &cx)
-            }
-            return window.requestLayout(style: style, children: childLayoutIds)
+        )
+
+        let pushedTextStyle: Bool
+        if let textStyle = style.textStyle() {
+            window.textStyleStack.append(textStyle)
+            pushedTextStyle = true
+        } else {
+            pushedTextStyle = false
         }
 
+        let childLayoutIds = self.layoutChildren(&window, &cx)
+
+        if pushedTextStyle {
+            _ = window.textStyleStack.removeLast()
+        }
+
+        let layoutId = window.requestLayout(style: style, children: childLayoutIds)
+        self.interactivity.finishRequestLayout(id, actualState, &window)
+
         return (layoutId, DivFrameState(childLayoutIds: childLayoutIds))
+    }
+
+    @MainActor
+    @inline(never)
+    private func computePrepaintContentSize(
+        bounds: Bounds<Pixels>,
+        childLayoutIds: [LayoutId],
+        hasPrepaintListener: Bool,
+        window: inout Window
+    ) -> (Size<Pixels>, [Bounds<Pixels>]?) {
+        let count = childLayoutIds.count
+        if count == 0 {
+            return (bounds.size, hasPrepaintListener ? [] : nil)
+        }
+        var childrenBounds: [Bounds<Pixels>]? = hasPrepaintListener ? [] : nil
+        if hasPrepaintListener {
+            childrenBounds?.reserveCapacity(count)
+        }
+        var childMin = Point(x: Pixels.max, y: Pixels.max)
+        var childMax = Point<Pixels>.zero
+        var i = 0
+        if let scrollHandle = self.interactivity.trackedScrollHandle {
+            scrollHandle.state.childBounds.removeAll(keepingCapacity: true)
+            while i < count {
+                let childBounds = window.layoutBounds(childLayoutIds[i])
+                childMin = childMin.min(childBounds.origin)
+                childMax = childMax.max(childBounds.bottomRight)
+                scrollHandle.state.childBounds.append(childBounds)
+                i &+= 1
+            }
+        } else {
+            while i < count {
+                let childBounds = window.layoutBounds(childLayoutIds[i])
+                childMin = childMin.min(childBounds.origin)
+                childMax = childMax.max(childBounds.bottomRight)
+                if hasPrepaintListener {
+                    childrenBounds?.append(childBounds)
+                }
+                i &+= 1
+            }
+        }
+        let contentSize = Size(width: childMax.x - childMin.x, height: childMax.y - childMin.y)
+        return (contentSize, childrenBounds)
+    }
+
+    @MainActor
+    @inline(never)
+    private mutating func prepaintChildren(
+        _ order: [Int]?,
+        _ window: inout Window,
+        _ cx: inout App
+    ) {
+        let childCount = self.children.count
+        if let order {
+            var i = 0
+            let orderCount = order.count
+            while i < orderCount {
+                let idx = order[i]
+                if idx >= 0 && idx < childCount {
+                    _ = self.children[idx].prepaint(&window, &cx)
+                }
+                i &+= 1
+            }
+        } else {
+            var i = 0
+            while i < childCount {
+                _ = self.children[i].prepaint(&window, &cx)
+                i &+= 1
+            }
+        }
+    }
+
+    @MainActor
+    @inline(never)
+    private mutating func runPrepaintPreparation(
+        _ id: GlobalElementId?,
+        _ inspectorId: InspectorElementId?,
+        _ bounds: Bounds<Pixels>,
+        _ childLayoutIds: [LayoutId],
+        _ window: inout Window,
+        _ cx: inout App
+    ) -> (Interactivity.PreparedPrepaint, [Bounds<Pixels>]?) {
+        if let anchor = self.interactivity.scrollAnchor {
+            anchor.setLastOrigin(bounds.origin - window.elementOffset())
+        }
+
+        let (contentSize, childrenBounds) = computePrepaintContentSize(
+            bounds: bounds,
+            childLayoutIds: childLayoutIds,
+            hasPrepaintListener: self.prepaintListener != nil,
+            window: &window
+        )
+
+        if let scrollHandle = self.interactivity.trackedScrollHandle {
+            scrollHandle.scrollToActiveItem()
+        }
+
+        let prepared = self.interactivity.preparePrepaint(
+            id,
+            inspectorId,
+            bounds,
+            contentSize,
+            &window,
+            &cx
+        )
+        return (prepared, childrenBounds)
     }
 
     @MainActor
@@ -2532,86 +2807,55 @@ public struct Div: Styled, InteractiveElement, ParentElement, Element, IntoEleme
         _ window: inout Window,
         _ cx: inout App
     ) -> Hitbox? {
-        let hasPrepaintListener = self.prepaintListener != nil
-        var childrenBounds: [Bounds<Pixels>] = []
-        if hasPrepaintListener {
-            childrenBounds.reserveCapacity(state.childLayoutIds.count)
-        }
-
-        var childMin = Point(x: Pixels.max, y: Pixels.max)
-        var childMax = Point<Pixels>.zero
-
-        if let anchor = self.interactivity.scrollAnchor {
-            anchor.setLastOrigin(bounds.origin - window.elementOffset())
-        }
-
-        let contentSize: Size<Pixels>
-        if state.childLayoutIds.isEmpty {
-            contentSize = bounds.size
-        } else if let scrollHandle = self.interactivity.trackedScrollHandle {
-            scrollHandle.state.childBounds.removeAll(keepingCapacity: true)
-            for childLayoutId in state.childLayoutIds {
-                let childBounds = window.layoutBounds(childLayoutId)
-                childMin = childMin.min(childBounds.origin)
-                childMax = childMax.max(childBounds.bottomRight)
-                scrollHandle.state.childBounds.append(childBounds)
-            }
-            contentSize = Size(width: childMax.x - childMin.x, height: childMax.y - childMin.y)
-        } else {
-            for childLayoutId in state.childLayoutIds {
-                let childBounds = window.layoutBounds(childLayoutId)
-                childMin = childMin.min(childBounds.origin)
-                childMax = childMax.max(childBounds.bottomRight)
-                if hasPrepaintListener {
-                    childrenBounds.append(childBounds)
-                }
-            }
-            contentSize = Size(width: childMax.x - childMin.x, height: childMax.y - childMin.y)
-        }
-
-        if let scrollHandle = self.interactivity.trackedScrollHandle {
-            scrollHandle.scrollToActiveItem()
-        }
-
-        return self.interactivity.prepaint(
+        let (prepared, childrenBounds) = runPrepaintPreparation(
             id,
             inspectorId,
             bounds,
-            contentSize,
+            state.childLayoutIds,
             &window,
             &cx
-        ) { style, scrollOffset, hitbox, window, cx in
-            if style.display == .none {
-                return hitbox
-            }
+        )
 
-            if scrollOffset != .zero {
-                window.pushElementOffset(scrollOffset)
-            }
-            defer {
-                if scrollOffset != .zero {
-                    window.popElementOffset()
-                }
-            }
+        if prepared.style.display == .none {
+            self.interactivity.finishPrepaint(id, prepared, &window)
+            return prepared.hitbox
+        }
 
-            if let orderFn = self.prepaintOrderFn {
-                let order = orderFn(&window, &cx)
-                for idx in order {
-                    if idx >= 0 && idx < self.children.count {
-                        _ = self.children[idx].prepaint(&window, &cx)
-                    }
-                }
-            } else {
-                for idx in self.children.indices {
-                    _ = self.children[idx].prepaint(&window, &cx)
-                }
-            }
+        let hasScrollOffset = prepared.scrollOffset != .zero
+        if hasScrollOffset {
+            window.pushElementOffset(prepared.scrollOffset)
+        }
 
-            if let listener = self.prepaintListener {
-                listener(childrenBounds, &window, &cx)
-            }
+        if let orderFn = self.prepaintOrderFn {
+            let order = orderFn(&window, &cx)
+            self.prepaintChildren(order, &window, &cx)
+        } else {
+            self.prepaintChildren(nil, &window, &cx)
+        }
 
-            return hitbox
+        if hasScrollOffset {
+            window.popElementOffset()
+        }
+
+        if let listener = self.prepaintListener, let childrenBounds {
+            listener(childrenBounds, &window, &cx)
+        }
+
+        self.interactivity.finishPrepaint(id, prepared, &window)
+        return prepared.hitbox
+    }
+
+    @MainActor
+    @inline(never)
+    private mutating func paintChildren(
+        _ window: inout Window,
+        _ cx: inout App
+    ) {
+        let count = self.children.count
+        var i = 0
+        while i < count {
+            self.children[i].paint(&window, &cx)
+            i &+= 1
         }
     }
 
@@ -2625,22 +2869,29 @@ public struct Div: Styled, InteractiveElement, ParentElement, Element, IntoEleme
         _ window: inout Window,
         _ cx: inout App
     ) {
-        self.interactivity.paint(
+        guard let prepared = self.interactivity.preparePaint(
             id,
             inspectorId,
             bounds,
             prepaint,
             &window,
             &cx
-        ) { style, window, cx in
-            if style.display == .none {
-                return
-            }
-
-            for idx in self.children.indices {
-                self.children[idx].paint(&window, &cx)
-            }
+        ) else {
+            return
         }
+
+        if prepared.style.display != .none {
+            self.paintChildren(&window, &cx)
+        }
+
+        self.interactivity.finishPaint(
+            id,
+            bounds,
+            prepaint,
+            prepared,
+            &window,
+            &cx
+        )
     }
 
     public func intoAnyElement() -> AnyElement {

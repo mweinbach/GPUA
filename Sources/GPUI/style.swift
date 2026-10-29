@@ -978,6 +978,24 @@ final class TextStyleStorage: @unchecked Sendable, Equatable {
     var textAlign: TextAlign
     var lineClamp: Int?
 
+    init() {
+        self.color = black()
+        self.fontFamily = ".SystemUIFont"
+        self.fontFeatures = FontFeatures()
+        self.fontFallbacks = nil
+        self.fontSize = .rems(Rems(1.0))
+        self.lineHeight = phi()
+        self.fontWeight = .normal
+        self.fontStyle = .normal
+        self.backgroundColor = nil
+        self.underline = nil
+        self.strikethrough = nil
+        self.whiteSpace = .normal
+        self.textOverflow = nil
+        self.textAlign = .left
+        self.lineClamp = nil
+    }
+
     init(
         color: Hsla = black(),
         fontFamily: SharedString = ".SystemUIFont",
@@ -1194,7 +1212,7 @@ public struct TextStyle: Sendable, Equatable, Refineable, DefaultInitializable {
     }
 
     public init() {
-        self.init(color: black())
+        self.storage = TextStyleStorage()
     }
 
     public static func == (lhs: TextStyle, rhs: TextStyle) -> Bool {
@@ -1712,6 +1730,47 @@ final class StyleStorage: @unchecked Sendable, Equatable {
     var debug: Bool
     var debugBelow: Bool
 
+    init() {
+        self.display = .block
+        self.visibility = .visible
+        self.overflow = Point(x: .visible, y: .visible)
+        self.scrollbarWidth = .pixels(Pixels(0.0))
+        self.allowConcurrentScroll = false
+        self.restrictScrollToAxis = false
+        self.position = .relative
+        self.inset = Edges.auto()
+        self.size = Size.auto()
+        self.minSize = Size.auto()
+        self.maxSize = Size.auto()
+        self.aspectRatio = nil
+        self.margin = Edges.zero
+        self.padding = Edges.zero
+        self.borderWidths = Edges.zero
+        self.alignItems = nil
+        self.alignSelf = nil
+        self.alignContent = nil
+        self.justifyContent = nil
+        self.gap = Size(width: .zero, height: .zero)
+        self.flexDirection = .row
+        self.flexWrap = .noWrap
+        self.flexBasis = .auto
+        self.flexGrow = 0.0
+        self.flexShrink = 1.0
+        self.background = nil
+        self.borderColor = nil
+        self.borderStyle = .solid
+        self.cornerRadii = Corners.zero
+        self.boxShadow = []
+        self.text = TextStyleRefinement()
+        self.mouseCursor = nil
+        self.opacity = nil
+        self.gridCols = nil
+        self.gridRows = nil
+        self.gridLocation = nil
+        self.debug = false
+        self.debugBelow = false
+    }
+
     init(
         display: Display = .block,
         visibility: Visibility = .visible,
@@ -1876,7 +1935,48 @@ final class StyleStorage: @unchecked Sendable, Equatable {
         lhs.debugBelow == rhs.debugBelow
     }
 
-    func refine(with refinement: StyleRefinement) {
+    func refine(with box: StyleRefinementBox) {
+        if let d = box.value.display { self.display = d }
+        if let v = box.value.visibility { self.visibility = v }
+        self.overflow.refine(with: box.value.overflow)
+        if let sw = box.value.scrollbarWidth { self.scrollbarWidth = sw }
+        if let ac = box.value.allowConcurrentScroll { self.allowConcurrentScroll = ac }
+        if let rs = box.value.restrictScrollToAxis { self.restrictScrollToAxis = rs }
+        if let p = box.value.position { self.position = p }
+        self.inset.refine(with: box.value.inset)
+        self.size.refine(with: box.value.size)
+        self.minSize.refine(with: box.value.minSize)
+        self.maxSize.refine(with: box.value.maxSize)
+        if let ar = box.value.aspectRatio { self.aspectRatio = ar }
+        self.margin.refine(with: box.value.margin)
+        self.padding.refine(with: box.value.padding)
+        self.borderWidths.refine(with: box.value.borderWidths)
+        if let ai = box.value.alignItems { self.alignItems = ai }
+        if let aself = box.value.alignSelf { self.alignSelf = aself }
+        if let ac = box.value.alignContent { self.alignContent = ac }
+        if let jc = box.value.justifyContent { self.justifyContent = jc }
+        self.gap.refine(with: box.value.gap)
+        if let fd = box.value.flexDirection { self.flexDirection = fd }
+        if let fw = box.value.flexWrap { self.flexWrap = fw }
+        if let fb = box.value.flexBasis { self.flexBasis = fb }
+        if let fg = box.value.flexGrow { self.flexGrow = fg }
+        if let fs = box.value.flexShrink { self.flexShrink = fs }
+        if let b = box.value.background { self.background = b }
+        if let bc = box.value.borderColor { self.borderColor = bc }
+        if let bs = box.value.borderStyle { self.borderStyle = bs }
+        self.cornerRadii.refine(with: box.value.cornerRadii)
+        if let shadows = box.value.boxShadow { self.boxShadow = shadows }
+        self.text.refine(with: box.value.text)
+        if let mc = box.value.mouseCursor { self.mouseCursor = mc }
+        if let o = box.value.opacity { self.opacity = o }
+        if let gc = box.value.gridCols { self.gridCols = gc }
+        if let gr = box.value.gridRows { self.gridRows = gr }
+        if let gl = box.value.gridLocation { self.gridLocation = gl }
+        if let dbg = box.value.debug { self.debug = dbg }
+        if let dbgB = box.value.debugBelow { self.debugBelow = dbgB }
+    }
+
+    func refine(with refinement: borrowing StyleRefinement) {
         if let d = refinement.display { self.display = d }
         if let v = refinement.visibility { self.visibility = v }
         self.overflow.refine(with: refinement.overflow)
@@ -2242,7 +2342,7 @@ public struct Style: Sendable, Equatable, Refineable, DefaultInitializable {
     }
 
     public init() {
-        self.init(display: .block)
+        self.storage = StyleStorage()
     }
 
     public static func == (lhs: Style, rhs: Style) -> Bool {
@@ -2416,6 +2516,11 @@ public struct Style: Sendable, Equatable, Refineable, DefaultInitializable {
         paintBackground(bounds, cornerRadii: cornerRadii, &window)
         continuation(&window, &cx)
         paintBorder(bounds, cornerRadii: cornerRadii, &window)
+    }
+
+    public mutating func refine(with box: StyleRefinementBox) {
+        ensureUnique()
+        storage.refine(with: box)
     }
 
     public mutating func refine(with refinement: StyleRefinement) {

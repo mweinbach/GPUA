@@ -644,32 +644,49 @@ public struct TaffyLayoutEngine: Sendable {
             return bounds
         }
 
-        let layout: Taffy.Layout
-        switch taffy.layout(id.rawValue) {
-        case .success(let l):
-            layout = l
-        case .failure(let err):
-            fatalError("\(EXPECT_MESSAGE): \(err)")
+        // PORT NOTE: Iterative ancestor traversal to prevent stack overflow on deep element trees.
+        var chain: [LayoutId] = []
+        var current: LayoutId? = id
+        while let curr = current {
+            if absoluteLayoutBounds[curr] != nil {
+                break
+            }
+            chain.append(curr)
+            if let parent = taffy.parent(curr.rawValue) {
+                current = LayoutId(parent)
+            } else {
+                current = nil
+            }
         }
 
-        var bounds = Bounds(
-            origin: point(
+        for nodeId in chain.reversed() {
+            let layout: Taffy.Layout
+            switch taffy.layout(nodeId.rawValue) {
+            case .success(let l):
+                layout = l
+            case .failure(let err):
+                fatalError("\(EXPECT_MESSAGE): \(err)")
+            }
+
+            var origin = point(
                 Pixels(layout.location.x / scaleFactor),
                 Pixels(layout.location.y / scaleFactor)
-            ),
-            size: size(
+            )
+            let size = size(
                 Pixels(layout.size.width / scaleFactor),
                 Pixels(layout.size.height / scaleFactor)
             )
-        )
 
-        if let parentId = taffy.parent(id.rawValue) {
-            let parentBounds = layoutBounds(id: LayoutId(parentId), scaleFactor: scaleFactor)
-            bounds.origin += parentBounds.origin
+            if let parent = taffy.parent(nodeId.rawValue) {
+                if let parentBounds = absoluteLayoutBounds[LayoutId(parent)] {
+                    origin += parentBounds.origin
+                }
+            }
+
+            absoluteLayoutBounds[nodeId] = Bounds(origin: origin, size: size)
         }
-        absoluteLayoutBounds[id] = bounds
 
-        return bounds
+        return absoluteLayoutBounds[id]!
     }
 
     public mutating func computeLayoutBounds(id: LayoutId, scaleFactor: Float) -> Bounds<Pixels> {

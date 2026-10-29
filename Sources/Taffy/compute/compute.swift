@@ -126,12 +126,14 @@ public func computeCachedLayout<Tree: CacheTree>(
 
 /// Rounds the calculated layout to exact pixel values
 public func roundLayout<Tree: RoundTree>(tree: inout Tree, nodeId: NodeId) {
-    func roundLayoutInner(tree: inout Tree, nodeId: NodeId, cumulativeX: Float, cumulativeY: Float) {
-        let unroundedLayout = tree.getUnroundedLayout(nodeId: nodeId)
+    // PORT NOTE: Iterative implementation using stack to prevent recursion overflow on deep trees.
+    var stack: [(nodeId: NodeId, cumulativeX: Float, cumulativeY: Float)] = [(nodeId: nodeId, cumulativeX: 0.0, cumulativeY: 0.0)]
+    while let item = stack.popLast() {
+        let unroundedLayout = tree.getUnroundedLayout(nodeId: item.nodeId)
         var layout = unroundedLayout
 
-        let nextCumulativeX = cumulativeX + unroundedLayout.location.x
-        let nextCumulativeY = cumulativeY + unroundedLayout.location.y
+        let nextCumulativeX = item.cumulativeX + unroundedLayout.location.x
+        let nextCumulativeY = item.cumulativeY + unroundedLayout.location.y
 
         layout.location.x = round(unroundedLayout.location.x)
         layout.location.y = round(unroundedLayout.location.y)
@@ -157,16 +159,14 @@ public func roundLayout<Tree: RoundTree>(tree: inout Tree, nodeId: NodeId) {
         layout.contentSize.width = round(nextCumulativeX + unroundedLayout.contentSize.width) - round(nextCumulativeX)
         layout.contentSize.height = round(nextCumulativeY + unroundedLayout.contentSize.height) - round(nextCumulativeY)
 
-        tree.setFinalLayout(nodeId: nodeId, layout: layout)
+        tree.setFinalLayout(nodeId: item.nodeId, layout: layout)
 
-        let childCount = tree.childCount(parentNodeId: nodeId)
-        for index in 0..<childCount {
-            let child = tree.getChildId(parentNodeId: nodeId, childIndex: index)
-            roundLayoutInner(tree: &tree, nodeId: child, cumulativeX: nextCumulativeX, cumulativeY: nextCumulativeY)
+        let childCount = tree.childCount(parentNodeId: item.nodeId)
+        for index in (0..<childCount).reversed() {
+            let child = tree.getChildId(parentNodeId: item.nodeId, childIndex: index)
+            stack.append((nodeId: child, cumulativeX: nextCumulativeX, cumulativeY: nextCumulativeY))
         }
     }
-
-    roundLayoutInner(tree: &tree, nodeId: nodeId, cumulativeX: 0.0, cumulativeY: 0.0)
 }
 
 /// Creates a layout for this node and its children, recursively.

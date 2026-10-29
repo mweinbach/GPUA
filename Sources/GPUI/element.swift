@@ -236,41 +236,24 @@ private protocol AnyElementObject: AnyObject, Sendable {
     @MainActor func layoutAsRoot(_ availableSpace: Size<AvailableSpace>, _ window: inout Window, _ cx: inout App) -> Size<Pixels>
 }
 
-private enum ElementDrawPhase<RequestLayoutState, PrepaintState> {
-    case start
-    case requestLayout(
-        layoutId: LayoutId,
-        globalId: GlobalElementId?,
-        inspectorId: InspectorElementId?,
-        requestLayout: RequestLayoutState
-    )
-    case layoutComputed(
-        layoutId: LayoutId,
-        globalId: GlobalElementId?,
-        inspectorId: InspectorElementId?,
-        availableSpace: Size<AvailableSpace>,
-        requestLayout: RequestLayoutState
-    )
-    case prepaint(
-        nodeId: DispatchNodeId,
-        globalId: GlobalElementId?,
-        inspectorId: InspectorElementId?,
-        bounds: Bounds<Pixels>,
-        requestLayout: RequestLayoutState,
-        prepaint: PrepaintState
-    )
-    case painted
-}
-
+// PORT NOTE: Flattened phase fields directly onto Drawable class to eliminate large generic enum stack frame during deep recursion.
 /// A wrapper around an implementer of `Element` that tracks layout and drawing lifecycle phases.
 // PORT NOTE: Drawable is thread-confined to window draw pipeline on the main thread.
 public final class Drawable<E: Element>: AnyElementObject, @unchecked Sendable {
     public var element: E
-    private var phase: ElementDrawPhase<E.RequestLayoutState, E.PrepaintState>
+    private var phaseTag: UInt8 = 0 // 0: start, 1: requestLayout, 2: layoutComputed, 3: prepaint, 4: painted
+    private var layoutId: LayoutId = LayoutId(0)
+    private var globalId: GlobalElementId? = nil
+    private var inspectorId: InspectorElementId? = nil
+    private var availableSpace: Size<AvailableSpace> = Size(width: .minContent, height: .minContent)
+    private var bounds: Bounds<Pixels> = Bounds(origin: .zero, size: .zero)
+    private var nodeId: DispatchNodeId = DispatchNodeId(0)
+    private var requestLayoutState: E.RequestLayoutState? = nil
+    private var prepaintState: E.PrepaintState? = nil
 
     public init(_ element: E) {
         self.element = element
-        self.phase = .start
+        self.phaseTag = 0
     }
 
     public static func new(_ element: E) -> Drawable<E> {
@@ -283,83 +266,93 @@ public final class Drawable<E: Element>: AnyElementObject, @unchecked Sendable {
 
     @MainActor
     public func requestLayout(_ window: inout Window, _ cx: inout App) -> LayoutId {
-        switch phase {
-        case .start:
-            let globalId: GlobalElementId?
-            if let elementId = element.id() {
-                window.elementIdStack.append(elementId)
-                globalId = GlobalElementId(window.elementIdStack)
-            } else {
-                globalId = nil
-            }
-
-            let inspectorId: InspectorElementId? = nil
-            let (layoutId, requestLayoutState) = element.requestLayout(
-                globalId,
-                inspectorId,
-                &window,
-                &cx
-            )
-
-            if globalId != nil {
-                _ = window.elementIdStack.removeLast()
-            }
-
-            phase = .requestLayout(
-                layoutId: layoutId,
-                globalId: globalId,
-                inspectorId: inspectorId,
-                requestLayout: requestLayoutState
-            )
-            return layoutId
-
-        default:
+        guard phaseTag == 0 else {
             fatalError("must call request_layout only once")
         }
+
+        let hasElementId = element.id() != nil
+        if let elementId = element.id() {
+            window.elementIdStack.append(elementId)
+            self.globalId = GlobalElementId(window.elementIdStack)
+        } else {
+            self.globalId = nil
+        }
+
+        self.inspectorId = nil
+        let (layoutId, requestLayoutState) = element.requestLayout(
+            self.globalId,
+            self.inspectorId,
+            &window,
+            &cx
+        )
+
+        if hasElementId {
+            _ = window.elementIdStack.removeLast()
+        }
+
+        self.layoutId = layoutId
+        self.requestLayoutState = requestLayoutState
+        self.phaseTag = 1
+        return layoutId
     }
 
     @MainActor
     public func prepaint(_ window: inout Window, _ cx: inout App) {
-        switch phase {
-        case .requestLayout(let layoutId, let globalId, let inspectorId, var requestLayoutState),
-             .layoutComputed(let layoutId, let globalId, let inspectorId, _, var requestLayoutState):
-            if let elementId = element.id() {
-                window.elementIdStack.append(elementId)
-            }
-
-            let bounds = window.layoutBounds(id: layoutId)
-            let nodeId = window.nextFrame.dispatchTree.pushNode()
-            let prepaintState = element.prepaint(
-                globalId,
-                inspectorId,
-                bounds,
-                &requestLayoutState,
-                &window,
-                &cx
-            )
-            window.nextFrame.dispatchTree.popNode()
-
-            if element.id() != nil {
-                _ = window.elementIdStack.removeLast()
-            }
-
-            phase = .prepaint(
-                nodeId: nodeId,
-                globalId: globalId,
-                inspectorId: inspectorId,
-                bounds: bounds,
-                requestLayout: requestLayoutState,
-                prepaint: prepaintState
-            )
-
-        default:
+        guard phaseTag == 1 || phaseTag == 2 else {
             fatalError("must call request_layout before prepaint")
         }
+
+        let hasElementId = element.id() != nil
+        if let elementId = element.id() {
+            window.elementIdStack.append(elementId)
+        }
+
+        self.bounds = window.layoutBounds(id: self.layoutId)
+        self.nodeId = window.nextFrame.dispatchTree.pushNode()
+        self.prepaintState = element.prepaint(
+            self.globalId,
+            self.inspectorId,
+            self.bounds,
+            &self.requestLayoutState!,
+            &window,
+            &cx
+        )
+        window.nextFrame.dispatchTree.popNode()
+
+        if hasElementId {
+            _ = window.elementIdStack.removeLast()
+        }
+
+        self.phaseTag = 3
     }
 
     @MainActor
     public func paint(_ window: inout Window, _ cx: inout App) {
-        _ = paintAndReturnState(&window, &cx)
+        guard phaseTag == 3 else {
+            fatalError("must call prepaint before paint")
+        }
+
+        let hasElementId = element.id() != nil
+        if let elementId = element.id() {
+            window.elementIdStack.append(elementId)
+        }
+
+        window.nextFrame.dispatchTree.setActiveNode(self.nodeId)
+        element.paint(
+            self.globalId,
+            self.inspectorId,
+            self.bounds,
+            &self.requestLayoutState!,
+            &self.prepaintState!,
+            &window,
+            &cx
+        )
+
+        if hasElementId {
+            _ = window.elementIdStack.removeLast()
+        }
+
+        self.phaseTag = 4
     }
 
     @discardableResult
@@ -368,33 +361,8 @@ public final class Drawable<E: Element>: AnyElementObject, @unchecked Sendable {
         _ window: inout Window,
         _ cx: inout App
     ) -> (E.RequestLayoutState, E.PrepaintState) {
-        switch phase {
-        case .prepaint(let nodeId, let globalId, let inspectorId, let bounds, var requestLayoutState, var prepaintState):
-            if let elementId = element.id() {
-                window.elementIdStack.append(elementId)
-            }
-
-            window.nextFrame.dispatchTree.setActiveNode(nodeId)
-            element.paint(
-                globalId,
-                inspectorId,
-                bounds,
-                &requestLayoutState,
-                &prepaintState,
-                &window,
-                &cx
-            )
-
-            if element.id() != nil {
-                _ = window.elementIdStack.removeLast()
-            }
-
-            phase = .painted
-            return (requestLayoutState, prepaintState)
-
-        default:
-            fatalError("must call prepaint before paint")
-        }
+        paint(&window, &cx)
+        return (self.requestLayoutState!, self.prepaintState!)
     }
 
     @MainActor
@@ -403,41 +371,21 @@ public final class Drawable<E: Element>: AnyElementObject, @unchecked Sendable {
         _ window: inout Window,
         _ cx: inout App
     ) -> Size<Pixels> {
-        if case .start = phase {
+        if phaseTag == 0 {
             _ = requestLayout(&window, &cx)
         }
 
-        let layoutId: LayoutId
-        switch phase {
-        case .requestLayout(let id, let globalId, let inspectorId, let requestLayoutState):
-            window.computeLayout(id: id, availableSpace: availableSpace, cx: &cx)
-            phase = .layoutComputed(
-                layoutId: id,
-                globalId: globalId,
-                inspectorId: inspectorId,
-                availableSpace: availableSpace,
-                requestLayout: requestLayoutState
-            )
-            layoutId = id
-
-        case .layoutComputed(let id, let globalId, let inspectorId, let prevSpace, let requestLayoutState):
-            if availableSpace != prevSpace {
-                window.computeLayout(id: id, availableSpace: availableSpace, cx: &cx)
-            }
-            phase = .layoutComputed(
-                layoutId: id,
-                globalId: globalId,
-                inspectorId: inspectorId,
-                availableSpace: availableSpace,
-                requestLayout: requestLayoutState
-            )
-            layoutId = id
-
-        default:
+        guard phaseTag == 1 || phaseTag == 2 else {
             fatalError("cannot measure after painting")
         }
 
-        return window.layoutBounds(id: layoutId).size
+        if phaseTag == 1 || availableSpace != self.availableSpace {
+            window.computeLayout(id: self.layoutId, availableSpace: availableSpace, cx: &cx)
+            self.availableSpace = availableSpace
+            self.phaseTag = 2
+        }
+
+        return window.layoutBounds(id: self.layoutId).size
     }
 }
 
@@ -480,12 +428,12 @@ public struct AnyElement: Element, @unchecked Sendable {
     }
 
     @MainActor
-    public mutating func requestLayout(_ window: inout Window, _ cx: inout App) -> LayoutId {
+    public func requestLayout(_ window: inout Window, _ cx: inout App) -> LayoutId {
         object.requestLayout(&window, &cx)
     }
 
     @MainActor
-    public mutating func prepaint(_ window: inout Window, _ cx: inout App) -> FocusHandle? {
+    public func prepaint(_ window: inout Window, _ cx: inout App) -> FocusHandle? {
         let focusAssigned = window.nextFrame.focus != nil
         object.prepaint(&window, &cx)
         if !focusAssigned, let focusId = window.nextFrame.focus {
@@ -495,7 +443,7 @@ public struct AnyElement: Element, @unchecked Sendable {
     }
 
     @MainActor
-    public mutating func paint(_ window: inout Window, _ cx: inout App) {
+    public func paint(_ window: inout Window, _ cx: inout App) {
         object.paint(&window, &cx)
     }
 
