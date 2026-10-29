@@ -52,7 +52,8 @@
   "swift_only_targets": [
     { "target": "GPUIAndroid", "guard": "os(Android)", "note": "No upstream crate. Mirrors the shape of gpui_linux/gpui_ios (platform, dispatcher, display, window, events, keyboard, text_system) on top of the NDK + GPUIWGPU." },
     { "target": "CWebGPU", "note": "C interop packaging for standard WebGPU headers (wgpu-native v24.0.0.2)." },
-    { "target": "CLinuxSys", "guard": "os(Linux)", "note": "C interop packaging for Linux system libraries (Wayland, X11, xkbcommon, FreeType, HarfBuzz, Fontconfig)." }
+    { "target": "CLinuxSys", "guard": "os(Linux)", "note": "C interop packaging for Linux system libraries (Wayland, X11, xkbcommon, FreeType, HarfBuzz, Fontconfig)." },
+    { "target": "CWinSys", "guard": "os(Windows)", "note": "C bridge umbrella header and C++ COM implementation for Windows system libraries (D3D11, DXGI, D3DCompiler, DirectWrite, Win32)." }
   ],
   "asset_extensions": [".metal", ".wgsl", ".hlsl", ".svg", ".png", ".gif"]
 }

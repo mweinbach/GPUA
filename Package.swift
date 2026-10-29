@@ -111,6 +111,11 @@ let package = Package(
                 .headerSearchPath("include"),
             ]
         ),
+        .target(
+            name: "CWinSys",
+            path: "Sources/CWinSys",
+            publicHeadersPath: "include"
+        ),
 
         // ---- Core ----------------------------------------------------------
         crate(                                                      // crates/gpui
@@ -166,8 +171,27 @@ let package = Package(
                 .linkedLibrary("fontconfig", .when(platforms: [.linux])),
             ]
         ),
-        crate("GPUIWindows", ["GPUI", "GPUICollections", "GPUIUtil", "ZedUtil"],              // crates/gpui_windows
-              resources: [.copy("shaders.hlsl"), .copy("alpha_correction.hlsl"), .copy("color_text_raster.hlsl")]),
+        crate(
+            "GPUIWindows",
+            ["GPUI", "GPUICollections", "GPUIUtil", "HTTPClient", "ZedUtil", .target(name: "CWinSys", condition: .when(platforms: [.windows]))],
+            resources: [.copy("shaders.hlsl"), .copy("alpha_correction.hlsl"), .copy("color_text_raster.hlsl")],
+            linkerSettings: [
+                .linkedLibrary("d3d11", .when(platforms: [.windows])),
+                .linkedLibrary("dxgi", .when(platforms: [.windows])),
+                .linkedLibrary("d3dcompiler", .when(platforms: [.windows])),
+                .linkedLibrary("dwrite", .when(platforms: [.windows])),
+                .linkedLibrary("dwmapi", .when(platforms: [.windows])),
+                .linkedLibrary("imm32", .when(platforms: [.windows])),
+                .linkedLibrary("uxtheme", .when(platforms: [.windows])),
+                .linkedLibrary("ole32", .when(platforms: [.windows])),
+                .linkedLibrary("shell32", .when(platforms: [.windows])),
+                .linkedLibrary("user32", .when(platforms: [.windows])),
+                .linkedLibrary("gdi32", .when(platforms: [.windows])),
+                .linkedLibrary("shcore", .when(platforms: [.windows])),
+                .linkedLibrary("advapi32", .when(platforms: [.windows])),
+                .linkedLibrary("winmm", .when(platforms: [.windows])),
+            ]
+        ),
         crate("GPUIWeb", ["GPUI", "GPUIWGPU", "HTTPClient"]),                                 // crates/gpui_web
         crate("GPUIAndroid", ["GPUI", "GPUIWGPU", "GPUICollections"]),                        // Swift-only (no upstream crate)
 

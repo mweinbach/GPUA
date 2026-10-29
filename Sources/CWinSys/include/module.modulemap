@@ -1,0 +1,5 @@
+// Swift-only: Module map for CWinSys Windows C bridge
+module CWinSys {
+    header "CWinSys.h"
+    export *
+}
