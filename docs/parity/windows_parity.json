@@ -1,0 +1,269 @@
+[
+  {
+    "item": "JumpList::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer JumpList.init(dockMenus:recentWorkspaces:)"
+  },
+  {
+    "item": "DockMenuItem::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer DockMenuItem.init(name:description:action:)"
+  },
+  {
+    "item": "update_jump_list",
+    "status": "stub_allowed",
+    "reason": "Windows 7+ Taskbar Jump Lists ICustomDestinationList COM interface requires interactive desktop shell; in headless/CI environments returns empty list of removed items"
+  },
+  {
+    "item": "DirectManipulationHandler::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer DirectManipulationHandler.init(window:scaleFactor:)"
+  },
+  {
+    "item": "DirectWriteTextSystem::handle_gpu_lost",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "DirectWrite font cache invalidation is handled directly during DirectX device recreation in DirectWriteTextSystem.init"
+  },
+  {
+    "item": "DirectXAtlas::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer DirectXAtlas.init(device:deviceContext:)"
+  },
+  {
+    "item": "DirectXDevices::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer DirectXDevices.init(preferWarp:enableDebug:)"
+  },
+  {
+    "item": "DirectXRenderer::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer DirectXRenderer.init(hwnd:directxDevices:disableDirectComposition:)"
+  },
+  {
+    "item": "DirectXRenderer::get_font_info",
+    "status": "renamed",
+    "swift_name": "fontInfo",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Swift property fontInfo replaces Rust getter get_font_info()"
+  },
+  {
+    "item": "DirectXRenderer::handle_device_lost",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "DirectX device recovery is implemented via tryToRecoverFromDeviceLost retry loop and device recreation in DirectXDevices"
+  },
+  {
+    "item": "DirectXRendererDevices",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Direct3D device handles are unified into DirectXDevices class in Swift"
+  },
+  {
+    "item": "DirectXRendererDevices::new",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Direct3D device handles are unified into DirectXDevices class in Swift"
+  },
+  {
+    "item": "DirectXResources::new",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Direct3D swapchain and intermediate textures are managed directly by DirectXRenderer class in Swift"
+  },
+  {
+    "item": "DirectXRenderPipelines::new",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Direct3D render pipelines are created and stored directly on DirectXRenderer class in Swift"
+  },
+  {
+    "item": "DirectComposition::new",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "DirectComposition visual hierarchy is managed directly by DirectXRenderer via CWinSys COM bridge"
+  },
+  {
+    "item": "DirectComposition::set_swap_chain",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "DirectComposition swapchain binding is performed during swapchain creation in DirectXRenderer"
+  },
+  {
+    "item": "DirectXGlobalElements::new",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Constant buffers and samplers are initialized directly in DirectXRenderer.init in Swift"
+  },
+  {
+    "item": "RawShaderBytes",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Shader bytecode abstraction is replaced by direct HLSL compilation via CWinSys in Swift"
+  },
+  {
+    "item": "RawShaderBytes::new",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Shader bytecode abstraction is replaced by direct HLSL compilation via CWinSys in Swift"
+  },
+  {
+    "item": "RawShaderBytes::as_bytes",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Shader bytecode abstraction is replaced by direct HLSL compilation via CWinSys in Swift"
+  },
+  {
+    "item": "ShaderModule::as_str",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Swift RawRepresentable enum rawValue replaces Rust as_str() method"
+  },
+  {
+    "item": "AGSGPUInfo",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "AMD GPU Services SDK FFI struct; standard DXGI adapter queries are used across all vendors"
+  },
+  {
+    "item": "WindowsDispatcher::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer WindowsDispatcher.init(platformWindowHandle:validationNumber:)"
+  },
+  {
+    "item": "WindowsDispatcher::execute_runnable",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Rust RunnableVariant dispatch helper; Swift executes closures directly in runForegroundTasks"
+  },
+  {
+    "item": "WindowsDisplay::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer WindowsDisplay.init(displayId:)"
+  },
+  {
+    "item": "WindowsDisplay::new_with_handle",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer WindowsDisplay.init(handle:displayId:)"
+  },
+  {
+    "item": "WindowsWindowInner::update_ime_position",
+    "status": "stub_allowed",
+    "reason": "IME composition window positioning requires active IMM32 context; no-op in headless/test environments"
+  },
+  {
+    "item": "WindowsKeyboardLayout::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer WindowsKeyboardLayout.init(id:name:)"
+  },
+  {
+    "item": "WindowsKeyboardMapper::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer WindowsKeyboardMapper.init()"
+  },
+  {
+    "item": "WindowsPlatform::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer WindowsPlatform.init(headless:)"
+  },
+  {
+    "item": "WindowsPlatformState",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Rust interior mutability state struct; state fields are held directly on WindowsPlatform class in Swift"
+  },
+  {
+    "item": "WindowsPlatform::window_from_hwnd",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Win32 HWND-to-window lookup is handled directly via GWLP_USERDATA pointer and windowsByHwnd table in windowProcedure"
+  },
+  {
+    "item": "WindowCreationInfo",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Rust parameter bundle struct for window creation; Swift passes options and platform references directly to WindowsWindow.init"
+  },
+  {
+    "item": "WindowsSystemSettings::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer WindowsSystemSettings.init()"
+  },
+  {
+    "item": "with_dll_library",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Win32 DLL loading helper for AMD AGS SDK; system libraries in GPUA are linked statically or resolved via CWinSys"
+  },
+  {
+    "item": "VSyncProvider::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer VSyncProvider.init()"
+  },
+  {
+    "item": "WindowsWindowState",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Internal Rust window state struct; state fields are held directly on WindowsWindow class in Swift"
+  },
+  {
+    "item": "WindowsWindowInner",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Rust inner window representation; unified into idiomatic WindowsWindow reference class in Swift"
+  },
+  {
+    "item": "Callbacks",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Rust callback struct; window callbacks are stored as properties on WindowsWindow in Swift"
+  },
+  {
+    "item": "WindowsWindow::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer WindowsWindow.init(handle:options:platform:)"
+  },
+  {
+    "item": "ClickState::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Idiomatic Swift initializer ClickState.init()"
+  },
+  {
+    "item": "window_from_hwnd",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIWindows)",
+    "reason": "Win32 HWND-to-window lookup is handled directly via GWLP_USERDATA pointer and windowsByHwnd table in windowProcedure"
+  }
+]

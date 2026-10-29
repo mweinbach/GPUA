@@ -276,6 +276,34 @@ int cwin_win32_kill_timer(void* hwnd, uintptr_t id);
 int cwin_win32_set_window_composition_attribute(void* hwnd, uint32_t accent_state, uint32_t color);
 int cwin_win32_task_dialog(void* hwnd_parent, int level, const uint16_t* instruction, const uint16_t* content, const uint16_t** button_labels, int button_count, int* out_button_index);
 
+// Win32 Input Method Manager (IMM)
+int cwin_win32_set_ime_position(void* hwnd, int32_t x, int32_t y, int32_t width, int32_t height);
+
+// Win32 Taskbar Jump List (ICustomDestinationList & IShellLinkW)
+int cwin_jump_list_create(void** out_dest_list);
+int cwin_jump_list_begin_list(void* dest_list, uint32_t* out_min_slots, void** out_removed_array);
+int cwin_jump_list_append_category(void* dest_list, const uint16_t* category_name, void* object_array);
+int cwin_jump_list_add_user_tasks(void* dest_list, void* object_array);
+int cwin_jump_list_commit(void* dest_list);
+int cwin_jump_list_abort(void* dest_list);
+
+int cwin_object_collection_create(void** out_collection);
+int cwin_object_collection_add(void* collection, void* unknown_obj);
+uint32_t cwin_object_array_get_count(void* object_array);
+int cwin_object_array_get_at(void* object_array, uint32_t index, void** out_shell_link);
+
+int cwin_shell_link_create(
+    const uint16_t* target_path,
+    const uint16_t* arguments,
+    const uint16_t* description,
+    const uint16_t* icon_path,
+    int icon_index,
+    const uint16_t* title,
+    void** out_shell_link
+);
+int cwin_shell_link_get_description(void* shell_link, uint16_t* out_buffer, int max_chars);
+int cwin_win32_get_module_file_name(uint16_t* out_buffer, size_t max_chars);
+
 // Win32 Enhanced Clipboard
 int cwin_win32_clipboard_open(void* hwnd);
 int cwin_win32_clipboard_close(void);

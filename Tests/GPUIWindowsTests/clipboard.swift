@@ -54,7 +54,7 @@ struct WindowsClipboardTests {
         #expect(bmp[1] == 0x4D) // 'M'
 
         // Check pixel offset (14 + 40 = 54)
-        let pixelOffset = bmp.withUnsafeBytes { $0.load(fromByteOffset: 10, as: UInt32.self) }
+        let pixelOffset = bmp.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 10, as: UInt32.self) }
         #expect(pixelOffset == 54)
     }
 
@@ -75,7 +75,7 @@ struct WindowsClipboardTests {
         }
 
         #expect(bmp.count == 14 + dibData.count)
-        let pixelOffset = bmp.withUnsafeBytes { $0.load(fromByteOffset: 10, as: UInt32.self) }
+        let pixelOffset = bmp.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 10, as: UInt32.self) }
         #expect(pixelOffset == 14 + 40 + 1024) // 1078
     }
 }

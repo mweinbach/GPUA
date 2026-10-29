@@ -808,8 +808,16 @@ public final class WindowsWindow: PlatformWindow, @unchecked Sendable {
         renderer?.gpuSpecs()
     }
 
+    // PORT NOTE: updateImePosition converts GPUI Bounds<Pixels> to physical client coordinates and positions the Win32 IME composition and candidate windows via ImmSetCompositionWindow and ImmSetCandidateWindow.
     public func updateImePosition(bounds: Bounds<Pixels>) {
-        // IME caret positioning
+        guard let hwnd = hwnd else { return }
+        let sf = scaleFactor()
+        let x = Int32((bounds.origin.x.value * sf).rounded(.down))
+        let halfHeight = ((bounds.size.height.value * sf) / 2.0).rounded(.down)
+        let y = Int32((bounds.origin.y.value * sf).rounded(.down) + halfHeight)
+        let width = Int32((bounds.size.width.value * sf).rounded(.down))
+        let height = Int32((bounds.size.height.value * sf).rounded(.down))
+        _ = cwin_win32_set_ime_position(hwnd, x, y, width, height)
     }
 
     public func resize(_ size: Size<Pixels>) {
@@ -868,8 +876,8 @@ public final class WindowsWindow: PlatformWindow, @unchecked Sendable {
             lock.lock()
             _isMinimized = false
             _isMaximized = (cwin_win32_is_window_maximized(hwnd) != 0)
-            let w = max(1, Int32(Int16(truncatingIfNeeded: lparam)))
-            let h = max(1, Int32(Int16(truncatingIfNeeded: lparam >> 16)))
+            let w = max(1, Int32(UInt16(truncatingIfNeeded: lparam)))
+            let h = max(1, Int32(UInt16(truncatingIfNeeded: lparam >> 16)))
             let sf = _scaleFactor
             let deviceSize = Size(width: DevicePixels(w), height: DevicePixels(h))
             let newLogicalSize = deviceSize.toPixels(sf)
@@ -1027,7 +1035,7 @@ public final class WindowsWindow: PlatformWindow, @unchecked Sendable {
             var sx = Int32(Int16(truncatingIfNeeded: lparam))
             var sy = Int32(Int16(truncatingIfNeeded: lparam >> 16))
             _ = cwin_win32_screen_to_client(hwnd, &sx, &sy)
-            let clientLparam = (Int(sy) << 16) | Int(UInt16(bitPattern: Int16(sx)))
+            let clientLparam = (Int(Int16(truncatingIfNeeded: sy)) << 16) | Int(UInt16(bitPattern: Int16(truncatingIfNeeded: sx)))
             let ev = decode_mouse_wheel(
                 wparam: wparam,
                 lparam: clientLparam,
@@ -1045,7 +1053,7 @@ public final class WindowsWindow: PlatformWindow, @unchecked Sendable {
             var sx = Int32(Int16(truncatingIfNeeded: lparam))
             var sy = Int32(Int16(truncatingIfNeeded: lparam >> 16))
             _ = cwin_win32_screen_to_client(hwnd, &sx, &sy)
-            let clientLparam = (Int(sy) << 16) | Int(UInt16(bitPattern: Int16(sx)))
+            let clientLparam = (Int(Int16(truncatingIfNeeded: sy)) << 16) | Int(UInt16(bitPattern: Int16(truncatingIfNeeded: sx)))
             let ev = decode_mouse_wheel(
                 wparam: wparam,
                 lparam: clientLparam,

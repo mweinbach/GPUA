@@ -223,13 +223,13 @@ public func convertDibToBmp(_ dibData: Data) -> Data? {
 
     let fileSize = UInt32(14 + dibData.count)
 
-    let headerSize = dibData.withUnsafeBytes { $0.load(fromByteOffset: 0, as: UInt32.self) }
-    let bitCount = dibData.withUnsafeBytes { $0.load(fromByteOffset: 14, as: UInt16.self) }
-    let compression = dibData.withUnsafeBytes { $0.load(fromByteOffset: 16, as: UInt32.self) }
+    let headerSize = dibData.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 0, as: UInt32.self) }
+    let bitCount = dibData.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 14, as: UInt16.self) }
+    let compression = dibData.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 16, as: UInt32.self) }
 
     let colorTableSize: UInt32
     if bitCount <= 8 {
-        let colorsUsed = dibData.withUnsafeBytes { $0.load(fromByteOffset: 32, as: UInt32.self) }
+        let colorsUsed = dibData.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 32, as: UInt32.self) }
         let numColors = (colorsUsed == 0) ? (UInt32(1) << Int(bitCount)) : colorsUsed
         colorTableSize = numColors * 4
     } else if compression == 3 { // BI_BITFIELDS

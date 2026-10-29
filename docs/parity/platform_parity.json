@@ -1,0 +1,8 @@
+[
+  {
+    "item": "web_init",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIPlatform)",
+    "reason": "wasm-only target_family; GPUA does not target WebAssembly platform"
+  }
+]

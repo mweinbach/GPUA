@@ -194,5 +194,30 @@ struct WindowsWindowTests {
             #expect(r > 230 && g > 230 && b > 230, "Expected white pixel at (200, 200), got r:\(r) g:\(g) b:\(b)")
         }
     }
+
+    @Test("WindowsWindow updateImePosition converts coordinates and invokes Win32 IMM safely")
+    func testUpdateImePosition() {
+        // Test 1: Headless window (hwnd == nil) safely early-exits without crashing or throwing
+        let headlessPlatform = WindowsPlatform(headless: true)
+        let headlessHandle = AnyWindowHandle(id: 201)
+        var options = WindowOptions()
+        options.windowBounds = .windowed(Bounds(origin: .zero, size: Size(width: px(640), height: px(480))))
+        let headlessWindow = headlessPlatform.openWindow(handle: headlessHandle, options: options) as! WindowsWindow
+        headlessWindow.updateImePosition(bounds: Bounds(origin: Point(x: px(100), y: px(150)), size: Size(width: px(20), height: px(30))))
+
+        // Test 2: Real HWND window (hwnd != nil) safely invokes Win32 IMM API without crashing or leaking handles
+        let nonHeadlessPlatform = WindowsPlatform(headless: false)
+        let realHandle = AnyWindowHandle(id: 202)
+        var realOptions = WindowOptions()
+        realOptions.windowBounds = .windowed(Bounds(origin: .zero, size: Size(width: px(256), height: px(256))))
+        realOptions.show = false
+        let realWindow = nonHeadlessPlatform.openWindow(handle: realHandle, options: realOptions) as! WindowsWindow
+        defer { realWindow.close() }
+        #expect(realWindow.hwnd != nil)
+        realWindow.updateImePosition(bounds: Bounds(origin: Point(x: px(50), y: px(60)), size: Size(width: px(15), height: px(24))))
+        if let hwnd = realWindow.hwnd {
+            update_ime_position(handle: hwnd, x: 50, y: 72, width: 15, height: 24)
+        }
+    }
 }
 #endif

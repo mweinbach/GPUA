@@ -393,4 +393,12 @@ public func notify_frame_changed(handle: WinHandle) {
     cwin_win32_notify_frame_changed(handle)
 }
 
+// MARK: - IME Positioning
+
+// PORT NOTE: update_ime_position positions Win32 IME composition and candidate windows via ImmSetCompositionWindow and ImmSetCandidateWindow.
+@inline(__always)
+public func update_ime_position(handle: WinHandle, x: Int32, y: Int32, width: Int32 = 0, height: Int32 = 0) {
+    _ = cwin_win32_set_ime_position(handle, x, y, width, height)
+}
+
 #endif

@@ -25,6 +25,10 @@
 #include <mmsystem.h>
 #include <uxtheme.h>
 #include <directmanipulation.h>
+#include <imm.h>
+#include <propsys.h>
+
+#pragma comment(lib, "imm32.lib")
 
 #include <cmath>
 #include <algorithm>
@@ -2752,6 +2756,210 @@ int cwin_win32_task_dialog(
         else if (res == IDCANCEL || res == IDNO) *out_button_index = 1;
         else *out_button_index = 0;
     }
+    return 0;
+}
+
+// MARK: - Win32 Input Method Manager (IMM)
+
+int cwin_win32_set_ime_position(void* hwnd, int32_t x, int32_t y, int32_t width, int32_t height) {
+    if (!hwnd) {
+        return (int)E_INVALIDARG;
+    }
+
+    HWND window_handle = static_cast<HWND>(hwnd);
+    HIMC himc = ImmGetContext(window_handle);
+    if (!himc) {
+        return 0;
+    }
+
+    COMPOSITIONFORM comp_form;
+    memset(&comp_form, 0, sizeof(comp_form));
+    comp_form.dwStyle = CFS_POINT;
+    comp_form.ptCurrentPos.x = x;
+    comp_form.ptCurrentPos.y = y;
+    ImmSetCompositionWindow(himc, &comp_form);
+
+    CANDIDATEFORM cand_form;
+    memset(&cand_form, 0, sizeof(cand_form));
+    cand_form.dwIndex = 0;
+    if (width > 0 && height > 0) {
+        cand_form.dwStyle = CFS_EXCLUDE;
+        cand_form.ptCurrentPos.x = x;
+        cand_form.ptCurrentPos.y = y;
+        cand_form.rcArea.left = x;
+        cand_form.rcArea.top = y - (height / 2);
+        cand_form.rcArea.right = x + width;
+        cand_form.rcArea.bottom = cand_form.rcArea.top + height;
+    } else {
+        cand_form.dwStyle = CFS_CANDIDATEPOS;
+        cand_form.ptCurrentPos.x = x;
+        cand_form.ptCurrentPos.y = y;
+    }
+    ImmSetCandidateWindow(himc, &cand_form);
+
+    ImmReleaseContext(window_handle, himc);
+    return 0;
+}
+
+int cwin_win32_update_ime_position(void* hwnd, int32_t x, int32_t y) {
+    return cwin_win32_set_ime_position(hwnd, x, y, 0, 0);
+}
+
+// MARK: - Win32 Taskbar Jump List
+
+static constexpr PROPERTYKEY kPKEY_Title = {
+    { 0xF29F85E0, 0x4FF9, 0x1068, { 0xAB, 0x91, 0x08, 0x00, 0x2B, 0x27, 0xB3, 0xD9 } },
+    2
+};
+
+int cwin_jump_list_create(void** out_dest_list) {
+    if (!out_dest_list) return (int)E_INVALIDARG;
+    *out_dest_list = nullptr;
+    ICustomDestinationList* list = nullptr;
+    HRESULT hr = CoCreateInstance(__uuidof(DestinationList), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&list));
+    if (SUCCEEDED(hr)) {
+        *out_dest_list = list;
+        return 0;
+    }
+    return (int)hr;
+}
+
+int cwin_jump_list_begin_list(void* dest_list, uint32_t* out_min_slots, void** out_removed_array) {
+    if (!dest_list) return (int)E_INVALIDARG;
+    UINT slots = 0;
+    IObjectArray* removed = nullptr;
+    HRESULT hr = static_cast<ICustomDestinationList*>(dest_list)->BeginList(&slots, IID_PPV_ARGS(&removed));
+    if (out_min_slots) *out_min_slots = slots;
+    if (out_removed_array) *out_removed_array = removed;
+    return (int)hr;
+}
+
+int cwin_jump_list_append_category(void* dest_list, const uint16_t* category_name, void* object_array) {
+    if (!dest_list || !category_name || !object_array) return (int)E_INVALIDARG;
+    HRESULT hr = static_cast<ICustomDestinationList*>(dest_list)->AppendCategory(
+        reinterpret_cast<const wchar_t*>(category_name),
+        static_cast<IObjectArray*>(object_array)
+    );
+    return (int)hr;
+}
+
+int cwin_jump_list_add_user_tasks(void* dest_list, void* object_array) {
+    if (!dest_list || !object_array) return (int)E_INVALIDARG;
+    HRESULT hr = static_cast<ICustomDestinationList*>(dest_list)->AddUserTasks(
+        static_cast<IObjectArray*>(object_array)
+    );
+    return (int)hr;
+}
+
+int cwin_jump_list_commit(void* dest_list) {
+    if (!dest_list) return (int)E_INVALIDARG;
+    HRESULT hr = static_cast<ICustomDestinationList*>(dest_list)->CommitList();
+    return (int)hr;
+}
+
+int cwin_jump_list_abort(void* dest_list) {
+    if (!dest_list) return (int)E_INVALIDARG;
+    HRESULT hr = static_cast<ICustomDestinationList*>(dest_list)->AbortList();
+    return (int)hr;
+}
+
+int cwin_object_collection_create(void** out_collection) {
+    if (!out_collection) return (int)E_INVALIDARG;
+    *out_collection = nullptr;
+    IObjectCollection* coll = nullptr;
+    HRESULT hr = CoCreateInstance(__uuidof(EnumerableObjectCollection), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&coll));
+    if (SUCCEEDED(hr)) {
+        *out_collection = coll;
+        return 0;
+    }
+    return (int)hr;
+}
+
+int cwin_object_collection_add(void* collection, void* unknown_obj) {
+    if (!collection || !unknown_obj) return (int)E_INVALIDARG;
+    HRESULT hr = static_cast<IObjectCollection*>(collection)->AddObject(
+        static_cast<IUnknown*>(unknown_obj)
+    );
+    return (int)hr;
+}
+
+uint32_t cwin_object_array_get_count(void* object_array) {
+    if (!object_array) return 0;
+    UINT count = 0;
+    static_cast<IObjectArray*>(object_array)->GetCount(&count);
+    return count;
+}
+
+int cwin_object_array_get_at(void* object_array, uint32_t index, void** out_shell_link) {
+    if (!object_array || !out_shell_link) return (int)E_INVALIDARG;
+    *out_shell_link = nullptr;
+    IShellLinkW* link = nullptr;
+    HRESULT hr = static_cast<IObjectArray*>(object_array)->GetAt(index, IID_PPV_ARGS(&link));
+    if (SUCCEEDED(hr)) {
+        *out_shell_link = link;
+        return 0;
+    }
+    return (int)hr;
+}
+
+int cwin_shell_link_create(
+    const uint16_t* target_path,
+    const uint16_t* arguments,
+    const uint16_t* description,
+    const uint16_t* icon_path,
+    int icon_index,
+    const uint16_t* title,
+    void** out_shell_link
+) {
+    if (!out_shell_link) return (int)E_INVALIDARG;
+    *out_shell_link = nullptr;
+
+    IShellLinkW* link = nullptr;
+    HRESULT hr = CoCreateInstance(__uuidof(ShellLink), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&link));
+    if (FAILED(hr)) return (int)hr;
+
+    if (target_path) {
+        link->SetPath(reinterpret_cast<const wchar_t*>(target_path));
+    }
+    if (arguments) {
+        link->SetArguments(reinterpret_cast<const wchar_t*>(arguments));
+    }
+    if (description) {
+        link->SetDescription(reinterpret_cast<const wchar_t*>(description));
+    }
+    if (icon_path) {
+        link->SetIconLocation(reinterpret_cast<const wchar_t*>(icon_path), icon_index);
+    }
+    if (title) {
+        IPropertyStore* store = nullptr;
+        if (SUCCEEDED(link->QueryInterface(IID_PPV_ARGS(&store)))) {
+            PROPVARIANT pv;
+            memset(&pv, 0, sizeof(pv));
+            pv.vt = VT_LPWSTR;
+            pv.pwszVal = const_cast<LPWSTR>(reinterpret_cast<const wchar_t*>(title));
+            store->SetValue(kPKEY_Title, pv);
+            store->Commit();
+            store->Release();
+        }
+    }
+
+    *out_shell_link = link;
+    return 0;
+}
+
+int cwin_shell_link_get_description(void* shell_link, uint16_t* out_buffer, int max_chars) {
+    if (!shell_link || !out_buffer || max_chars <= 0) return (int)E_INVALIDARG;
+    HRESULT hr = static_cast<IShellLinkW*>(shell_link)->GetDescription(
+        reinterpret_cast<wchar_t*>(out_buffer),
+        max_chars
+    );
+    return (int)hr;
+}
+
+int cwin_win32_get_module_file_name(uint16_t* out_buffer, size_t max_chars) {
+    if (!out_buffer || max_chars == 0) return (int)E_INVALIDARG;
+    DWORD len = GetModuleFileNameW(nullptr, reinterpret_cast<wchar_t*>(out_buffer), static_cast<DWORD>(max_chars));
+    if (len == 0 || len >= max_chars) return (int)E_FAIL;
     return 0;
 }
 
