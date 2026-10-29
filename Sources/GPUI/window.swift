@@ -1,6 +1,6 @@
 // Ported from: crates/gpui/src/window.rs
 // Upstream commit: 650aab59d54f4f6f85d42c965831935568ac1162
-// Port status: ported
+// Port status: in-progress
 
 import Foundation
 import Refineable
