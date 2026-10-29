@@ -20,60 +20,67 @@ struct WindowsDispatcherTests {
     @Test
     func testDispatcherPriorityQueueOrdering() {
         let dispatcher = WindowsDispatcher()
-        var executionOrder: [String] = []
+        let executionOrder = LockedBox<[String]>([])
 
         // Enqueue in mixed order
         dispatcher.dispatchOnMainThread({
-            executionOrder.append("low1")
+            executionOrder.withValue { $0.append("low1") }
         }, priority: .low)
 
         dispatcher.dispatchOnMainThread({
-            executionOrder.append("medium1")
+            executionOrder.withValue { $0.append("medium1") }
         }, priority: .medium)
 
         dispatcher.dispatchOnMainThread({
-            executionOrder.append("high1")
+            executionOrder.withValue { $0.append("high1") }
         }, priority: .high)
 
         dispatcher.dispatchOnMainThread({
-            executionOrder.append("high2")
+            executionOrder.withValue { $0.append("high2") }
         }, priority: .high)
 
         dispatcher.dispatchOnMainThread({
-            executionOrder.append("low2")
+            executionOrder.withValue { $0.append("low2") }
         }, priority: .low)
 
         // Run all foreground tasks
         let ran = dispatcher.runForegroundTasks(timeout: 1.0)
         #expect(ran == 5)
-        #expect(executionOrder == ["high1", "high2", "medium1", "low1", "low2"])
+        #expect(executionOrder.withValue { $0 } == ["high1", "high2", "medium1", "low1", "low2"])
     }
+
+// PORT NOTE: LockedBox coordinates mutable test state across thread boundaries.
+private final class LockedBox<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: T
+
+    init(_ value: T) {
+        self.value = value
+    }
+
+    func withValue<R>(_ body: (inout T) -> R) -> R {
+        lock.withLock {
+            body(&value)
+        }
+    }
+}
 
     @Test
     func testDispatcherBackgroundDispatch() async {
         let dispatcher = WindowsDispatcher()
-        let lock = NSLock()
-        var completed = false
+        let box = LockedBox(false)
 
         dispatcher.dispatch({
-            lock.lock()
-            completed = true
-            lock.unlock()
+            box.withValue { $0 = true }
         }, priority: .high)
 
         // Poll for background task completion
         for _ in 0..<50 {
-            lock.lock()
-            let done = completed
-            lock.unlock()
-            if done { break }
-            try? await Task.sleep(nanoseconds: 10_000_000)
+            if box.withValue({ $0 }) { break }
+            try? await _Concurrency.Task.sleep(nanoseconds: 10_000_000)
         }
 
-        lock.lock()
-        let finalDone = completed
-        lock.unlock()
-        #expect(finalDone == true)
+        #expect(box.withValue({ $0 }) == true)
     }
 
     @Test

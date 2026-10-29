@@ -475,13 +475,13 @@ public struct KeybindingKeystroke: Sendable, Equatable, Hashable, AsKeystroke, C
         #endif
     }
 
-    #if os(Windows)
     public init(inner: Keystroke, displayModifiers: Modifiers, displayKey: String) {
         self.inner = inner
+        #if os(Windows)
         self.displayModifiers = displayModifiers
         self.displayKey = displayKey
+        #endif
     }
-    #endif
 
     public static func fromKeystroke(_ keystroke: Keystroke) -> KeybindingKeystroke {
         KeybindingKeystroke(inner: keystroke)

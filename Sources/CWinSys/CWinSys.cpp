@@ -24,7 +24,10 @@
 #include <wincred.h>
 #include <mmsystem.h>
 #include <uxtheme.h>
+#include <directmanipulation.h>
 
+#include <cmath>
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <vector>
@@ -2344,7 +2347,7 @@ int cwin_win32_file_open_dialog(void* hwnd, int allow_multi, int pick_folders, c
     *out_count = 0;
 
     IFileOpenDialog* dlg = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&dlg));
+    HRESULT hr = CoCreateInstance(__uuidof(FileOpenDialog), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&dlg));
     if (FAILED(hr)) return (int)hr;
 
     FILEOPENDIALOGOPTIONS options = FOS_FILEMUSTEXIST;
@@ -2415,7 +2418,7 @@ int cwin_win32_file_save_dialog(void* hwnd, const uint16_t* initial_dir, const u
     *out_path = nullptr;
 
     IFileSaveDialog* dlg = nullptr;
-    HRESULT hr = CoCreateInstance(CLSID_FileSaveDialog, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&dlg));
+    HRESULT hr = CoCreateInstance(__uuidof(FileSaveDialog), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&dlg));
     if (FAILED(hr)) return (int)hr;
 
     if (default_name && wcslen(reinterpret_cast<const wchar_t*>(default_name)) > 0) {
@@ -2468,6 +2471,490 @@ void cwin_win32_free_path_list(uint16_t** paths, size_t count) {
     }
 }
 
+
+// MARK: - Win32 Keyboard & Input
+
+int cwin_win32_get_keyboard_layout_name(uint16_t* out_name, size_t max_len) {
+    if (!out_name || max_len < 9) return (int)E_INVALIDARG;
+    wchar_t buf[KL_NAMELENGTH] = {0};
+    if (!GetKeyboardLayoutNameW(buf)) {
+        return (int)HRESULT_FROM_WIN32(GetLastError());
+    }
+    wcsncpy(reinterpret_cast<wchar_t*>(out_name), buf, max_len - 1);
+    out_name[max_len - 1] = 0;
+    return 0;
+}
+
+int cwin_win32_get_keyboard_layout_text(const uint16_t* layout_id, uint16_t* out_text, size_t max_len) {
+    if (!layout_id || !out_text || max_len == 0) return (int)E_INVALIDARG;
+    std::wstring subkey = L"System\\CurrentControlSet\\Control\\Keyboard Layouts\\";
+    subkey += reinterpret_cast<const wchar_t*>(layout_id);
+
+    HKEY hkey = nullptr;
+    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, subkey.c_str(), 0, KEY_READ, &hkey) != ERROR_SUCCESS) {
+        return (int)E_FAIL;
+    }
+
+    DWORD type = 0;
+    DWORD byte_count = (DWORD)(max_len * sizeof(wchar_t));
+    LONG res = RegQueryValueExW(hkey, L"Layout Text", nullptr, &type, reinterpret_cast<LPBYTE>(out_text), &byte_count);
+    RegCloseKey(hkey);
+
+    if (res != ERROR_SUCCESS) {
+        return (int)E_FAIL;
+    }
+    out_text[max_len - 1] = 0;
+    return 0;
+}
+
+uint32_t cwin_win32_map_virtual_key(uint32_t uCode, uint32_t uMapType) {
+    return MapVirtualKeyW(uCode, uMapType);
+}
+
+int cwin_win32_to_unicode(uint32_t vkey, uint32_t scan_code, const uint8_t* key_state, uint16_t* out_buffer, int buffer_size, uint32_t flags) {
+    if (!out_buffer || buffer_size <= 0) return 0;
+    return ToUnicode(vkey, scan_code, key_state, reinterpret_cast<wchar_t*>(out_buffer), buffer_size, flags);
+}
+
+int16_t cwin_win32_get_key_state(int vkey) {
+    return GetKeyState(vkey);
+}
+
+int cwin_win32_get_keyboard_state(uint8_t* out_state_256) {
+    if (!out_state_256) return (int)E_INVALIDARG;
+    return GetKeyboardState(out_state_256) ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
+}
+
+uint32_t cwin_win32_get_double_click_time(void) {
+    return GetDoubleClickTime();
+}
+
+void cwin_win32_get_double_click_tolerance(int32_t* out_width, int32_t* out_height) {
+    if (out_width) *out_width = GetSystemMetrics(SM_CXDOUBLECLK);
+    if (out_height) *out_height = GetSystemMetrics(SM_CYDOUBLECLK);
+}
+
+int32_t cwin_win32_get_frame_thickness_x(uint32_t dpi) {
+    int resize_frame = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi);
+    int padding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+    return resize_frame + padding;
+}
+
+int32_t cwin_win32_get_frame_thickness_y(uint32_t dpi) {
+    int resize_frame = GetSystemMetricsForDpi(SM_CYSIZEFRAME, dpi);
+    int padding = GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+    return resize_frame + padding;
+}
+
+void cwin_win32_notify_frame_changed(void* hwnd) {
+    if (!hwnd) return;
+    SetWindowPos(static_cast<HWND>(hwnd), nullptr, 0, 0, 0, 0,
+                 SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOCOPYBITS | SWP_NOMOVE |
+                 SWP_NOOWNERZORDER | SWP_NOREPOSITION | SWP_NOSENDCHANGING | SWP_NOSIZE | SWP_NOZORDER);
+}
+
+// MARK: - Win32 Enhanced Clipboard
+
+int cwin_win32_clipboard_open(void* hwnd) {
+    return OpenClipboard(static_cast<HWND>(hwnd)) ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
+}
+
+int cwin_win32_clipboard_close(void) {
+    return CloseClipboard() ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
+}
+
+int cwin_win32_clipboard_empty(void) {
+    return EmptyClipboard() ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
+}
+
+uint32_t cwin_win32_clipboard_register_format(const uint16_t* format_name) {
+    if (!format_name) return 0;
+    return RegisterClipboardFormatW(reinterpret_cast<const wchar_t*>(format_name));
+}
+
+int cwin_win32_clipboard_get_format_name(uint32_t format, uint16_t* out_name, size_t max_len) {
+    if (!out_name || max_len == 0) return (int)E_INVALIDARG;
+    int ret = GetClipboardFormatNameW(format, reinterpret_cast<wchar_t*>(out_name), (int)max_len);
+    return ret > 0 ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
+}
+
+int cwin_win32_clipboard_is_format_available(uint32_t format) {
+    return IsClipboardFormatAvailable(format) ? 1 : 0;
+}
+
+int cwin_win32_clipboard_count_formats(void) {
+    return CountClipboardFormats();
+}
+
+uint32_t cwin_win32_clipboard_enum_formats(uint32_t format) {
+    return EnumClipboardFormats(format);
+}
+
+int cwin_win32_clipboard_set_binary_data(uint32_t format, const void* data, size_t len) {
+    if (!data && len > 0) return (int)E_INVALIDARG;
+    HGLOBAL h_glob = GlobalAlloc(GMEM_MOVEABLE, len);
+    if (!h_glob) return (int)E_OUTOFMEMORY;
+    if (len > 0) {
+        void* dest = GlobalLock(h_glob);
+        if (!dest) {
+            GlobalFree(h_glob);
+            return (int)E_FAIL;
+        }
+        memcpy(dest, data, len);
+        GlobalUnlock(h_glob);
+    }
+    if (!SetClipboardData(format, h_glob)) {
+        GlobalFree(h_glob);
+        return (int)HRESULT_FROM_WIN32(GetLastError());
+    }
+    return 0;
+}
+
+int cwin_win32_clipboard_get_binary_data(uint32_t format, void** out_data, size_t* out_len) {
+    if (!out_data || !out_len) return (int)E_INVALIDARG;
+    *out_data = nullptr;
+    *out_len = 0;
+    HANDLE h_data = GetClipboardData(format);
+    if (!h_data) return (int)HRESULT_FROM_WIN32(GetLastError());
+    SIZE_T sz = GlobalSize((HGLOBAL)h_data);
+    if (sz == 0) return 0;
+    const void* src = GlobalLock((HGLOBAL)h_data);
+    if (!src) return (int)E_FAIL;
+    void* copy = malloc(sz);
+    if (!copy) {
+        GlobalUnlock((HGLOBAL)h_data);
+        return (int)E_OUTOFMEMORY;
+    }
+    memcpy(copy, src, sz);
+    GlobalUnlock((HGLOBAL)h_data);
+    *out_data = copy;
+    *out_len = (size_t)sz;
+    return 0;
+}
+
+void cwin_win32_clipboard_free_binary_data(void* data) {
+    if (data) free(data);
+}
+
+int cwin_win32_clipboard_get_hdrop_files(void* hdrop, uint16_t*** out_files, size_t* out_count) {
+    if (!hdrop || !out_files || !out_count) return (int)E_INVALIDARG;
+    *out_files = nullptr;
+    *out_count = 0;
+    HDROP drop = static_cast<HDROP>(hdrop);
+    UINT count = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
+    if (count == 0) return 0;
+    wchar_t** files = static_cast<wchar_t**>(malloc(count * sizeof(wchar_t*)));
+    if (!files) return (int)E_OUTOFMEMORY;
+    for (UINT i = 0; i < count; ++i) {
+        UINT len = DragQueryFileW(drop, i, nullptr, 0);
+        wchar_t* buf = static_cast<wchar_t*>(malloc((len + 1) * sizeof(wchar_t)));
+        if (!buf) {
+            for (UINT j = 0; j < i; ++j) free(files[j]);
+            free(files);
+            return (int)E_OUTOFMEMORY;
+        }
+        DragQueryFileW(drop, i, buf, len + 1);
+        files[i] = buf;
+    }
+    *out_files = reinterpret_cast<uint16_t**>(files);
+    *out_count = (size_t)count;
+    return 0;
+}
+
+void cwin_win32_clipboard_free_hdrop_files(uint16_t** files, size_t count) {
+    if (files) {
+        for (size_t i = 0; i < count; ++i) {
+            if (files[i]) free(files[i]);
+        }
+        free(files);
+    }
+}
+
+int cwin_win32_clipboard_get_files(uint16_t*** out_files, size_t* out_count) {
+    if (!out_files || !out_count) return (int)E_INVALIDARG;
+    *out_files = nullptr;
+    *out_count = 0;
+    HANDLE h_data = GetClipboardData(CF_HDROP);
+    if (!h_data) return (int)HRESULT_FROM_WIN32(GetLastError());
+    return cwin_win32_clipboard_get_hdrop_files(h_data, out_files, out_count);
+}
+
+// MARK: - Win32 DirectManipulation
+
+class CWinDirectManipulationHandler : public IDirectManipulationViewportEventHandler {
+public:
+    CWinDirectManipulationHandler(HWND hwnd, float scale)
+        : ref_count_(1), hwnd_(hwnd), scale_factor_(scale),
+          gesture_kind_(0), last_scale_(1.0f), last_x_(0.0f), last_y_(0.0f),
+          scroll_phase_(0), manager_(nullptr), update_manager_(nullptr),
+          viewport_(nullptr), cookie_(0) {}
+
+    void Shutdown() {
+        if (viewport_) {
+            if (cookie_ != 0) {
+                viewport_->RemoveEventHandler(cookie_);
+                cookie_ = 0;
+            }
+            viewport_->Stop();
+            viewport_->Abandon();
+            viewport_->Release();
+            viewport_ = nullptr;
+        }
+        if (manager_) {
+            manager_->Deactivate(hwnd_);
+            manager_->Release();
+            manager_ = nullptr;
+        }
+        if (update_manager_) {
+            update_manager_->Release();
+            update_manager_ = nullptr;
+        }
+    }
+
+    virtual ~CWinDirectManipulationHandler() {
+        Shutdown();
+    }
+
+    HRESULT Init() {
+        HRESULT hr = CoCreateInstance(__uuidof(DirectManipulationManager), nullptr, CLSCTX_INPROC_SERVER,
+                                      __uuidof(IDirectManipulationManager), reinterpret_cast<void**>(&manager_));
+        if (FAILED(hr)) { Shutdown(); return hr; }
+
+        hr = manager_->GetUpdateManager(__uuidof(IDirectManipulationUpdateManager), reinterpret_cast<void**>(&update_manager_));
+        if (FAILED(hr)) { Shutdown(); return hr; }
+
+        hr = manager_->CreateViewport(nullptr, hwnd_, __uuidof(IDirectManipulationViewport), reinterpret_cast<void**>(&viewport_));
+        if (FAILED(hr)) { Shutdown(); return hr; }
+
+        DWORD config = DIRECTMANIPULATION_CONFIGURATION_INTERACTION
+                     | DIRECTMANIPULATION_CONFIGURATION_TRANSLATION_X
+                     | DIRECTMANIPULATION_CONFIGURATION_TRANSLATION_Y
+                     | DIRECTMANIPULATION_CONFIGURATION_TRANSLATION_INERTIA
+                     | DIRECTMANIPULATION_CONFIGURATION_RAILS_X
+                     | DIRECTMANIPULATION_CONFIGURATION_RAILS_Y
+                     | DIRECTMANIPULATION_CONFIGURATION_SCALING;
+        viewport_->ActivateConfiguration(config);
+        viewport_->SetViewportOptions(DIRECTMANIPULATION_VIEWPORT_OPTIONS_MANUALUPDATE | DIRECTMANIPULATION_VIEWPORT_OPTIONS_DISABLEPIXELSNAPPING);
+
+        RECT rc = { 0, 0, 1000, 1000 };
+        viewport_->SetViewportRect(&rc);
+
+        manager_->Activate(hwnd_);
+        viewport_->Enable();
+
+        viewport_->AddEventHandler(hwnd_, this, &cookie_);
+        update_manager_->Update(nullptr);
+        return S_OK;
+    }
+
+    // IUnknown
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppvObject) noexcept override {
+        if (!ppvObject) return E_POINTER;
+        if (riid == __uuidof(IUnknown) || riid == __uuidof(IDirectManipulationViewportEventHandler)) {
+            *ppvObject = static_cast<IDirectManipulationViewportEventHandler*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppvObject = nullptr;
+        return E_NOINTERFACE;
+    }
+
+    ULONG STDMETHODCALLTYPE AddRef() noexcept override {
+        return InterlockedIncrement(&ref_count_);
+    }
+
+    ULONG STDMETHODCALLTYPE Release() noexcept override {
+        ULONG count = InterlockedDecrement(&ref_count_);
+        if (count == 0) delete this;
+        return count;
+    }
+
+    // IDirectManipulationViewportEventHandler
+    HRESULT STDMETHODCALLTYPE OnViewportStatusChanged(IDirectManipulationViewport* viewport, DIRECTMANIPULATION_STATUS current, DIRECTMANIPULATION_STATUS previous) noexcept override {
+        if (current == previous) return S_OK;
+        if (current == DIRECTMANIPULATION_RUNNING && previous == DIRECTMANIPULATION_INERTIA) {
+            EndGesture();
+        }
+        if (current == DIRECTMANIPULATION_READY) {
+            EndGesture();
+            if (last_scale_ != 1.0f || last_x_ != 0.0f || last_y_ != 0.0f) {
+                if (viewport) {
+                    viewport->ZoomToRect(0.0f, 0.0f, 1000.0f, 1000.0f, FALSE);
+                }
+            }
+            last_scale_ = 1.0f;
+            last_x_ = 0.0f;
+            last_y_ = 0.0f;
+        }
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnViewportUpdated(IDirectManipulationViewport*) noexcept override {
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE OnContentUpdated(IDirectManipulationViewport*, IDirectManipulationContent* content) noexcept override {
+        if (!content) return E_POINTER;
+        float xform[6] = {0};
+        HRESULT hr = content->GetContentTransform(xform, 6);
+        if (FAILED(hr)) return hr;
+
+        float scale = xform[0];
+        float sf = scale_factor_ > 0.0f ? scale_factor_ : 1.0f;
+        float x_offset = xform[4] / sf;
+        float y_offset = xform[5] / sf;
+
+        if (scale == 0.0f) return S_OK;
+        if (FloatEquals(scale, last_scale_) && FloatEquals(x_offset, last_x_) && FloatEquals(y_offset, last_y_)) {
+            return S_OK;
+        }
+
+        POINT pt = {0};
+        GetCursorPos(&pt);
+        ScreenToClient(hwnd_, &pt);
+        float mouse_x = (float)pt.x / sf;
+        float mouse_y = (float)pt.y / sf;
+
+        if (!FloatEquals(scale, 1.0f)) {
+            if (gesture_kind_ != 2 /* Pinch */) {
+                EndGesture();
+                gesture_kind_ = 2;
+                CWinDmEvent ev = { 2, mouse_x, mouse_y, 0, 0, 0.0f, 0 /* Started */ };
+                events_.push_back(ev);
+            }
+        } else if (gesture_kind_ == 0) {
+            gesture_kind_ = 1; /* Scroll */
+            scroll_phase_ = 0; /* Started */
+        }
+
+        if (gesture_kind_ == 1) {
+            float dx = x_offset - last_x_;
+            float dy = y_offset - last_y_;
+            int phase = scroll_phase_;
+            scroll_phase_ = 1; /* Moved */
+            CWinDmEvent ev = { 1, mouse_x, mouse_y, dx, dy, 0.0f, phase };
+            events_.push_back(ev);
+        } else if (gesture_kind_ == 2) {
+            float scale_delta = scale / (last_scale_ > 0.0f ? last_scale_ : 1.0f);
+            CWinDmEvent ev = { 2, mouse_x, mouse_y, 0, 0, scale_delta - 1.0f, 1 /* Moved */ };
+            events_.push_back(ev);
+        }
+
+        last_scale_ = scale;
+        last_x_ = x_offset;
+        last_y_ = y_offset;
+        return S_OK;
+    }
+
+    void SetScaleFactor(float sf) { scale_factor_ = sf; }
+
+    void OnPointerHitTest(uintptr_t wparam) {
+        UINT32 pointer_id = LOWORD(wparam);
+        POINTER_INPUT_TYPE type = PT_POINTER;
+        if (GetPointerType(pointer_id, &type) && type == PT_TOUCHPAD && viewport_) {
+            viewport_->SetContact(pointer_id);
+        }
+    }
+
+    void Update() {
+        if (update_manager_) update_manager_->Update(nullptr);
+    }
+
+    int DrainEvents(CWinDmEvent* out_events, uint32_t max_count, uint32_t* out_count) {
+        if (!out_count) return (int)E_INVALIDARG;
+        uint32_t count = (uint32_t)std::min<size_t>(events_.size(), max_count);
+        for (uint32_t i = 0; i < count; ++i) {
+            out_events[i] = events_[i];
+        }
+        events_.erase(events_.begin(), events_.begin() + count);
+        *out_count = count;
+        return 0;
+    }
+
+private:
+    void EndGesture() {
+        POINT pt = {0};
+        GetCursorPos(&pt);
+        ScreenToClient(hwnd_, &pt);
+        float sf = scale_factor_ > 0.0f ? scale_factor_ : 1.0f;
+        float mouse_x = (float)pt.x / sf;
+        float mouse_y = (float)pt.y / sf;
+
+        if (gesture_kind_ == 1) {
+            CWinDmEvent ev = { 1, mouse_x, mouse_y, 0, 0, 0.0f, 2 /* Ended */ };
+            events_.push_back(ev);
+        } else if (gesture_kind_ == 2) {
+            CWinDmEvent ev = { 2, mouse_x, mouse_y, 0, 0, 0.0f, 2 /* Ended */ };
+            events_.push_back(ev);
+        }
+        gesture_kind_ = 0;
+    }
+
+    static bool FloatEquals(float a, float b) {
+        float diff = std::abs(a - b);
+        float max_val = std::max(std::abs(a), std::abs(b));
+        return diff < 0.00001f * std::max(max_val, 0.00001f);
+    }
+
+    LONG ref_count_;
+    HWND hwnd_;
+    float scale_factor_;
+    int gesture_kind_; // 0 = none, 1 = scroll, 2 = pinch
+    float last_scale_;
+    float last_x_;
+    float last_y_;
+    int scroll_phase_;
+    IDirectManipulationManager* manager_;
+    IDirectManipulationUpdateManager* update_manager_;
+    IDirectManipulationViewport* viewport_;
+    DWORD cookie_;
+    std::vector<CWinDmEvent> events_;
+};
+
+void* cwin_dm_create_handler(void* hwnd, float scale_factor) {
+    if (!hwnd) return nullptr;
+    auto* handler = new CWinDirectManipulationHandler(static_cast<HWND>(hwnd), scale_factor);
+    if (FAILED(handler->Init())) {
+        handler->Shutdown();
+        handler->Release();
+        return nullptr;
+    }
+    return handler;
+}
+
+void cwin_dm_destroy_handler(void* handler) {
+    if (handler) {
+        auto* h = static_cast<CWinDirectManipulationHandler*>(handler);
+        h->Shutdown();
+        h->Release();
+    }
+}
+
+void cwin_dm_set_scale_factor(void* handler, float scale_factor) {
+    if (handler) {
+        static_cast<CWinDirectManipulationHandler*>(handler)->SetScaleFactor(scale_factor);
+    }
+}
+
+void cwin_dm_on_pointer_hit_test(void* handler, uintptr_t wparam) {
+    if (handler) {
+        static_cast<CWinDirectManipulationHandler*>(handler)->OnPointerHitTest(wparam);
+    }
+}
+
+void cwin_dm_update(void* handler) {
+    if (handler) {
+        static_cast<CWinDirectManipulationHandler*>(handler)->Update();
+    }
+}
+
+int cwin_dm_drain_events(void* handler, struct CWinDmEvent* out_events, uint32_t max_count, uint32_t* out_count) {
+    if (!handler || !out_events || !out_count) {
+        if (out_count) *out_count = 0;
+        return 0;
+    }
+    return static_cast<CWinDirectManipulationHandler*>(handler)->DrainEvents(out_events, max_count, out_count);
+}
 
 #else
 

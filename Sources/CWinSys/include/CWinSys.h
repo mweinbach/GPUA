@@ -240,6 +240,53 @@ int cwin_win32_file_open_dialog(void* hwnd, int allow_multi, int pick_folders, c
 int cwin_win32_file_save_dialog(void* hwnd, const uint16_t* initial_dir, const uint16_t* default_name, uint16_t** out_path);
 void cwin_win32_free_path_list(uint16_t** paths, size_t count);
 
+// Win32 Keyboard & Input
+int cwin_win32_get_keyboard_layout_name(uint16_t* out_name, size_t max_len);
+int cwin_win32_get_keyboard_layout_text(const uint16_t* layout_id, uint16_t* out_text, size_t max_len);
+uint32_t cwin_win32_map_virtual_key(uint32_t uCode, uint32_t uMapType);
+int cwin_win32_to_unicode(uint32_t vkey, uint32_t scan_code, const uint8_t* key_state, uint16_t* out_buffer, int buffer_size, uint32_t flags);
+int16_t cwin_win32_get_key_state(int vkey);
+int cwin_win32_get_keyboard_state(uint8_t* out_state_256);
+uint32_t cwin_win32_get_double_click_time(void);
+void cwin_win32_get_double_click_tolerance(int32_t* out_width, int32_t* out_height);
+int32_t cwin_win32_get_frame_thickness_x(uint32_t dpi);
+int32_t cwin_win32_get_frame_thickness_y(uint32_t dpi);
+void cwin_win32_notify_frame_changed(void* hwnd);
+
+// Win32 Enhanced Clipboard
+int cwin_win32_clipboard_open(void* hwnd);
+int cwin_win32_clipboard_close(void);
+int cwin_win32_clipboard_empty(void);
+uint32_t cwin_win32_clipboard_register_format(const uint16_t* format_name);
+int cwin_win32_clipboard_get_format_name(uint32_t format, uint16_t* out_name, size_t max_len);
+int cwin_win32_clipboard_is_format_available(uint32_t format);
+int cwin_win32_clipboard_count_formats(void);
+uint32_t cwin_win32_clipboard_enum_formats(uint32_t format);
+int cwin_win32_clipboard_set_binary_data(uint32_t format, const void* data, size_t len);
+int cwin_win32_clipboard_get_binary_data(uint32_t format, void** out_data, size_t* out_len);
+void cwin_win32_clipboard_free_binary_data(void* data);
+int cwin_win32_clipboard_get_hdrop_files(void* hdrop, uint16_t*** out_files, size_t* out_count);
+void cwin_win32_clipboard_free_hdrop_files(uint16_t** files, size_t count);
+int cwin_win32_clipboard_get_files(uint16_t*** out_files, size_t* out_count);
+
+// Win32 DirectManipulation
+struct CWinDmEvent {
+    int type; // 1 = scroll, 2 = pinch
+    float x;
+    float y;
+    float delta_x;
+    float delta_y;
+    float scale_delta;
+    int touch_phase; // 0 = started, 1 = moved, 2 = ended
+};
+
+void* cwin_dm_create_handler(void* hwnd, float scale_factor);
+void cwin_dm_destroy_handler(void* handler);
+void cwin_dm_set_scale_factor(void* handler, float scale_factor);
+void cwin_dm_on_pointer_hit_test(void* handler, uintptr_t wparam);
+void cwin_dm_update(void* handler);
+int cwin_dm_drain_events(void* handler, struct CWinDmEvent* out_events, uint32_t max_count, uint32_t* out_count);
+
 #ifdef __cplusplus
 }
 #endif

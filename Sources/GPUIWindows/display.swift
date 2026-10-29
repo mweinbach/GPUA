@@ -17,10 +17,10 @@ public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
     public let handle: WinHandle?
     public let displayId: DisplayId
     public let scaleFactor: Float
-    public let bounds: Bounds<Pixels>
-    public let visibleBounds: Bounds<Pixels>
-    public let physicalBounds: Bounds<DevicePixels>
-    public let uuid: UUID
+    private let _bounds: Bounds<Pixels>
+    private let _visibleBounds: Bounds<Pixels>
+    private let _physicalBounds: Bounds<DevicePixels>
+    private let _uuid: UUID
 
     public init(
         displayId: DisplayId,
@@ -33,10 +33,10 @@ public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
     ) {
         self.displayId = displayId
         self.scaleFactor = scaleFactor
-        self.bounds = bounds
-        self.visibleBounds = visibleBounds
-        self.physicalBounds = physicalBounds
-        self.uuid = uuid
+        self._bounds = bounds
+        self._visibleBounds = visibleBounds
+        self._physicalBounds = physicalBounds
+        self._uuid = uuid
         self.handle = handle
     }
 
@@ -46,12 +46,12 @@ public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
         guard cwin_win32_get_monitor_info(handle, &info) == 0 else { return nil }
 
         let scale = Float(info.dpi_x) / 96.0
-        let pWidth = DevicePixels(Int(info.monitor_right - info.monitor_left))
-        let pHeight = DevicePixels(Int(info.monitor_bottom - info.monitor_top))
+        let pWidth = DevicePixels(info.monitor_right - info.monitor_left)
+        let pHeight = DevicePixels(info.monitor_bottom - info.monitor_top)
         let physicalSize = Size(width: pWidth, height: pHeight)
         let physicalOrigin = Point(
-            x: DevicePixels(Int(info.monitor_left)),
-            y: DevicePixels(Int(info.monitor_top))
+            x: DevicePixels(info.monitor_left),
+            y: DevicePixels(info.monitor_top)
         )
         let physBounds = Bounds(origin: physicalOrigin, size: physicalSize)
 
@@ -95,7 +95,7 @@ public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
 
     public convenience init?(displayId: DisplayId) {
         let displays = WindowsDisplay.availableMonitors()
-        let idx = Int(displayId.value)
+        let idx = Int(displayId.rawValue)
         guard idx >= 0 && idx < displays.count else { return nil }
         self.init(handle: displays[idx], displayId: displayId)
     }
@@ -107,19 +107,19 @@ public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
     }
 
     public func visibleBounds() -> Bounds<Pixels> {
-        self.visibleBounds
+        self._visibleBounds
     }
 
     public func bounds() -> Bounds<Pixels> {
-        self.bounds
+        self._bounds
     }
 
     public func physicalBounds() -> Bounds<DevicePixels> {
-        self.physicalBounds
+        self._physicalBounds
     }
 
     public func uuid() throws -> UUID {
-        self.uuid
+        self._uuid
     }
 
     // MARK: - Query & Enumeration

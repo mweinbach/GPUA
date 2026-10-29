@@ -13,18 +13,6 @@ import ZedUtil
 import CWinSys
 #endif
 
-// MARK: - Keyboard Layout
-
-public struct WindowsKeyboardLayout: PlatformKeyboardLayout, Sendable {
-    public let id: String
-    public let name: String
-
-    public init(id: String = "00000409", name: String = "US") {
-        self.id = id
-        self.name = name
-    }
-}
-
 // MARK: - Platform Callbacks Container
 
 // PORT NOTE: WindowsPlatformCallbacks stores mutable callback arrays accessed from the main event pump.
@@ -62,9 +50,9 @@ private func platformMessageWndProc(
 public final class WindowsPlatform: Platform, @unchecked Sendable {
     public let headless: Bool
     public let dispatcher: WindowsDispatcher
-    public let backgroundExecutor: BackgroundExecutor
-    public let foregroundExecutor: ForegroundExecutor
-    public let textSystem: any PlatformTextSystem
+    private let _backgroundExecutor: GPUI.BackgroundExecutor
+    private let _foregroundExecutor: GPUI.ForegroundExecutor
+    private let _textSystem: any PlatformTextSystem
     public let validationNumber: UInt
     public private(set) var messageHwnd: WinHandle?
     public private(set) var currentCursor: WinHandle?
@@ -77,6 +65,7 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     private var storedMenus: [OwnedMenu] = []
     private var dockMenuItems: [MenuItem] = []
     private let vsyncProvider: VSyncProvider
+    private var _headlessClipboard: ClipboardItem? = nil
 
     public init(headless: Bool = false) {
         self.headless = headless
@@ -87,13 +76,13 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
 
         let disp = WindowsDispatcher(validationNumber: validationNumber)
         self.dispatcher = disp
-        self.backgroundExecutor = BackgroundExecutor(dispatcher: disp)
-        self.foregroundExecutor = ForegroundExecutor(dispatcher: disp)
+        self._backgroundExecutor = GPUI.BackgroundExecutor(dispatcher: disp)
+        self._foregroundExecutor = GPUI.ForegroundExecutor(dispatcher: disp)
 
         if headless {
-            self.textSystem = NoopTextSystem()
+            self._textSystem = NoopTextSystem()
         } else {
-            self.textSystem = NoopTextSystem()
+            self._textSystem = (try? DirectWriteTextSystem(directxDevices: nil)) ?? NoopTextSystem()
         }
 
         // Register window class for message-only anchor window
@@ -133,15 +122,15 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     // MARK: - Platform Protocol Conformance
 
     public func textSystem() -> any PlatformTextSystem {
-        textSystem
+        _textSystem
     }
 
-    public func backgroundExecutor() -> BackgroundExecutor? {
-        backgroundExecutor
+    public func backgroundExecutor() -> GPUI.BackgroundExecutor? {
+        _backgroundExecutor
     }
 
-    public func foregroundExecutor() -> ForegroundExecutor? {
-        foregroundExecutor
+    public func foregroundExecutor() -> GPUI.ForegroundExecutor? {
+        _foregroundExecutor
     }
 
     public func run(_ onFinishLaunching: @escaping () -> Void) {
@@ -226,9 +215,7 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
 
     public func openWindow(handle: AnyWindowHandle, options: WindowOptions) -> any PlatformWindow {
         let win = DefaultPlatformWindow(
-            windowBounds: options.bounds,
-            windowScaleFactor: 1.0,
-            windowAppearance: windowAppearance()
+            appearance: windowAppearance()
         )
         lock.lock()
         windowObjects[handle] = win
@@ -241,7 +228,7 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     }
 
     public func buttonLayout() -> WindowButtonLayout? {
-        .right
+        WindowButtonLayout(left: false)
     }
 
     public func thermalState() -> ThermalState {
@@ -253,29 +240,24 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     }
 
     public func keyboardMapper() -> any PlatformKeyboardMapper {
-        DummyKeyboardMapper()
+        WindowsKeyboardMapper()
     }
 
     // MARK: - Clipboard
 
     public func readFromClipboard() -> ClipboardItem? {
-        var textPtr: UnsafeMutablePointer<uint16_t>? = nil
-        var len: Int = 0
-        guard cwin_win32_clipboard_get_text(nil, &textPtr, &len) == 0, let textPtr = textPtr else {
-            return nil
+        if headless {
+            return _headlessClipboard
         }
-        defer { cwin_win32_clipboard_free_text(textPtr) }
-        let text = fromWideString(textPtr, length: len)
-        return ClipboardItem.string(text)
+        return GPUIWindows.readFromClipboard()
     }
 
     public func writeToClipboard(_ item: ClipboardItem) {
-        if let text = item.text {
-            let wide = toWideString(text)
-            wide.withUnsafeBufferPointer { buf in
-                _ = cwin_win32_clipboard_set_text(nil, buf.baseAddress, text.utf16.count)
-            }
+        if headless {
+            _headlessClipboard = item
+            return
         }
+        GPUIWindows.writeToClipboard(item)
     }
 
     public func readFromPrimary() -> ClipboardItem? {
@@ -318,7 +300,7 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
 
     public func readCredentials(url: String) async throws -> (String, Data)? {
         let targetName = toWideString(windowsCredentialsTargetName(url: url))
-        var userPtr: UnsafeMutablePointer<uint16_t>? = nil
+        var userPtr: UnsafeMutablePointer<UInt16>? = nil
         var blobPtr: UnsafeMutablePointer<UInt8>? = nil
         var blobLen: Int = 0
 
@@ -388,31 +370,17 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     public func promptForPaths(options: PathPromptOptions) async throws -> [URL]? {
         let allowMulti = options.multiple ? 1 : 0
         let pickFolders = options.directories ? 1 : 0
-        var pathsPtr: UnsafeMutablePointer<UnsafeMutablePointer<uint16_t>?>? = nil
+        var pathsPtr: UnsafeMutablePointer<UnsafeMutablePointer<UInt16>?>? = nil
         var count: Int = 0
 
-        let okLabelWide = options.prompt.map { toWideString($0) }
-        let status: Int32 = if let okLabelWide = okLabelWide {
-            okLabelWide.withUnsafeBufferPointer { okBuf in
-                cwin_win32_file_open_dialog(
-                    messageHwnd,
-                    Int32(allowMulti),
-                    Int32(pickFolders),
-                    okBuf.baseAddress,
-                    &pathsPtr,
-                    &count
-                )
-            }
-        } else {
-            cwin_win32_file_open_dialog(
-                messageHwnd,
-                Int32(allowMulti),
-                Int32(pickFolders),
-                nil,
-                &pathsPtr,
-                &count
-            )
-        }
+        let status = cwin_win32_file_open_dialog(
+            messageHwnd,
+            Int32(allowMulti),
+            Int32(pickFolders),
+            nil,
+            &pathsPtr,
+            &count
+        )
         guard status == 0, let pathsPtr = pathsPtr, count > 0 else { return nil }
         defer { cwin_win32_free_path_list(pathsPtr, count) }
 
@@ -429,7 +397,7 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     public func promptForNewPath(directory: URL, suggestedName: String?) async throws -> URL? {
         let dirWide = toWideString(directory.path)
         let nameWide = suggestedName.map { toWideString($0) }
-        var outPath: UnsafeMutablePointer<uint16_t>? = nil
+        var outPath: UnsafeMutablePointer<UInt16>? = nil
 
         let status: Int32 = dirWide.withUnsafeBufferPointer { dirBuf in
             if let nameWide = nameWide {
@@ -511,7 +479,7 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
         lock.unlock()
         guard action >= 0 && action < items.count else { return }
         let item = items[action]
-        if let act = item.action {
+        if case .action(_, let act, _, _, _) = item {
             MainActor.assumeIsolated {
                 callbacks.appMenuAction.first?(act)
             }

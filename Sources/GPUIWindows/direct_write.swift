@@ -74,7 +74,7 @@ public struct ClusterAnalyzer: IteratorProtocol {
 
 // MARK: - Font Info
 
-private final class FontInfo {
+private final class DirectWriteFontInfo {
     let familyName: String
     let familyNameWide: [UInt16]
     let fontFace: WinHandle
@@ -124,7 +124,7 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
     private let systemFontCollection: WinHandle
     private var customFontCollection: WinHandle?
 
-    private var fonts: [FontInfo] = []
+    private var fonts: [DirectWriteFontInfo] = []
     private var fontToFontId: [Font: FontId] = [:]
     private var cachedFontFaces: [UnsafeMutableRawPointer: FontId] = [:]
     private var allFontNamesCache: [String]? = nil
@@ -272,7 +272,7 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
             return existing
         }
 
-        let familyName = descriptor.family
+        let familyName = descriptor.family.value
         let familyWide = toWideString(familyName)
 
         var selectedCol: WinHandle?
@@ -313,7 +313,7 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
             throw DirectWriteError.fontNotFound(familyName)
         }
 
-        let weight: UInt32 = UInt32(descriptor.weight.rawValue)
+        let weight: UInt32 = UInt32(descriptor.weight.value)
         let style: UInt32 = (descriptor.style == .italic) ? 2 : 0
 
         var face: UnsafeMutableRawPointer?
@@ -331,7 +331,7 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
         var metrics = CWinFontMetrics()
         _ = cwin_dwrite_font_face_get_metrics(fontFace, &metrics)
 
-        let info = FontInfo(
+        let info = DirectWriteFontInfo(
             familyName: familyName,
             familyNameWide: familyWide,
             fontFace: fontFace,
@@ -364,8 +364,8 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
                 capHeight: 700.0,
                 xHeight: 500.0,
                 boundingBox: Bounds(
-                    origin: Point(x: Pixels(0), y: Pixels(-250)),
-                    size: Size(width: Pixels(1000), height: Pixels(1250))
+                    origin: Point(x: 0.0, y: -250.0),
+                    size: Size(width: 1000.0, height: 1250.0)
                 )
             )
         }
@@ -376,7 +376,7 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
 
         let uem = metrics.units_per_em > 0 ? metrics.units_per_em : 1000
         return FontMetrics(
-            unitsPerEm: uem,
+            unitsPerEm: UInt32(uem),
             ascent: metrics.ascent,
             descent: metrics.descent,
             lineGap: metrics.line_gap,
@@ -385,10 +385,10 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
             capHeight: metrics.cap_height,
             xHeight: metrics.x_height,
             boundingBox: Bounds(
-                origin: Point(x: Pixels(metrics.glyph_box_left), y: Pixels(metrics.glyph_box_bottom)),
+                origin: Point(x: Float(metrics.glyph_box_left), y: Float(metrics.glyph_box_bottom)),
                 size: Size(
-                    width: Pixels(metrics.glyph_box_right - metrics.glyph_box_left),
-                    height: Pixels(metrics.glyph_box_top - metrics.glyph_box_bottom)
+                    width: Float(metrics.glyph_box_right - metrics.glyph_box_left),
+                    height: Float(metrics.glyph_box_top - metrics.glyph_box_bottom)
                 )
             )
         )
@@ -489,8 +489,8 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
         defer { cwin_dwrite_free_raster_result(&result) }
 
         return Bounds(
-            origin: Point(x: DevicePixels(Int(result.left)), y: DevicePixels(Int(result.top))),
-            size: Size(width: DevicePixels(Int(result.width)), height: DevicePixels(Int(result.height)))
+            origin: Point(x: DevicePixels(result.left), y: DevicePixels(result.top)),
+            size: Size(width: DevicePixels(result.width), height: DevicePixels(result.height))
         )
     }
 
@@ -525,7 +525,7 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
         guard hr == 0 else { throw DirectWriteError.rasterizationFailure(hr) }
         defer { cwin_dwrite_free_raster_result(&result) }
 
-        let size = Size(width: DevicePixels(Int(result.width)), height: DevicePixels(Int(result.height)))
+        let size = Size(width: DevicePixels(result.width), height: DevicePixels(result.height))
         if let pixels = result.pixels, result.pixel_bytes > 0 {
             let data = Data(bytes: pixels, count: Int(result.pixel_bytes))
             return (size, data)
@@ -550,7 +550,7 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
 
         let textWide: [UInt16] = text.utf16.map { $0 }
         let firstRun = runs[0]
-        let firstInfo: FontInfo
+        let firstInfo: DirectWriteFontInfo
         if firstRun.fontId.value < fonts.count {
             firstInfo = fonts[firstRun.fontId.value]
         } else {
@@ -744,6 +744,77 @@ public final class DirectWriteTextSystem: PlatformTextSystem, @unchecked Sendabl
         }
         return .grayscale
     }
+}
+
+// MARK: - OpenType Feature Helpers
+
+public func makeOpenTypeTag(_ tagName: String) -> UInt32 {
+    var tag: UInt32 = 0
+    for (i, byte) in tagName.utf8.prefix(4).enumerated() {
+        tag |= UInt32(byte) << (i * 8)
+    }
+    return tag
+}
+
+public struct DirectWriteFontFeature: Sendable, Equatable, Hashable {
+    public var tag: UInt32
+    public var parameter: UInt32
+
+    public init(tag: UInt32, parameter: UInt32 = 1) {
+        self.tag = tag
+        self.parameter = parameter
+    }
+
+    public init(name: String, parameter: UInt32 = 1) {
+        self.tag = makeOpenTypeTag(name)
+        self.parameter = parameter
+    }
+}
+
+public enum OpenTypeTags {
+    public static let liga = makeOpenTypeTag("liga")
+    public static let clig = makeOpenTypeTag("clig")
+    public static let calt = makeOpenTypeTag("calt")
+    public static let dlig = makeOpenTypeTag("dlig")
+    public static let hlig = makeOpenTypeTag("hlig")
+    public static let zero = makeOpenTypeTag("zero")
+    public static let frac = makeOpenTypeTag("frac")
+    public static let ordn = makeOpenTypeTag("ordn")
+    public static let tnum = makeOpenTypeTag("tnum")
+    public static let pnum = makeOpenTypeTag("pnum")
+    public static let onum = makeOpenTypeTag("onum")
+    public static let lnum = makeOpenTypeTag("lnum")
+    public static let smcp = makeOpenTypeTag("smcp")
+    public static let c2sc = makeOpenTypeTag("c2sc")
+    public static let caseTag = makeOpenTypeTag("case")
+}
+
+public func applyFontFeatures(
+    typography: WinHandle,
+    features: FontFeatures
+) {
+    let tagValues = features.tagValueList()
+
+    var featureLigaParam: UInt32 = 1
+    var featureCligParam: UInt32 = 1
+    var featureCaltParam: UInt32 = 1
+
+    for (tag, value) in tagValues {
+        if tag == "liga" {
+            featureLigaParam = value
+        } else if tag == "clig" {
+            featureCligParam = value
+        } else if tag == "calt" {
+            featureCaltParam = value
+        } else {
+            let directWriteTag = makeOpenTypeTag(tag)
+            _ = cwin_dwrite_typography_add_feature(typography, directWriteTag, value)
+        }
+    }
+
+    _ = cwin_dwrite_typography_add_feature(typography, OpenTypeTags.liga, featureLigaParam)
+    _ = cwin_dwrite_typography_add_feature(typography, OpenTypeTags.clig, featureCligParam)
+    _ = cwin_dwrite_typography_add_feature(typography, OpenTypeTags.calt, featureCaltParam)
 }
 
 #endif
