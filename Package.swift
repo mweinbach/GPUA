@@ -149,6 +149,7 @@ let package = Package(
             ["GPUI", "GPUIWGPU", "GPUICollections", "HTTPClient", "ZedUtil", "CWebGPU", "CLinuxSys"],
             linkerSettings: [
                 .linkedLibrary("wayland-client", .when(platforms: [.linux])),
+                .linkedLibrary("wayland-cursor", .when(platforms: [.linux])),
                 .linkedLibrary("X11", .when(platforms: [.linux])),
                 .linkedLibrary("X11-xcb", .when(platforms: [.linux])),
                 .linkedLibrary("xcb", .when(platforms: [.linux])),

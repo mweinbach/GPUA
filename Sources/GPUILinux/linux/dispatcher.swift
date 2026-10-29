@@ -24,7 +24,7 @@ public enum PostAction: Sendable {
 
 // MARK: - ChannelError
 
-public struct ChannelError: Error, CustomStringConvertible, Sendable {
+public struct ChannelError: Swift.Error, CustomStringConvertible, Sendable {
     public let message: String
 
     public init(_ message: String = "Channel error") {

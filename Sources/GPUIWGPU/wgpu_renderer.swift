@@ -582,7 +582,17 @@ public final class WgpuRenderer: @unchecked Sendable {
             case WGPUSurfaceGetCurrentTextureStatus_Outdated,
                  WGPUSurfaceGetCurrentTextureStatus_Lost:
                 wgpuSurfaceConfigure(surface, &surfaceConfig)
-                return
+                wgpuSurfaceGetCurrentTexture(surface, &surfTex)
+                if surfTex.status == WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal ||
+                   surfTex.status == WGPUSurfaceGetCurrentTextureStatus_SuccessSuboptimal {
+                    guard let view = wgpuTextureCreateView(surfTex.texture, nil) else {
+                        return
+                    }
+                    targetView = view
+                    isFromSurface = true
+                } else {
+                    return
+                }
             default:
                 return
             }

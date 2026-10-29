@@ -3,6 +3,7 @@
 
 #if defined(__linux__) && !defined(__ANDROID__)
 #include <wayland-client.h>
+#include <wayland-cursor.h>
 #include <X11/Xlib.h>
 #include <X11/Xlib-xcb.h>
 #include <xcb/xcb.h>

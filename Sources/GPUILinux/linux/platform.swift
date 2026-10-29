@@ -1,16 +1,22 @@
 // Ported from: crates/gpui_linux/src/linux/platform.rs
 // Upstream commit: 650aab59d54f
-// Port status: in-progress
+// Port status: ported
 
 #if os(Linux)
 import Foundation
 import GPUI
+import GPUIWGPU
 import Scheduler
 
 public let scrollLines: Float = 3.0
 public let doubleClickInterval: TimeInterval = 0.400
 public let doubleClickDistance: Pixels = Pixels(5.0)
 public let keyringLabel: String = "zed-github-account"
+
+public func isWithinClickDistance(_ a: Point<Pixels>, _ b: Point<Pixels>) -> Bool {
+    let diff = a - b
+    return abs(diff.x.value) <= doubleClickDistance.value && abs(diff.y.value) <= doubleClickDistance.value
+}
 
 public protocol LinuxClient: AnyObject, Sendable {
     func compositorName() -> String
@@ -78,7 +84,7 @@ public struct LinuxCommon: @unchecked Sendable {
 
     public static func new(signal: LoopSignal) -> (LinuxCommon, PriorityQueueCalloopReceiver<@Sendable () -> Void>) {
         let (mainSender, mainReceiver) = PriorityQueueCalloopReceiver<@Sendable () -> Void>.new()
-        let textSystem = NoopTextSystem.new()
+        let textSystem = CosmicTextSystem.new("sans-serif")
         let callbacks = PlatformHandlers()
         let dispatcher = LinuxDispatcher.new(mainSender: mainSender)
         let backgroundExecutor = GPUI.BackgroundExecutor(dispatcher: dispatcher)
@@ -272,7 +278,7 @@ public final class LinuxPlatform<P: LinuxClient>: Platform, @unchecked Sendable 
     }
 }
 
-public struct LinuxError: Error, CustomStringConvertible, Sendable {
+public struct LinuxError: Swift.Error, CustomStringConvertible, Sendable {
     public let message: String
     public init(_ message: String) { self.message = message }
     public var description: String { message }
@@ -305,6 +311,21 @@ public func keystrokeUnderlyingDeadKey(_ keysym: UInt32) -> String? {
     case 0xFE66: return "̏"  // dead_doublegrave
     case 0xFE67: return "˳"  // dead_belowring
     default: return nil
+    }
+}
+
+public func guessCompositor() -> String {
+    if ProcessInfo.processInfo.environment["ZED_HEADLESS"] != nil {
+        return "Headless"
+    }
+    let waylandDisplay = ProcessInfo.processInfo.environment["WAYLAND_DISPLAY"]
+    let x11Display = ProcessInfo.processInfo.environment["DISPLAY"]
+    if let waylandDisplay = waylandDisplay, !waylandDisplay.isEmpty {
+        return "Wayland"
+    } else if let x11Display = x11Display, !x11Display.isEmpty {
+        return "X11"
+    } else {
+        return "Headless"
     }
 }
 #endif
