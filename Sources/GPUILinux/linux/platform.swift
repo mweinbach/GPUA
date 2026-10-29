@@ -35,7 +35,14 @@ public protocol LinuxClient: AnyObject, Sendable {
     func writeToClipboard(_ item: ClipboardItem)
     func readFromPrimary() -> ClipboardItem?
     func readFromClipboard() -> ClipboardItem?
+    func keyboardMapper() -> (any PlatformKeyboardMapper)?
     func run()
+}
+
+extension LinuxClient {
+    public func keyboardMapper() -> (any PlatformKeyboardMapper)? {
+        nil
+    }
 }
 
 // PORT NOTE: PlatformHandlers stores platform callback closures accessed from the main thread.
@@ -179,7 +186,7 @@ public final class LinuxPlatform<P: LinuxClient>: Platform, @unchecked Sendable 
     }
 
     public func keyboardMapper() -> any PlatformKeyboardMapper {
-        DummyKeyboardMapper()
+        inner.keyboardMapper() ?? LinuxKeyboardMapper()
     }
 
     public func readFromClipboard() -> ClipboardItem? {

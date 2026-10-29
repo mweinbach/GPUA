@@ -159,6 +159,12 @@ public struct XcbAtoms: Sendable {
     public var UTF8_STRING: UInt32 = 0
     public var CLIPBOARD: UInt32 = 0
     public var PRIMARY: UInt32 = 0
+    public var TARGETS: UInt32 = 0
+    public var TEXT_PLAIN: UInt32 = 0
+    public var TEXT_PLAIN_UTF8: UInt32 = 0
+    public var STRING: UInt32 = 0
+    public var TEXT: UInt32 = 0
+    public var ATOM: UInt32 = 0
 
     public init(connection: OpaquePointer? = nil) {
         guard let connection = connection else { return }
@@ -203,6 +209,12 @@ public struct XcbAtoms: Sendable {
         self.UTF8_STRING = intern("UTF8_STRING")
         self.CLIPBOARD = intern("CLIPBOARD")
         self.PRIMARY = intern("PRIMARY")
+        self.TARGETS = intern("TARGETS")
+        self.TEXT_PLAIN = intern("text/plain")
+        self.TEXT_PLAIN_UTF8 = intern("text/plain;charset=utf-8")
+        self.STRING = intern("STRING")
+        self.TEXT = intern("TEXT")
+        self.ATOM = intern("ATOM")
     }
 }
 
@@ -310,6 +322,9 @@ public final class X11WindowState: @unchecked Sendable {
     public var decorations: WindowDecorations = .client
     public var handle: AnyWindowHandle
     public var lastInsets: (top: UInt32, right: UInt32, bottom: UInt32, left: UInt32) = (0, 0, 0, 0)
+    public var mousePosition: Point<Pixels> = .zero
+    public var modifiers: Modifiers = Modifiers()
+    public var capslock: Capslock = Capslock()
 
     public init(
         handle: AnyWindowHandle,
@@ -386,6 +401,7 @@ public final class X11WindowState: @unchecked Sendable {
             bounds.size.height = DevicePixels(600)
         }
 
+        var syncCounter: UInt32 = 0
         if let connection = connection {
             let eventMask = UInt32(
                 XCB_EVENT_MASK_EXPOSURE.rawValue |
@@ -394,7 +410,12 @@ public final class X11WindowState: @unchecked Sendable {
                 XCB_EVENT_MASK_KEY_PRESS.rawValue |
                 XCB_EVENT_MASK_KEY_RELEASE.rawValue |
                 XCB_EVENT_MASK_PROPERTY_CHANGE.rawValue |
-                XCB_EVENT_MASK_VISIBILITY_CHANGE.rawValue
+                XCB_EVENT_MASK_VISIBILITY_CHANGE.rawValue |
+                XCB_EVENT_MASK_BUTTON_PRESS.rawValue |
+                XCB_EVENT_MASK_BUTTON_RELEASE.rawValue |
+                XCB_EVENT_MASK_POINTER_MOTION.rawValue |
+                XCB_EVENT_MASK_ENTER_WINDOW.rawValue |
+                XCB_EVENT_MASK_LEAVE_WINDOW.rawValue
             )
             var valueMask = UInt32(XCB_CW_BORDER_PIXEL.rawValue | XCB_CW_EVENT_MASK.rawValue | XCB_CW_COLORMAP.rawValue)
             var values: [UInt32] = [visualSet.blackPixel, eventMask, colormapId]
@@ -451,7 +472,7 @@ public final class X11WindowState: @unchecked Sendable {
             }
 
             // Sync counter initialization
-            let syncCounter = xcb_generate_id(connection)
+            syncCounter = xcb_generate_id(connection)
             xcb_sync_create_counter(connection, syncCounter, xcb_sync_int64_t(hi: 0, lo: 0))
             var counterVal = syncCounter
             xcb_change_property(
@@ -497,7 +518,7 @@ public final class X11WindowState: @unchecked Sendable {
             xRootWindow: visualSet.root,
             xScreenIndex: screenIndex,
             visualId: visual.id,
-            counterId: 0,
+            counterId: syncCounter,
             bounds: params.bounds,
             scaleFactor: scaleFactor,
             renderer: renderer,
@@ -579,6 +600,10 @@ public final class X11WindowStatePtr: @unchecked Sendable {
     }
 
     public func close() {
+        if let conn = connection {
+            xcb_destroy_window(conn, xWindow)
+            xcb_flush(conn)
+        }
         callbacks.close?()
     }
 
@@ -709,19 +734,40 @@ public final class X11Window: PlatformWindow, WgpuWindowHandleProvider, @uncheck
     }
 
     public func mousePosition() -> Point<Pixels> {
-        .zero
+        ptr.state.mousePosition
     }
 
     public func modifiers() -> Modifiers {
-        Modifiers()
+        ptr.state.modifiers
     }
 
     public func capslock() -> Capslock {
-        Capslock()
+        ptr.state.capslock
     }
 
     public func activate() {
         ptr.setActive(true)
+        guard let conn = ptr.connection else { return }
+        var msg = xcb_client_message_event_t()
+        msg.response_type = UInt8(XCB_CLIENT_MESSAGE)
+        msg.format = 32
+        msg.sequence = 0
+        msg.window = ptr.xWindow
+        msg.type = ptr.state.atoms._NET_ACTIVE_WINDOW
+        msg.data.data32 = (1, 0, 0, 0, 0)
+        _ = withUnsafePointer(to: &msg) { ptrMsg in
+            ptrMsg.withMemoryRebound(to: CChar.self, capacity: MemoryLayout<xcb_client_message_event_t>.size) { charPtr in
+                xcb_send_event(
+                    conn,
+                    0,
+                    ptr.state.xRootWindow,
+                    UInt32(XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT.rawValue | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY.rawValue),
+                    charPtr
+                )
+            }
+        }
+        xcb_set_input_focus(conn, UInt8(XCB_INPUT_FOCUS_POINTER_ROOT.rawValue), ptr.xWindow, 0)
+        xcb_flush(conn)
     }
 
     public func isMaximized() -> Bool {
@@ -742,15 +788,79 @@ public final class X11Window: PlatformWindow, WgpuWindowHandleProvider, @uncheck
 
     public func minimize() {
         ptr.state.hidden = true
+        guard let conn = ptr.connection else { return }
+        var msg = xcb_client_message_event_t()
+        msg.response_type = UInt8(XCB_CLIENT_MESSAGE)
+        msg.format = 32
+        msg.sequence = 0
+        msg.window = ptr.xWindow
+        msg.type = ptr.state.atoms.WM_CHANGE_STATE
+        msg.data.data32 = (3, 0, 0, 0, 0)
+        _ = withUnsafePointer(to: &msg) { ptrMsg in
+            ptrMsg.withMemoryRebound(to: CChar.self, capacity: MemoryLayout<xcb_client_message_event_t>.size) { charPtr in
+                xcb_send_event(
+                    conn,
+                    0,
+                    ptr.state.xRootWindow,
+                    UInt32(XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT.rawValue | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY.rawValue),
+                    charPtr
+                )
+            }
+        }
+        xcb_flush(conn)
     }
 
     public func zoom() {
         ptr.state.maximizedVertical.toggle()
         ptr.state.maximizedHorizontal.toggle()
+        guard let conn = ptr.connection else { return }
+        var msg = xcb_client_message_event_t()
+        msg.response_type = UInt8(XCB_CLIENT_MESSAGE)
+        msg.format = 32
+        msg.sequence = 0
+        msg.window = ptr.xWindow
+        msg.type = ptr.state.atoms._NET_WM_STATE
+        msg.data.data32 = (2, ptr.state.atoms._NET_WM_STATE_MAXIMIZED_VERT, ptr.state.atoms._NET_WM_STATE_MAXIMIZED_HORZ, 1, 0)
+        _ = withUnsafePointer(to: &msg) { ptrMsg in
+            ptrMsg.withMemoryRebound(to: CChar.self, capacity: MemoryLayout<xcb_client_message_event_t>.size) { charPtr in
+                xcb_send_event(
+                    conn,
+                    0,
+                    ptr.state.xRootWindow,
+                    UInt32(XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT.rawValue | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY.rawValue),
+                    charPtr
+                )
+            }
+        }
+        xcb_flush(conn)
     }
 
     public func toggleFullScreen() {
         ptr.state.fullscreen.toggle()
+        guard let conn = ptr.connection else { return }
+        var msg = xcb_client_message_event_t()
+        msg.response_type = UInt8(XCB_CLIENT_MESSAGE)
+        msg.format = 32
+        msg.sequence = 0
+        msg.window = ptr.xWindow
+        msg.type = ptr.state.atoms._NET_WM_STATE
+        msg.data.data32 = (2, ptr.state.atoms._NET_WM_STATE_FULLSCREEN, 0, 1, 0)
+        _ = withUnsafePointer(to: &msg) { ptrMsg in
+            ptrMsg.withMemoryRebound(to: CChar.self, capacity: MemoryLayout<xcb_client_message_event_t>.size) { charPtr in
+                xcb_send_event(
+                    conn,
+                    0,
+                    ptr.state.xRootWindow,
+                    UInt32(XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT.rawValue | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY.rawValue),
+                    charPtr
+                )
+            }
+        }
+        xcb_flush(conn)
+    }
+
+    public func close() {
+        ptr.close()
     }
 
     public func setInputHandler(_ handler: any PlatformInputHandlerProtocol) {

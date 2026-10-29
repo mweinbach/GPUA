@@ -67,6 +67,15 @@ public final class X11ClientState: @unchecked Sendable {
     public var clipboard: X11Clipboard
     public var ximHandler: XimHandler = XimHandler.new()
     public var keyboardLayout: LinuxKeyboardLayout
+    public var xkbContext: XkbContext?
+    public var xkbDeviceId: Int32 = -1
+    public var xkbKeymap: XkbKeymap?
+    public var xkbState: XkbState?
+    public var composeState: XkbComposeState?
+    public var lastClickTime: TimeInterval = 0
+    public var lastMouseButton: MouseButton? = nil
+    public var lastClickLocation: Point<Pixels> = .zero
+    public var clickCount: Int = 1
 
     public init(
         x11Display: OpaquePointer?,
@@ -76,7 +85,12 @@ public final class X11ClientState: @unchecked Sendable {
         common: LinuxCommon,
         gpuContext: GpuContext = GpuContext(),
         compositorGpu: CompositorGpuHint? = nil,
-        scaleFactor: Float = 1.0
+        scaleFactor: Float = 1.0,
+        xkbContext: XkbContext? = nil,
+        xkbDeviceId: Int32 = -1,
+        xkbKeymap: XkbKeymap? = nil,
+        xkbState: XkbState? = nil,
+        composeState: XkbComposeState? = nil
     ) {
         self.x11Display = x11Display
         self.connection = connection
@@ -88,6 +102,11 @@ public final class X11ClientState: @unchecked Sendable {
         self.scaleFactor = scaleFactor
         self.clipboard = (try? X11Clipboard.new()) ?? X11Clipboard()
         self.keyboardLayout = LinuxKeyboardLayout(name: "US")
+        self.xkbContext = xkbContext
+        self.xkbDeviceId = xkbDeviceId
+        self.xkbKeymap = xkbKeymap
+        self.xkbState = xkbState
+        self.composeState = composeState
     }
 }
 
@@ -166,13 +185,55 @@ public final class X11Client: LinuxClient, @unchecked Sendable {
         let scaleFactorEnv = ProcessInfo.processInfo.environment["GPUI_X11_SCALE_FACTOR"]
         let scaleFactor = scaleFactorEnv.flatMap { Float($0) } ?? 1.0
 
+        var xkbMajor: UInt16 = 1
+        var xkbMinor: UInt16 = 0
+        var baseEvent: UInt8 = 0
+        var baseError: UInt8 = 0
+        let xkbOk = xkb_x11_setup_xkb_extension(
+            validConn,
+            1,
+            0,
+            XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS,
+            &xkbMajor,
+            &xkbMinor,
+            &baseEvent,
+            &baseError
+        )
+
+        let xkbContext = XkbContext()
+        let xkbDeviceId = xkbOk != 0 ? xkb_x11_get_core_keyboard_device_id(validConn) : -1
+
+        let xkbKeymap: XkbKeymap?
+        let xkbState: XkbState?
+        if xkbOk != 0 && xkbDeviceId >= 0, let ctx = xkbContext {
+            xkbKeymap = XkbKeymap(context: ctx, connection: validConn, deviceId: xkbDeviceId)
+            if let km = xkbKeymap {
+                xkbState = XkbState(keymap: km, connection: validConn, deviceId: xkbDeviceId)
+            } else {
+                xkbState = nil
+            }
+        } else if let ctx = xkbContext {
+            xkbKeymap = XkbKeymap.fromRuleNames(context: ctx)
+            xkbState = xkbKeymap.flatMap { XkbState(keymap: $0) }
+        } else {
+            xkbKeymap = nil
+            xkbState = nil
+        }
+
+        let composeState = xkbContext.flatMap { getXkbComposeState(context: $0) }
+
         let state = X11ClientState(
             x11Display: display,
             connection: validConn,
             xRootIndex: 0,
             atoms: atoms,
             common: common,
-            scaleFactor: scaleFactor
+            scaleFactor: scaleFactor,
+            xkbContext: xkbContext,
+            xkbDeviceId: xkbDeviceId,
+            xkbKeymap: xkbKeymap,
+            xkbState: xkbState,
+            composeState: composeState
         )
         let ptr = X11ClientStatePtr(state: state)
         return X11Client(ptr: ptr, eventLoop: eventLoop)
@@ -241,6 +302,202 @@ public final class X11Client: LinuxClient, @unchecked Sendable {
                     }
                     ref.window.setActive(false)
                 }
+            case XCB_KEY_PRESS:
+                let ev = eventPtr.withMemoryRebound(to: xcb_key_press_event_t.self, capacity: 1) { $0.pointee }
+                let win = ev.event
+                if let ref = ptr.state.windows[win] {
+                    let modifiers = modifiersFromState(UInt32(ev.state))
+                    ref.window.state.modifiers = modifiers
+                    let keycode = UInt32(ev.detail)
+                    let keystroke: Keystroke
+                    if let xkb = ptr.state.xkbState {
+                        var ks = keystrokeFromXkb(state: xkb, modifiers: modifiers, keycode: keycode)
+                        let keySym = xkb.keyGetOneSym(keycode: keycode)
+                        xkb.updateKey(keycode: keycode, direction: XKB_KEY_DOWN)
+                        if let compose = ptr.state.composeState {
+                            _ = compose.feed(keysym: keySym)
+                            if compose.status() == XKB_COMPOSE_COMPOSED {
+                                let composedText = compose.utf8()
+                                if !composedText.isEmpty {
+                                    ks.keyChar = composedText
+                                }
+                            }
+                        }
+                        keystroke = ks
+                    } else {
+                        keystroke = Keystroke(modifiers: modifiers, key: "\(keycode)")
+                    }
+                    _ = ref.window.handleInput(.keyDown(KeyDownEvent(keystroke: keystroke)))
+                }
+
+            case XCB_KEY_RELEASE:
+                let ev = eventPtr.withMemoryRebound(to: xcb_key_release_event_t.self, capacity: 1) { $0.pointee }
+                let win = ev.event
+                if let ref = ptr.state.windows[win] {
+                    let modifiers = modifiersFromState(UInt32(ev.state))
+                    ref.window.state.modifiers = modifiers
+                    let keycode = UInt32(ev.detail)
+                    let keystroke: Keystroke
+                    if let xkb = ptr.state.xkbState {
+                        let ks = keystrokeFromXkb(state: xkb, modifiers: modifiers, keycode: keycode)
+                        xkb.updateKey(keycode: keycode, direction: XKB_KEY_UP)
+                        keystroke = ks
+                    } else {
+                        keystroke = Keystroke(modifiers: modifiers, key: "\(keycode)")
+                    }
+                    _ = ref.window.handleInput(.keyUp(KeyUpEvent(keystroke: keystroke)))
+                }
+
+            case XCB_BUTTON_PRESS:
+                let ev = eventPtr.withMemoryRebound(to: xcb_button_press_event_t.self, capacity: 1) { $0.pointee }
+                let win = ev.event
+                if let ref = ptr.state.windows[win] {
+                    let position = Point(
+                        x: px(Float(ev.event_x) / ptr.state.scaleFactor),
+                        y: px(Float(ev.event_y) / ptr.state.scaleFactor)
+                    )
+                    let modifiers = modifiersFromState(UInt32(ev.state))
+                    ref.window.state.mousePosition = position
+                    ref.window.state.modifiers = modifiers
+
+                    if let btnOrScroll = buttonOrScrollFromEventDetail(UInt32(ev.detail)) {
+                        switch btnOrScroll {
+                        case .button(let button):
+                            let now = Date().timeIntervalSince1970
+                            let elapsed = now - ptr.state.lastClickTime
+                            if elapsed < doubleClickInterval &&
+                                ptr.state.lastMouseButton == button &&
+                                isWithinClickDistance(ptr.state.lastClickLocation, position) {
+                                ptr.state.clickCount += 1
+                            } else {
+                                ptr.state.clickCount = 1
+                            }
+                            ptr.state.lastClickTime = now
+                            ptr.state.lastMouseButton = button
+                            ptr.state.lastClickLocation = position
+
+                            _ = ref.window.handleInput(.mouseDown(MouseDownEvent(
+                                button: button,
+                                position: position,
+                                modifiers: modifiers,
+                                clickCount: ptr.state.clickCount,
+                                firstMouse: false
+                            )))
+
+                        case .scroll(let direction):
+                            let scrollDelta: Point<Float>
+                            switch direction {
+                            case .up:
+                                scrollDelta = Point(x: 0, y: scrollLines)
+                            case .down:
+                                scrollDelta = Point(x: 0, y: -scrollLines)
+                            case .left:
+                                scrollDelta = Point(x: scrollLines, y: 0)
+                            case .right:
+                                scrollDelta = Point(x: -scrollLines, y: 0)
+                            }
+                            _ = ref.window.handleInput(.scrollWheel(ScrollWheelEvent(
+                                position: position,
+                                delta: .lines(scrollDelta),
+                                modifiers: modifiers,
+                                touchPhase: .moved
+                            )))
+                        }
+                    }
+                }
+
+            case XCB_BUTTON_RELEASE:
+                let ev = eventPtr.withMemoryRebound(to: xcb_button_release_event_t.self, capacity: 1) { $0.pointee }
+                let win = ev.event
+                if let ref = ptr.state.windows[win] {
+                    let position = Point(
+                        x: px(Float(ev.event_x) / ptr.state.scaleFactor),
+                        y: px(Float(ev.event_y) / ptr.state.scaleFactor)
+                    )
+                    let modifiers = modifiersFromState(UInt32(ev.state))
+                    ref.window.state.mousePosition = position
+                    ref.window.state.modifiers = modifiers
+
+                    if let btnOrScroll = buttonOrScrollFromEventDetail(UInt32(ev.detail)),
+                       case .button(let button) = btnOrScroll {
+                        _ = ref.window.handleInput(.mouseUp(MouseUpEvent(
+                            button: button,
+                            position: position,
+                            modifiers: modifiers,
+                            clickCount: ptr.state.clickCount
+                        )))
+                    }
+                }
+
+            case XCB_MOTION_NOTIFY:
+                let ev = eventPtr.withMemoryRebound(to: xcb_motion_notify_event_t.self, capacity: 1) { $0.pointee }
+                let win = ev.event
+                if let ref = ptr.state.windows[win] {
+                    let position = Point(
+                        x: px(Float(ev.event_x) / ptr.state.scaleFactor),
+                        y: px(Float(ev.event_y) / ptr.state.scaleFactor)
+                    )
+                    let modifiers = modifiersFromState(UInt32(ev.state))
+                    ref.window.state.mousePosition = position
+                    ref.window.state.modifiers = modifiers
+                    let pressedButton = pressedButtonFromMask(UInt32(ev.state))
+                    _ = ref.window.handleInput(.mouseMove(MouseMoveEvent(
+                        position: position,
+                        pressedButton: pressedButton,
+                        modifiers: modifiers
+                    )))
+                }
+
+            case XCB_ENTER_NOTIFY:
+                let ev = eventPtr.withMemoryRebound(to: xcb_enter_notify_event_t.self, capacity: 1) { $0.pointee }
+                let win = ev.event
+                if let ref = ptr.state.windows[win] {
+                    let position = Point(
+                        x: px(Float(ev.event_x) / ptr.state.scaleFactor),
+                        y: px(Float(ev.event_y) / ptr.state.scaleFactor)
+                    )
+                    let modifiers = modifiersFromState(UInt32(ev.state))
+                    ref.window.state.mousePosition = position
+                    ref.window.state.modifiers = modifiers
+                    ref.window.setHovered(true)
+                    ptr.state.mouseFocusedWindow = win
+                    _ = ref.window.handleInput(.mouseMove(MouseMoveEvent(
+                        position: position,
+                        pressedButton: nil,
+                        modifiers: modifiers
+                    )))
+                }
+
+            case XCB_LEAVE_NOTIFY:
+                let ev = eventPtr.withMemoryRebound(to: xcb_leave_notify_event_t.self, capacity: 1) { $0.pointee }
+                let win = ev.event
+                if let ref = ptr.state.windows[win] {
+                    let position = Point(
+                        x: px(Float(ev.event_x) / ptr.state.scaleFactor),
+                        y: px(Float(ev.event_y) / ptr.state.scaleFactor)
+                    )
+                    let modifiers = modifiersFromState(UInt32(ev.state))
+                    ref.window.state.mousePosition = position
+                    ref.window.state.modifiers = modifiers
+                    ref.window.setHovered(false)
+                    if ptr.state.mouseFocusedWindow == win {
+                        ptr.state.mouseFocusedWindow = nil
+                    }
+                    _ = ref.window.handleInput(.mouseExited(MouseExitEvent(
+                        position: position,
+                        pressedButton: nil,
+                        modifiers: modifiers
+                    )))
+                }
+
+            case XCB_SELECTION_REQUEST:
+                let ev = eventPtr.withMemoryRebound(to: xcb_selection_request_event_t.self, capacity: 1) { $0.pointee }
+                ptr.state.clipboard.handleSelectionRequest(ev, connection: connection)
+
+            case XCB_SELECTION_CLEAR:
+                let ev = eventPtr.withMemoryRebound(to: xcb_selection_clear_event_t.self, capacity: 1) { $0.pointee }
+                ptr.state.clipboard.handleSelectionClear(ev)
+
             default:
                 break
             }
@@ -276,6 +533,10 @@ public final class X11Client: LinuxClient, @unchecked Sendable {
 
     public func keyboardLayout() -> any PlatformKeyboardLayout {
         ptr.state.keyboardLayout
+    }
+
+    public func keyboardMapper() -> (any PlatformKeyboardMapper)? {
+        LinuxKeyboardMapper(keymap: ptr.state.xkbKeymap)
     }
 
     public func displays() -> [any PlatformDisplay] {

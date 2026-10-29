@@ -58,6 +58,26 @@ public final class XkbContext: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: LinuxKeyboardMapper maps keystrokes using Linux XKB keymaps conforming to PlatformKeyboardMapper.
+public struct LinuxKeyboardMapper: PlatformKeyboardMapper, Sendable {
+    public let keymap: XkbKeymap?
+
+    public init(keymap: XkbKeymap? = nil) {
+        self.keymap = keymap
+    }
+
+    public func mapKeyEquivalent(
+        keystroke: Keystroke,
+        useKeyEquivalents: Bool
+    ) -> KeybindingKeystroke {
+        KeybindingKeystroke.fromKeystroke(keystroke)
+    }
+
+    public func getKeyEquivalents() -> [Character: Character]? {
+        nil
+    }
+}
+
 // MARK: - XKB Keymap
 
 // PORT NOTE: XkbKeymap wraps an immutable compiled xkb_keymap pointer.
@@ -71,6 +91,19 @@ public final class XkbKeymap: @unchecked Sendable {
         flags: xkb_keymap_compile_flags = XKB_KEYMAP_COMPILE_NO_FLAGS
     ) {
         guard let keymap = xkb_keymap_new_from_string(context.raw, string, format, flags) else {
+            return nil
+        }
+        self.raw = keymap
+    }
+
+    public init?(
+        context: XkbContext,
+        connection: OpaquePointer?,
+        deviceId: Int32,
+        flags: xkb_keymap_compile_flags = XKB_KEYMAP_COMPILE_NO_FLAGS
+    ) {
+        guard let conn = connection else { return nil }
+        guard let keymap = xkb_x11_keymap_new_from_device(context.raw, conn, deviceId, flags) else {
             return nil
         }
         self.raw = keymap
@@ -139,8 +172,24 @@ public final class XkbState: @unchecked Sendable {
         self.raw = state
     }
 
+    public init?(
+        keymap: XkbKeymap,
+        connection: OpaquePointer?,
+        deviceId: Int32
+    ) {
+        guard let conn = connection else { return nil }
+        guard let state = xkb_x11_state_new_from_device(keymap.raw, conn, deviceId) else {
+            return nil
+        }
+        self.raw = state
+    }
+
     deinit {
         xkb_state_unref(raw)
+    }
+
+    public func updateKey(keycode: UInt32, direction: xkb_key_direction) {
+        xkb_state_update_key(raw, keycode, direction)
     }
 
     @discardableResult
