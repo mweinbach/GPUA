@@ -4,6 +4,7 @@
 
 #if os(Linux)
 import Foundation
+import Glibc
 import CLinuxSys
 import GPUI
 
@@ -121,6 +122,10 @@ public enum WaylandClipboardModule {
 public final class Clipboard: @unchecked Sendable {
     public var connection: OpaquePointer?
     public var selfMimeStr: String
+    public var dataDeviceManager: OpaquePointer?
+    public var seat: OpaquePointer?
+    public var dataDevice: OpaquePointer?
+    public var currentSource: OpaquePointer?
 
     public var contents: ClipboardItem?
     public var primaryContents: ClipboardItem?
@@ -130,9 +135,39 @@ public final class Clipboard: @unchecked Sendable {
     public var cachedPrimaryRead: ClipboardItem?
     public var currentPrimaryOffer: DataOffer<ZwpPrimarySelectionOfferV1>?
 
+    // PORT NOTE: Pinned immortal vtable listener pointer for libwayland wl_data_source C callbacks.
+    nonisolated(unsafe) public static let dataSourceListener: UnsafeMutablePointer<wl_data_source_listener> = {
+        let ptr = UnsafeMutablePointer<wl_data_source_listener>.allocate(capacity: 1)
+        ptr.initialize(to: wl_data_source_listener(
+            target: { data, source, mimeType in
+            },
+            send: { data, source, mimeType, fd in
+                guard let data = data else {
+                    close(fd)
+                    return
+                }
+                let clipboard = Unmanaged<Clipboard>.fromOpaque(data).takeUnretainedValue()
+                let mime = mimeType.map { String(cString: $0) } ?? ""
+                clipboard.send(mime, fd)
+            },
+            cancelled: { data, source in
+                guard let source = source else { return }
+                wl_data_source_destroy(source)
+            },
+            dnd_drop_performed: { data, source in },
+            dnd_finished: { data, source in },
+            action: { data, source, action in }
+        ))
+        return ptr
+    }()
+
     public init(connection: OpaquePointer? = nil) {
         self.connection = connection
         self.selfMimeStr = "pid/\(getpid())"
+        self.dataDeviceManager = nil
+        self.seat = nil
+        self.dataDevice = nil
+        self.currentSource = nil
         self.contents = nil
         self.primaryContents = nil
         self.cachedRead = nil
@@ -145,8 +180,37 @@ public final class Clipboard: @unchecked Sendable {
         Clipboard(connection: connection)
     }
 
+    public func setDataDeviceManager(_ manager: OpaquePointer?, seat: OpaquePointer?) {
+        self.dataDeviceManager = manager
+        self.seat = seat
+        if let manager = manager, let seat = seat, self.dataDevice == nil {
+            self.dataDevice = wl_data_device_manager_get_data_device(manager, seat)
+        }
+    }
+
     public func set(_ item: ClipboardItem) {
         self.contents = item
+        guard let dataDeviceManager = dataDeviceManager,
+              let dataDevice = dataDevice else {
+            return
+        }
+        if let old = currentSource {
+            wl_data_source_destroy(old)
+            currentSource = nil
+        }
+        guard let source = wl_data_device_manager_create_data_source(dataDeviceManager) else {
+            return
+        }
+        self.currentSource = source
+        _ = wl_data_source_add_listener(source, Clipboard.dataSourceListener, Unmanaged.passUnretained(self).toOpaque())
+        wl_data_source_offer(source, "text/plain;charset=utf-8")
+        wl_data_source_offer(source, "UTF8_STRING")
+        wl_data_source_offer(source, "text/plain")
+        wl_data_source_offer(source, selfMimeStr)
+        wl_data_device_set_selection(dataDevice, source, 0)
+        if let connection = connection {
+            wl_display_flush(connection)
+        }
     }
 
     public func setPrimary(_ item: ClipboardItem) {
@@ -168,24 +232,39 @@ public final class Clipboard: @unchecked Sendable {
     }
 
     public func send(_ mimeType: String, _ fd: Int32) {
+        defer { close(fd) }
         if let text = contents?.text {
-            sendInternal(fd: fd, bytes: Array(text.utf8))
+            let bytes = Array(text.utf8)
+            bytes.withUnsafeBufferPointer { buf in
+                guard let base = buf.baseAddress else { return }
+                var written = 0
+                while written < buf.count {
+                    let res = write(fd, base + written, buf.count - written)
+                    if res <= 0 { break }
+                    written += res
+                }
+            }
         }
     }
 
     public func sendPrimary(_ mimeType: String, _ fd: Int32) {
+        defer { close(fd) }
         if let text = primaryContents?.text {
-            sendInternal(fd: fd, bytes: Array(text.utf8))
+            let bytes = Array(text.utf8)
+            bytes.withUnsafeBufferPointer { buf in
+                guard let base = buf.baseAddress else { return }
+                var written = 0
+                while written < buf.count {
+                    let res = write(fd, base + written, buf.count - written)
+                    if res <= 0 { break }
+                    written += res
+                }
+            }
         }
     }
 
-    private func sendInternal(fd: Int32, bytes: [UInt8]) {
-        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
-        handle.write(Data(bytes))
-    }
-
     public func read() -> ClipboardItem? {
-        guard let offer = currentOffer else { return nil }
+        guard let offer = currentOffer else { return contents }
         if let cached = cachedRead {
             return cached
         }
@@ -193,14 +272,14 @@ public final class Clipboard: @unchecked Sendable {
             return contents
         }
         guard let item = offer.readText(connection) ?? offer.readImage(connection) else {
-            return nil
+            return contents
         }
         cachedRead = item
         return item
     }
 
     public func readPrimary() -> ClipboardItem? {
-        guard let offer = currentPrimaryOffer else { return nil }
+        guard let offer = currentPrimaryOffer else { return primaryContents }
         if let cached = cachedPrimaryRead {
             return cached
         }
@@ -208,7 +287,7 @@ public final class Clipboard: @unchecked Sendable {
             return primaryContents
         }
         guard let item = offer.readText(connection) ?? offer.readImage(connection) else {
-            return nil
+            return primaryContents
         }
         cachedPrimaryRead = item
         return item

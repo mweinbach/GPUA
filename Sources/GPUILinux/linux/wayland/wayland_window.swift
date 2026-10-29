@@ -71,15 +71,24 @@ public struct WaylandXdgSurfaceState: @unchecked Sendable {
     }
 
     public func ackConfigure(serial: UInt32) {
-        // xdg_surface_ack_configure
+        if let xdgSurface = xdgSurface {
+            xdg_surface_ack_configure(xdgSurface, serial)
+        }
     }
 
     public func setGeometry(x: Int32, y: Int32, width: Int32, height: Int32) {
-        // xdg_surface_set_window_geometry
+        if let xdgSurface = xdgSurface {
+            xdg_surface_set_window_geometry(xdgSurface, x, y, width, height)
+        }
     }
 
     public func destroy() {
-        // destroy dialog, toplevel, xdgSurface
+        if let toplevel = toplevel {
+            xdg_toplevel_destroy(toplevel)
+        }
+        if let xdgSurface = xdgSurface {
+            xdg_surface_destroy(xdgSurface)
+        }
     }
 }
 
@@ -223,6 +232,7 @@ public final class WaylandWindowState: @unchecked Sendable {
     public var children: Set<ObjectId>
     public var surface: OpaquePointer?
     public var appId: String?
+    public var title: String?
     public var appearance: WindowAppearance
     public var blur: OpaquePointer?
     public var viewport: OpaquePointer?
@@ -273,6 +283,7 @@ public final class WaylandWindowState: @unchecked Sendable {
         self.parent = parent
         self.children = []
         self.appId = nil
+        self.title = nil
         self.blur = nil
         self.outputs = [:]
         self.display = nil
@@ -304,7 +315,7 @@ public final class WaylandWindowState: @unchecked Sendable {
             preferredPresentMode: nil
         )
         let rawHandle = WgpuRawWindowHandle.wayland(
-            display: nil,
+            display: client.state.display.map { UnsafeMutableRawPointer($0) },
             surface: surface.map { UnsafeMutableRawPointer($0) }
         )
         self.renderer = try WgpuRenderer.new(
@@ -314,6 +325,51 @@ public final class WaylandWindowState: @unchecked Sendable {
             compositorGpu: compositorGpu
         )
     }
+
+    // PORT NOTE: Pinned immortal vtable listener pointer for xdg_surface C callbacks.
+    nonisolated(unsafe) public static let xdgSurfaceListener: UnsafeMutablePointer<xdg_surface_listener> = {
+        let ptr = UnsafeMutablePointer<xdg_surface_listener>.allocate(capacity: 1)
+        ptr.initialize(to: xdg_surface_listener(
+            configure: { data, xdgSurface, serial in
+                guard let data = data, let xdgSurface = xdgSurface else { return }
+                let winPtr = Unmanaged<WaylandWindowStatePtr>.fromOpaque(data).takeUnretainedValue()
+                xdg_surface_ack_configure(xdgSurface, serial)
+                winPtr.state.acknowledgedFirstConfigure = true
+            }
+        ))
+        return ptr
+    }()
+
+    // PORT NOTE: Pinned immortal vtable listener pointer for xdg_toplevel C callbacks.
+    nonisolated(unsafe) public static let xdgToplevelListener: UnsafeMutablePointer<xdg_toplevel_listener> = {
+        let ptr = UnsafeMutablePointer<xdg_toplevel_listener>.allocate(capacity: 1)
+        ptr.initialize(to: xdg_toplevel_listener(
+            configure: { data, toplevel, width, height, states in
+                guard let data = data else { return }
+                let winPtr = Unmanaged<WaylandWindowStatePtr>.fromOpaque(data).takeUnretainedValue()
+                if width > 0 && height > 0 {
+                    winPtr.state.bounds.size = Size(width: px(Float(width)), height: px(Float(height)))
+                    winPtr.callbacks.resize?(Size(width: px(Float(width)), height: px(Float(height))), winPtr.state.scale)
+                }
+            },
+            close: { data, toplevel in
+                guard let data = data else { return }
+                let winPtr = Unmanaged<WaylandWindowStatePtr>.fromOpaque(data).takeUnretainedValue()
+                if let shouldClose = winPtr.callbacks.shouldClose {
+                    if shouldClose() {
+                        winPtr.callbacks.close?()
+                    }
+                } else {
+                    winPtr.callbacks.close?()
+                }
+            },
+            configure_bounds: { data, toplevel, width, height in
+            },
+            wm_capabilities: { data, toplevel, capabilities in
+            }
+        ))
+        return ptr
+    }()
 
     public static func new(
         handle: AnyWindowHandle,
@@ -543,9 +599,16 @@ public enum ImeInput: Sendable {
 
 // MARK: - WaylandWindow
 
-// PORT NOTE: WaylandWindow conforms to PlatformWindow forwarding calls to WaylandWindowStatePtr.
-public final class WaylandWindow: PlatformWindow, @unchecked Sendable {
+// PORT NOTE: WaylandWindow conforms to PlatformWindow and WgpuWindowHandleProvider forwarding calls to WaylandWindowStatePtr.
+public final class WaylandWindow: PlatformWindow, WgpuWindowHandleProvider, @unchecked Sendable {
     public let ptr: WaylandWindowStatePtr
+
+    public var rawWindowHandle: WgpuRawWindowHandle {
+        WgpuRawWindowHandle.wayland(
+            display: ptr.state.client.state.display.map { UnsafeMutableRawPointer($0) },
+            surface: ptr.state.surface.map { UnsafeMutableRawPointer($0) }
+        )
+    }
 
     public init(ptr: WaylandWindowStatePtr) {
         self.ptr = ptr
@@ -621,30 +684,52 @@ public final class WaylandWindow: PlatformWindow, @unchecked Sendable {
 
     public func setAppId(_ id: String) {
         ptr.state.appId = id
+        if case .xdg(let xdgState) = ptr.state.surfaceState, let toplevel = xdgState.toplevel {
+            xdg_toplevel_set_app_id(toplevel, id)
+        }
     }
 
     public func setTitle(_ title: String) {
-        // toplevel title
+        ptr.state.title = title
+        if case .xdg(let xdgState) = ptr.state.surfaceState, let toplevel = xdgState.toplevel {
+            xdg_toplevel_set_title(toplevel, title)
+        }
     }
 
     public func setEdited(_ edited: Bool) {
-        // set edited state
+        // Wayland core protocol has no document-edited indicator
     }
 
     public func showCharacterPalette() {
-        // show character palette
+        // Wayland character palette handled by system input method
     }
 
     public func minimize() {
-        // xdg_toplevel_set_minimized
+        if case .xdg(let xdgState) = ptr.state.surfaceState, let toplevel = xdgState.toplevel {
+            xdg_toplevel_set_minimized(toplevel)
+        }
     }
 
     public func zoom() {
         ptr.state.maximized.toggle()
+        if case .xdg(let xdgState) = ptr.state.surfaceState, let toplevel = xdgState.toplevel {
+            if ptr.state.maximized {
+                xdg_toplevel_set_maximized(toplevel)
+            } else {
+                xdg_toplevel_unset_maximized(toplevel)
+            }
+        }
     }
 
     public func toggleFullScreen() {
         ptr.state.fullscreen.toggle()
+        if case .xdg(let xdgState) = ptr.state.surfaceState, let toplevel = xdgState.toplevel {
+            if ptr.state.fullscreen {
+                xdg_toplevel_set_fullscreen(toplevel, nil)
+            } else {
+                xdg_toplevel_unset_fullscreen(toplevel)
+            }
+        }
     }
 
     public func onRequestFrame(_ callback: @escaping (RequestFrameOptions) -> Void) {
@@ -710,15 +795,41 @@ public final class WaylandWindow: PlatformWindow, @unchecked Sendable {
     }
 
     public func showWindowMenu(_ position: Point<Pixels>) {
-        // show window menu
+        if case .xdg(let xdgState) = ptr.state.surfaceState, let toplevel = xdgState.toplevel {
+            if let seat = ptr.state.globals.seat {
+                let serial = ptr.state.client.state.serialTracker.get(.mousePress)
+                xdg_toplevel_show_window_menu(toplevel, seat, serial, Int32(position.x.value), Int32(position.y.value))
+            }
+        }
     }
 
     public func startWindowMove() {
-        // start window move
+        if case .xdg(let xdgState) = ptr.state.surfaceState, let toplevel = xdgState.toplevel {
+            if let seat = ptr.state.globals.seat {
+                let serial = ptr.state.client.state.serialTracker.get(.mousePress)
+                xdg_toplevel_move(toplevel, seat, serial)
+            }
+        }
     }
 
     public func startWindowResize(_ edge: ResizeEdge) {
-        // start window resize
+        if case .xdg(let xdgState) = ptr.state.surfaceState, let toplevel = xdgState.toplevel {
+            if let seat = ptr.state.globals.seat {
+                let serial = ptr.state.client.state.serialTracker.get(.mousePress)
+                let xdgEdge: UInt32
+                switch edge {
+                case .top: xdgEdge = UInt32(XDG_TOPLEVEL_RESIZE_EDGE_TOP.rawValue)
+                case .bottom: xdgEdge = UInt32(XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM.rawValue)
+                case .left: xdgEdge = UInt32(XDG_TOPLEVEL_RESIZE_EDGE_LEFT.rawValue)
+                case .right: xdgEdge = UInt32(XDG_TOPLEVEL_RESIZE_EDGE_RIGHT.rawValue)
+                case .topLeft: xdgEdge = UInt32(XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT.rawValue)
+                case .topRight: xdgEdge = UInt32(XDG_TOPLEVEL_RESIZE_EDGE_TOP_RIGHT.rawValue)
+                case .bottomLeft: xdgEdge = UInt32(XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_LEFT.rawValue)
+                case .bottomRight: xdgEdge = UInt32(XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT.rawValue)
+                }
+                xdg_toplevel_resize(toplevel, seat, serial, xdgEdge)
+            }
+        }
     }
 
     public func windowDecorations() -> WindowDecorations {

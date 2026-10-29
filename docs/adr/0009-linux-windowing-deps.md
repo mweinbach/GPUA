@@ -20,12 +20,14 @@ Under SwiftPM, importing C APIs requires either system library targets (`systemL
    - `Sources/CLinuxSys/include/CLinuxSys.h` acts as an umbrella header declaring standard Linux C includes guarded with `#if defined(__linux__)`.
    - On non-Linux platforms (macOS, iOS, Windows, Android), `CLinuxSys.h` compiles cleanly as an empty unit, ensuring `swift build` and multi-platform compilation succeed unconditionally without platform guards breaking.
 2. Link required system libraries through `Package.swift` linker settings on `GPUILinux`:
-   - `wayland-client`, `X11`, `X11-xcb`, `xcb`, `xkbcommon`, `xkbcommon-x11`, `freetype`, `harfbuzz`, and `fontconfig`, each guarded with `.when(platforms: [.linux])`.
-3. Provide an architecture-aware provisioning script `Scripts/install_linux_deps.sh`:
-   - Installs Debian/Ubuntu packages for `x86_64` and `aarch64`.
+   - `wayland-client`, `wayland-cursor`, `X11`, `X11-xcb`, `xcb`, `xkbcommon`, `xkbcommon-x11`, `freetype`, `harfbuzz`, and `fontconfig`, each guarded with `.when(platforms: [.linux])`.
+3. Generate standard Wayland client protocols into `CLinuxSys`:
+   - `xdg-shell` client protocol headers (`xdg-shell-client-protocol.h`) and private code (`xdg-shell-protocol.c`) are pre-generated via `wayland-scanner` from upstream freedesktop `xdg-shell.xml` and committed into `Sources/CLinuxSys/`, guarded by `#if defined(__linux__) && !defined(__ANDROID__)`. This eliminates build-time plugin requirements and guarantees identical C symbol bindings across Linux toolchains while allowing macOS, Windows, and Android to build cleanly.
+4. Provide an architecture-aware provisioning script `Scripts/install_linux_deps.sh`:
+   - Installs Debian/Ubuntu packages for `x86_64` and `aarch64`, including `xvfb` for headless X11 and `weston` for headless Wayland compositor testing (`weston --backend=headless`).
    - Downloads prebuilt `wgpu-native v24.0.0.2` (`libwgpu_native.so`) to `/usr/local/lib` and executes `ldconfig`.
    - Configures Mesa Lavapipe Vulkan ICD (`mesa-vulkan-drivers`) and `xvfb` so headless CI and local containerized testing execute deterministically without physical GPU hardware.
-4. Integrate into CI (`.github/workflows/ci.yml`):
+5. Integrate into CI (`.github/workflows/ci.yml`):
    - Linux job runs `bash Scripts/install_linux_deps.sh` and executes test suites under `xvfb-run -a swift test`.
 
 ## Alternatives considered

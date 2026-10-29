@@ -4,6 +4,15 @@
 #if defined(__linux__) && !defined(__ANDROID__)
 #include <wayland-client.h>
 #include <wayland-cursor.h>
+#include "xdg-shell-client-protocol.h"
+
+static inline const struct wl_interface *gpua_wl_compositor_interface(void) { return &wl_compositor_interface; }
+static inline const struct wl_interface *gpua_wl_subcompositor_interface(void) { return &wl_subcompositor_interface; }
+static inline const struct wl_interface *gpua_wl_shm_interface(void) { return &wl_shm_interface; }
+static inline const struct wl_interface *gpua_wl_seat_interface(void) { return &wl_seat_interface; }
+static inline const struct wl_interface *gpua_wl_output_interface(void) { return &wl_output_interface; }
+static inline const struct wl_interface *gpua_wl_data_device_manager_interface(void) { return &wl_data_device_manager_interface; }
+static inline const struct wl_interface *gpua_xdg_wm_base_interface(void) { return &xdg_wm_base_interface; }
 #include <X11/Xlib.h>
 #include <X11/Xlib-xcb.h>
 #include <xcb/xcb.h>

@@ -4,6 +4,7 @@
 
 #if os(Linux)
 import Foundation
+import Glibc
 import CLinuxSys
 import GPUI
 import GPUIWGPU
@@ -13,6 +14,7 @@ import GPUIWGPU
 // PORT NOTE: Globals holds bound Wayland protocol globals and the foreground executor.
 public struct Globals: @unchecked Sendable {
     public var compositor: OpaquePointer?
+    public var subcompositor: OpaquePointer?
     public var shm: OpaquePointer?
     public var seat: OpaquePointer?
     public var wmBase: OpaquePointer?
@@ -32,6 +34,7 @@ public struct Globals: @unchecked Sendable {
 
     public init(
         compositor: OpaquePointer? = nil,
+        subcompositor: OpaquePointer? = nil,
         shm: OpaquePointer? = nil,
         seat: OpaquePointer? = nil,
         wmBase: OpaquePointer? = nil,
@@ -50,6 +53,7 @@ public struct Globals: @unchecked Sendable {
         executor: GPUI.ForegroundExecutor
     ) {
         self.compositor = compositor
+        self.subcompositor = subcompositor
         self.shm = shm
         self.seat = seat
         self.wmBase = wmBase
@@ -178,6 +182,29 @@ public enum PendingActivation: Sendable {
     case window(ObjectId)
 }
 
+// PORT NOTE: WaylandOutputBox aggregates output metrics received across wl_output events.
+public final class WaylandOutputBox: @unchecked Sendable {
+    public weak var client: WaylandClientStatePtr?
+    public let id: ObjectId
+    public let output: OpaquePointer
+    public var name: String?
+    public var scale: Int32 = 1
+    public var position: Point<DevicePixels> = .zero
+    public var size: Size<DevicePixels> = Size(width: DevicePixels(1920), height: DevicePixels(1080))
+
+    public init(client: WaylandClientStatePtr, id: ObjectId, output: OpaquePointer) {
+        self.client = client
+        self.id = id
+        self.output = output
+    }
+
+    public func commit() {
+        guard let client = client else { return }
+        let out = Output(name: name, scale: scale, bounds: Bounds(origin: position, size: size))
+        client.state.outputs[id] = out
+    }
+}
+
 // MARK: - WaylandClientState
 
 // PORT NOTE: WaylandClientState manages wayland event queues, windows, displays and input state.
@@ -190,6 +217,9 @@ public final class WaylandClientState: @unchecked Sendable {
     public var windows: [ObjectId: WaylandWindowStatePtr]
     public var outputs: [ObjectId: Output]
     public var inProgressOutputs: [ObjectId: InProgressOutput]
+    public var outputBoxes: [UInt32: WaylandOutputBox] = [:]
+    public var pointer: OpaquePointer? = nil
+    public var keyboard: OpaquePointer? = nil
     public var keyboardLayout: LinuxKeyboardLayout
     public var drag: DragState
     public var click: ClickState
@@ -307,6 +337,48 @@ public final class WaylandClientStatePtr: @unchecked Sendable {
             }
         }
     }
+
+    public func bindGlobal(registry: OpaquePointer, name: UInt32, interface: String, version: UInt32) {
+        switch interface {
+        case "wl_compositor":
+            let bound = wl_registry_bind(registry, name, gpua_wl_compositor_interface(), min(version, 4))
+            state.globals.compositor = bound.map { OpaquePointer($0) }
+        case "wl_subcompositor":
+            let bound = wl_registry_bind(registry, name, gpua_wl_subcompositor_interface(), 1)
+            state.globals.subcompositor = bound.map { OpaquePointer($0) }
+        case "wl_shm":
+            let bound = wl_registry_bind(registry, name, gpua_wl_shm_interface(), 1)
+            state.globals.shm = bound.map { OpaquePointer($0) }
+        case "wl_seat":
+            let bound = wl_registry_bind(registry, name, gpua_wl_seat_interface(), min(version, 7))
+            state.globals.seat = bound.map { OpaquePointer($0) }
+            state.clipboard.setDataDeviceManager(state.globals.dataDeviceManager, seat: state.globals.seat)
+        case "xdg_wm_base":
+            let bound = wl_registry_bind(registry, name, gpua_xdg_wm_base_interface(), min(version, 5))
+            state.globals.wmBase = bound.map { OpaquePointer($0) }
+            if let wmBase = state.globals.wmBase {
+                _ = xdg_wm_base_add_listener(wmBase, WaylandClient.wmBaseListener, nil)
+            }
+        case "wl_output":
+            let bound = wl_registry_bind(registry, name, gpua_wl_output_interface(), min(version, 4))
+            if let output = bound.map({ OpaquePointer($0) }) {
+                let outBox = WaylandOutputBox(client: self, id: ObjectId(name), output: output)
+                state.outputBoxes[name] = outBox
+                _ = wl_output_add_listener(output, WaylandClient.outputListener, Unmanaged.passUnretained(outBox).toOpaque())
+            }
+        case "wl_data_device_manager":
+            let bound = wl_registry_bind(registry, name, gpua_wl_data_device_manager_interface(), min(version, 3))
+            state.globals.dataDeviceManager = bound.map { OpaquePointer($0) }
+            state.clipboard.setDataDeviceManager(state.globals.dataDeviceManager, seat: state.globals.seat)
+        default:
+            break
+        }
+    }
+
+    public func removeGlobal(name: UInt32) {
+        state.outputBoxes.removeValue(forKey: name)
+        state.outputs.removeValue(forKey: ObjectId(name))
+    }
 }
 
 // MARK: - Helper getWindow
@@ -327,6 +399,74 @@ public final class WaylandClient: LinuxClient, @unchecked Sendable {
         self.eventLoop = eventLoop
     }
 
+    // PORT NOTE: Pinned immortal vtable listener pointer for libwayland wl_output C callbacks.
+    nonisolated(unsafe) public static let outputListener: UnsafeMutablePointer<wl_output_listener> = {
+        let ptr = UnsafeMutablePointer<wl_output_listener>.allocate(capacity: 1)
+        ptr.initialize(to: wl_output_listener(
+            geometry: { data, output, x, y, physW, physH, subpixel, make, model, transform in
+                guard let data = data else { return }
+                let outBox = Unmanaged<WaylandOutputBox>.fromOpaque(data).takeUnretainedValue()
+                outBox.position = Point(x: DevicePixels(x), y: DevicePixels(y))
+            },
+            mode: { data, output, flags, width, height, refresh in
+                guard let data = data else { return }
+                let outBox = Unmanaged<WaylandOutputBox>.fromOpaque(data).takeUnretainedValue()
+                if (flags & UInt32(WL_OUTPUT_MODE_CURRENT.rawValue)) != 0 {
+                    outBox.size = Size(width: DevicePixels(width), height: DevicePixels(height))
+                }
+            },
+            done: { data, output in
+                guard let data = data else { return }
+                let outBox = Unmanaged<WaylandOutputBox>.fromOpaque(data).takeUnretainedValue()
+                outBox.commit()
+            },
+            scale: { data, output, factor in
+                guard let data = data else { return }
+                let outBox = Unmanaged<WaylandOutputBox>.fromOpaque(data).takeUnretainedValue()
+                outBox.scale = factor
+            },
+            name: { data, output, name in
+                guard let data = data, let name = name else { return }
+                let outBox = Unmanaged<WaylandOutputBox>.fromOpaque(data).takeUnretainedValue()
+                outBox.name = String(cString: name)
+            },
+            description: { data, output, desc in
+            }
+        ))
+        return ptr
+    }()
+
+    // PORT NOTE: Pinned immortal vtable listener pointer for libwayland wl_registry C callbacks.
+    nonisolated(unsafe) public static let registryListener: UnsafeMutablePointer<wl_registry_listener> = {
+        let ptr = UnsafeMutablePointer<wl_registry_listener>.allocate(capacity: 1)
+        ptr.initialize(to: wl_registry_listener(
+            global: { data, registry, name, interface, version in
+                guard let data = data, let registry = registry, let interface = interface else { return }
+                let ptr = Unmanaged<WaylandClientStatePtr>.fromOpaque(data).takeUnretainedValue()
+                let iface = String(cString: interface)
+                ptr.bindGlobal(registry: registry, name: name, interface: iface, version: version)
+            },
+            global_remove: { data, registry, name in
+                guard let data = data else { return }
+                let ptr = Unmanaged<WaylandClientStatePtr>.fromOpaque(data).takeUnretainedValue()
+                ptr.removeGlobal(name: name)
+            }
+        ))
+        return ptr
+    }()
+
+    // PORT NOTE: Pinned immortal vtable listener pointer for xdg_wm_base C callbacks.
+    nonisolated(unsafe) public static let wmBaseListener: UnsafeMutablePointer<xdg_wm_base_listener> = {
+        let ptr = UnsafeMutablePointer<xdg_wm_base_listener>.allocate(capacity: 1)
+        ptr.initialize(to: xdg_wm_base_listener(
+            ping: { data, wmBase, serial in
+                guard let wmBase = wmBase else { return }
+                xdg_wm_base_pong(wmBase, serial)
+            }
+        ))
+        return ptr
+    }()
+
     public static func new() throws -> WaylandClient {
         let eventLoop = try CalloopEventLoop<Any>.tryNew()
         let (common, mainReceiver) = LinuxCommon.new(signal: eventLoop.getSignal())
@@ -342,12 +482,33 @@ public final class WaylandClient: LinuxClient, @unchecked Sendable {
             throw EventHandlerError.connectionError("Unable to establish Wayland connection")
         }
 
+        let registry = wl_display_get_registry(validDisplay)
+        guard let validRegistry = registry else {
+            wl_display_disconnect(validDisplay)
+            throw EventHandlerError.connectionError("Unable to get Wayland registry")
+        }
+
         let gpuContext = GpuContext()
         let globals = Globals(compositor: nil, shm: nil, seat: nil, executor: common.foregroundExecutor)
         let state = WaylandClientState(globals: globals, gpuContext: gpuContext, common: common, display: validDisplay)
         let ptr = WaylandClientStatePtr(state: state)
 
+        _ = wl_registry_add_listener(validRegistry, WaylandClient.registryListener, Unmanaged.passUnretained(ptr).toOpaque())
+        _ = wl_display_roundtrip(validDisplay)
+
+        guard ptr.state.globals.compositor != nil && ptr.state.globals.wmBase != nil else {
+            wl_display_disconnect(validDisplay)
+            throw EventHandlerError.connectionError("Required Wayland globals (wl_compositor, xdg_wm_base) not advertised")
+        }
+
         return WaylandClient(ptr: ptr, eventLoop: eventLoop)
+    }
+
+    deinit {
+        if let display = ptr.state.display {
+            wl_display_disconnect(display)
+            ptr.state.display = nil
+        }
     }
 
     public func compositorName() -> String {
@@ -396,11 +557,35 @@ public final class WaylandClient: LinuxClient, @unchecked Sendable {
     }
 
     public func openWindow(handle: AnyWindowHandle, options: WindowOptions) throws -> any PlatformWindow {
-        let surfaceState = WaylandSurfaceState.xdg(WaylandXdgSurfaceState())
+        guard let compositor = ptr.state.globals.compositor else {
+            throw EventHandlerError.ioError("Wayland compositor not available")
+        }
+        guard let wmBase = ptr.state.globals.wmBase else {
+            throw EventHandlerError.ioError("xdg_wm_base not available")
+        }
+        guard let display = ptr.state.display else {
+            throw EventHandlerError.ioError("Wayland display connection lost")
+        }
+
+        guard let surface = wl_compositor_create_surface(compositor) else {
+            throw EventHandlerError.ioError("Failed to create wl_surface")
+        }
+        guard let xdgSurface = xdg_wm_base_get_xdg_surface(wmBase, surface) else {
+            wl_surface_destroy(surface)
+            throw EventHandlerError.ioError("Failed to create xdg_surface")
+        }
+        guard let toplevel = xdg_surface_get_toplevel(xdgSurface) else {
+            xdg_surface_destroy(xdgSurface)
+            wl_surface_destroy(surface)
+            throw EventHandlerError.ioError("Failed to create xdg_toplevel")
+        }
+
+        let xdgState = WaylandXdgSurfaceState(xdgSurface: xdgSurface, toplevel: toplevel)
+        let surfaceState = WaylandSurfaceState.xdg(xdgState)
         let windowParams = WindowParams(options: options)
         let state = try WaylandWindowState(
             handle: handle,
-            surface: nil,
+            surface: surface,
             surfaceState: surfaceState,
             appearance: ptr.state.common.appearance,
             viewport: nil,
@@ -413,6 +598,18 @@ public final class WaylandClient: LinuxClient, @unchecked Sendable {
         let winPtr = WaylandWindowStatePtr(state: state)
         let surfaceId = ObjectId(UInt32(handle.id))
         ptr.state.windows[surfaceId] = winPtr
+
+        _ = xdg_surface_add_listener(xdgSurface, WaylandWindowState.xdgSurfaceListener, Unmanaged.passUnretained(winPtr).toOpaque())
+        _ = xdg_toplevel_add_listener(toplevel, WaylandWindowState.xdgToplevelListener, Unmanaged.passUnretained(winPtr).toOpaque())
+
+        if let title = options.titlebar?.title {
+            xdg_toplevel_set_title(toplevel, title)
+        }
+        xdg_toplevel_set_app_id(toplevel, "gpua")
+
+        wl_surface_commit(surface)
+        _ = wl_display_roundtrip(display)
+
         return WaylandWindow(ptr: winPtr)
     }
 
@@ -447,8 +644,32 @@ public final class WaylandClient: LinuxClient, @unchecked Sendable {
     }
 
     public func run() {
+        dispatchEvents()
         var dummy: Any = ()
-        _ = try? eventLoop.run(timeout: 0.016, data: &dummy) { _ in }
+        _ = try? eventLoop.run(timeout: 0.016, data: &dummy) { [weak self] _ in
+            self?.dispatchEvents()
+        }
+    }
+
+    public func dispatchEvents() {
+        guard let display = ptr.state.display else { return }
+        _ = wl_display_dispatch_pending(display)
+        _ = wl_display_flush(display)
+
+        while wl_display_prepare_read(display) != 0 {
+            _ = wl_display_dispatch_pending(display)
+        }
+
+        let fd = wl_display_get_fd(display)
+        var pfd = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
+        let ret = poll(&pfd, 1, 0)
+        if ret > 0 && (pfd.revents & Int16(POLLIN)) != 0 {
+            _ = wl_display_read_events(display)
+        } else {
+            wl_display_cancel_read(display)
+        }
+        _ = wl_display_dispatch_pending(display)
+        _ = wl_display_flush(display)
     }
 }
 #endif

@@ -50,6 +50,7 @@ $SUDO apt-get install -y --no-install-recommends \
     libfontconfig1-dev \
     fonts-dejavu-core \
     xvfb \
+    weston \
     mesa-vulkan-drivers \
     libvulkan1 \
     curl \
