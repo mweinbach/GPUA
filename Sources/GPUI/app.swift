@@ -369,28 +369,15 @@ public struct OwnedMenu: Sendable {
     }
 }
 
-/// Source of application assets.
-public protocol AssetSource: Sendable {
-    func load(path: String) async throws -> Data
-    func list(path: String) async throws -> [String]
-}
-
 /// Default empty asset source.
 public struct EmptyAssetSource: AssetSource {
     public init() {}
-    public func load(path: String) async throws -> Data {
-        throw CocoaError(.fileNoSuchFile)
+    public func load(_ path: String) throws -> Data? {
+        nil
     }
-    public func list(path: String) async throws -> [String] {
+    public func list(_ path: String) throws -> [SharedString] {
         []
     }
-}
-
-/// Protocol for asynchronously loaded assets.
-public protocol Asset: Sendable {
-    associatedtype Source: Hashable & Sendable
-    associatedtype Output: Sendable
-    static func load(source: Source, cx: App) async -> Output
 }
 
 /// HTTP client abstraction.
@@ -1689,9 +1676,8 @@ public final class App: AppContext, BorrowAppContext, @unchecked Sendable {
         if let existing = loadingAssets[key] as? Task<A.Output> {
             return (existing, false)
         }
-        let task = _backgroundExecutor.spawn {
-            await A.load(source: source, cx: self)
-        }
+        var cx = self
+        let task = A.load(source: source, cx: &cx)
         loadingAssets[key] = task
         return (task, true)
     }

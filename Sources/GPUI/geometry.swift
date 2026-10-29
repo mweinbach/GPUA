@@ -467,7 +467,11 @@ extension Bounds where T: AdditiveArithmetic {
     }
 }
 
-extension Bounds where T: AdditiveArithmetic & SignedNumeric {
+extension Bounds where T: AdditiveArithmetic {
+    public static func fromCornerAndSize(corner: Corner, origin: Point<T>, size: Size<T>) -> Bounds<T> {
+        Bounds(corner: corner, origin: origin, size: size)
+    }
+
     public init(corner: Corner, origin: Point<T>, size: Size<T>) {
         switch corner {
         case .topLeft:
@@ -490,7 +494,10 @@ extension Bounds where T: AdditiveArithmetic & SignedNumeric {
     }
 
     public func inset(_ amount: T) -> Bounds<T> {
-        dilate(-amount)
+        Bounds(
+            origin: Point(x: origin.x + amount, y: origin.y + amount),
+            size: Size(width: size.width - amount - amount, height: size.height - amount - amount)
+        )
     }
 }
 

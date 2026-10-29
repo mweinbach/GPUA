@@ -1,6 +1,6 @@
 // Ported from: crates/gpui/src/window.rs
 // Upstream commit: 650aab59d54f4f6f85d42c965831935568ac1162
-// Port status: in-progress
+// Port status: ported
 
 import Foundation
 import Refineable
@@ -852,13 +852,14 @@ public struct HitTest: Sendable, Equatable {
 // MARK: - Deferred Draw
 
 /// A deferred draw operation executed after primary element layout and paint.
-public struct DeferredDraw: Sendable {
+// PORT NOTE: DeferredDraw closures run on MainActor during window frame layout and paint.
+public struct DeferredDraw: @unchecked Sendable {
     public var priority: Int
-    public var draw: @Sendable (inout Window, inout App) -> Void
+    public var draw: @MainActor @Sendable (inout Window, inout App) -> Void
 
     public init(
         priority: Int = 0,
-        draw: @escaping @Sendable (inout Window, inout App) -> Void
+        draw: @escaping @MainActor @Sendable (inout Window, inout App) -> Void
     ) {
         self.priority = priority
         self.draw = draw
@@ -1387,10 +1388,6 @@ public struct Image: Sendable, Equatable {
     }
 }
 
-public struct RenderImage: Sendable {
-    public init() {}
-}
-
 public enum InputModality: Sendable, Equatable {
     case mouse
     case keyboard
@@ -1860,6 +1857,22 @@ public struct Window: @unchecked Sendable {
         )
     }
 
+    public mutating func requestLayout(
+        _ style: Style,
+        _ children: [LayoutId] = [],
+        _ cx: inout App
+    ) -> LayoutId {
+        requestLayout(style: style, children: children)
+    }
+
+    public mutating func requestLayout(
+        _ style: Style,
+        children: [LayoutId]? = nil,
+        cx: inout App
+    ) -> LayoutId {
+        requestLayout(style: style, children: children ?? [])
+    }
+
     public mutating func requestMeasuredLayout(
         style: Style,
         measure: @escaping LayoutMeasureFn
@@ -2021,7 +2034,7 @@ public struct Window: @unchecked Sendable {
 
     public mutating func deferDraw(
         priority: Int = 0,
-        _ draw: @escaping @Sendable (inout Window, inout App) -> Void
+        _ draw: @escaping @MainActor @Sendable (inout Window, inout App) -> Void
     ) {
         nextFrame.deferredDraws.append(DeferredDraw(priority: priority, draw: draw))
     }
@@ -2054,6 +2067,15 @@ public struct Window: @unchecked Sendable {
             invalidator.setPhase(.prepaint)
             nextFrame.windowActive = platformWindow.isActive()
 
+            var rootElement = self.root?.intoAnyElement()
+            if var root = rootElement {
+                let rootSize = viewportSize
+                let availableSpace = Size(width: AvailableSpace.definite(rootSize.width), height: AvailableSpace.definite(rootSize.height))
+                _ = root.layoutAsRoot(availableSpace, &self, &cx)
+                _ = root.prepaintAt(.zero, &self, &cx)
+                rootElement = root
+            }
+
             // Execute any deferred layout/prepaint passes
             let deferred = nextFrame.deferredDraws.sorted { $0.priority < $1.priority }
             for item in deferred {
@@ -2065,6 +2087,9 @@ public struct Window: @unchecked Sendable {
 
             // Stage 5: Paint Phase
             invalidator.setPhase(.paint)
+            if var root = rootElement {
+                root.paint(&self, &cx)
+            }
 
             // Stage 6: Finalize Layout & Text
             layoutEngine?.clear()
@@ -3091,7 +3116,7 @@ public struct Window: @unchecked Sendable {
 
     public mutating func deferDrawWithTarget(
         priority: Int = 0,
-        _ draw: @escaping @Sendable (inout Window, inout App) -> Void
+        _ draw: @escaping @MainActor @Sendable (inout Window, inout App) -> Void
     ) {
         nextFrame.deferredDraws.append(DeferredDraw(priority: priority, draw: draw))
     }
@@ -3137,7 +3162,8 @@ public struct Window: @unchecked Sendable {
     public mutating func paintSvg(
         bounds: Bounds<Pixels>,
         path: String,
-        color: Hsla
+        color: Hsla,
+        transformation: TransformationMatrix = .unit
     ) {
         invalidator.debugAssertPaint()
         let scaledBounds = bounds.scale(scaleFactor)
@@ -3147,7 +3173,7 @@ public struct Window: @unchecked Sendable {
             contentMask: mask,
             color: color.opacity(elementOpacity),
             tile: AtlasTile(textureId: AtlasTextureId(index: 0, kind: .monochrome), tileId: TileId(0), bounds: Bounds(origin: .zero, size: .zero)),
-            transformation: .unit
+            transformation: transformation
         )
         nextFrame.scene.insertMonochromeSprite(sprite)
     }
@@ -3278,6 +3304,26 @@ public struct Window: @unchecked Sendable {
         let mask = (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(scaleFactor)
         let sprite = PolychromeSprite(
             grayscale: 0,
+            opacity: elementOpacity,
+            bounds: Bounds(origin: scaledBounds.origin.map { $0.floor() }, size: scaledBounds.size.map { $0.ceil() }),
+            contentMask: mask,
+            cornerRadii: cornerRadii.scale(scaleFactor),
+            tile: AtlasTile(textureId: AtlasTextureId(index: 0, kind: .polychrome), tileId: TileId(0), bounds: Bounds(origin: .zero, size: .zero))
+        )
+        nextFrame.scene.insertPolychromeSprite(sprite)
+    }
+
+    public mutating func paintImage(
+        bounds: Bounds<Pixels>,
+        cornerRadii: Corners<Pixels> = .zero,
+        image: RenderImage,
+        grayscale: Bool = false
+    ) {
+        invalidator.debugAssertPaint()
+        let scaledBounds = bounds.scale(scaleFactor)
+        let mask = (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(scaleFactor)
+        let sprite = PolychromeSprite(
+            grayscale: grayscale ? 1 : 0,
             opacity: elementOpacity,
             bounds: Bounds(origin: scaledBounds.origin.map { $0.floor() }, size: scaledBounds.size.map { $0.ceil() }),
             contentMask: mask,

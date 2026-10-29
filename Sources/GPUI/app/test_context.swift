@@ -127,16 +127,36 @@ public final class TestAppContext: @unchecked Sendable {
         }
     }
 
-    public func addEmptyWindow() -> AnyWindowHandle {
+    public func addEmptyWindow() -> VisualTestContext {
         let options = WindowOptions(windowBounds: .windowed(Bounds(origin: .zero, size: Size(width: px(800), height: px(600)))))
-        return (try! app.openWindow(options) { _, cx in
+        let handle = try! app.openWindow(options) { _, cx in
             cx.new { _ in EmptyView() }
-        }).anyHandle
+        }
+        let cx = VisualTestContext.fromWindow(handle.anyHandle, self)
+        cx.runUntilParked()
+        return cx
     }
 
     public func addWindowView<V: Render>(_ view: Entity<V>) -> WindowHandle<V> {
         let options = WindowOptions(windowBounds: .windowed(Bounds(origin: .zero, size: Size(width: px(1920), height: px(1080)))))
         return try! app.openWindow(options) { _, _ in view }
+    }
+
+    public func addWindowView<V: Render>(
+        _ buildWindow: @escaping (inout Window, inout Context<V>) -> V
+    ) -> (Entity<V>, VisualTestContext) {
+        let options = WindowOptions(windowBounds: .windowed(Bounds(origin: .zero, size: Size(width: px(1920), height: px(1080)))))
+        var visualCx: VisualTestContext?
+        var viewEntity: Entity<V>?
+        let handle = try! app.openWindow(options) { window, cx in
+            visualCx = VisualTestContext.fromWindow(window.handle, self)
+            let entity = cx.new { cx in buildWindow(&window, &cx) }
+            viewEntity = entity
+            return entity
+        }
+        let vcx = visualCx ?? VisualTestContext.fromWindow(handle.anyHandle, self)
+        vcx.runUntilParked()
+        return (viewEntity!, vcx)
     }
 
     public func writeToClipboard(_ item: ClipboardItem) {
@@ -216,8 +236,13 @@ public final class TestAppContext: @unchecked Sendable {
     }
 
     public func simulateEvent(_ window: AnyWindowHandle, _ event: PlatformInput) -> Bool {
-        guard let win = testWindow(window) else { return false }
-        return win.simulateInput(event: event)
+        var handled = false
+        _ = try? app.updateWindow(window) { _, win, cx in
+            var cx = cx
+            let res = win.dispatchEvent(event: event, cx: &cx)
+            handled = !res.propagate
+        }
+        return handled
     }
 
     public func dispatchAction(_ window: AnyWindowHandle, _ action: any Action) {
@@ -391,7 +416,11 @@ public final class VisualTestContext: @unchecked Sendable {
     }
 
     public func dispatchAction(_ action: any Action) {
-        cx.dispatchAction(window, action)
+        _ = try? cx.app.updateWindow(window) { _, win, app in
+            var app = app
+            win.dispatchAction(action, &app)
+        }
+        cx.runUntilParked()
     }
 
     public func windowTitle() -> String? {
@@ -443,13 +472,57 @@ public final class VisualTestContext: @unchecked Sendable {
         cx.testWindow(window)?.bounds()
     }
 
-    public func draw(
+    public func draw() {
+        _ = try? cx.app.updateWindow(window) { _, window, cx in
+            var cx = cx
+            window.draw(cx: &cx)
+        }
+        cx.runUntilParked()
+    }
+
+    public func draw<E: IntoElement>(
         _ origin: Point<Pixels> = .zero,
-        _ space: Size<AvailableSpace> = Size(width: .definite(px(1920)), height: .definite(px(1080)))
+        _ space: Size<Pixels>,
+        _ f: (inout Window, App) -> E
     ) {
-        update { window, _ in
+        let availSpace = Size(width: AvailableSpace.definite(space.width), height: AvailableSpace.definite(space.height))
+        draw(origin, availSpace, f)
+    }
+
+    public func draw<E: IntoElement>(
+        _ origin: Point<Pixels> = .zero,
+        _ space: Size<AvailableSpace> = Size(width: .definite(px(1920)), height: .definite(px(1080))),
+        _ f: (inout Window, App) -> E
+    ) {
+        update { window, cx in
+            var cx = cx
+            window.invalidator.setPhase(.prepaint)
+            var element = f(&window, cx).intoAnyElement()
+            _ = element.layoutAsRoot(space, &window, &cx)
+            window.withAbsoluteElementOffset(origin) { window in
+                _ = element.prepaintAt(origin, &window, &cx)
+            }
+            window.invalidator.setPhase(.paint)
+            element.paint(&window, &cx)
+            window.invalidator.setPhase(.none)
+
+            window.nextFrame.finish(prevFrame: &window.renderedFrame)
+            swap(&window.renderedFrame, &window.nextFrame)
+            window.nextFrame.clear()
+
             window.refresh()
         }
+        cx.runUntilParked()
+    }
+
+    public func simulateEvent(_ event: ScrollWheelEvent) {
+        _ = cx.simulateEvent(window, .scrollWheel(event))
+        cx.runUntilParked()
+    }
+
+    public func simulateEvent(_ event: PlatformInput) {
+        _ = cx.simulateEvent(window, event)
+        cx.runUntilParked()
     }
 
     public func deactivateWindow() {
@@ -482,5 +555,16 @@ extension AnyWindowHandle {
         try! cx.app.updateWindow(self) { _, window, app in
             app.new { _ in buildView(&window, app) }
         }
+    }
+}
+
+@MainActor
+extension Entity {
+    public func readWith<R>(_ cx: VisualTestContext, _ f: (T, App) -> R) -> R {
+        f(cx.cx.app.entities.read(self), cx.cx.app)
+    }
+
+    public func readWith<R>(_ cx: TestAppContext, _ f: (T, App) -> R) -> R {
+        f(cx.app.entities.read(self), cx.app)
     }
 }

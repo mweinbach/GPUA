@@ -2178,18 +2178,19 @@ public struct ScrollAnchor: Sendable {
 
 // MARK: - ScrollHandle
 
-enum ScrollStrategy: Sendable {
+// PORT NOTE: Renamed from upstream private ScrollStrategy to DivScrollStrategy to avoid collision with uniform_list.ScrollStrategy
+enum DivScrollStrategy: Sendable {
     case firstVisible
     case top
 
-    static var `default`: ScrollStrategy { .firstVisible }
+    static var `default`: DivScrollStrategy { .firstVisible }
 }
 
 struct ScrollActiveItem: Sendable {
     var index: Int
-    var strategy: ScrollStrategy
+    var strategy: DivScrollStrategy
 
-    init(index: Int, strategy: ScrollStrategy = .default) {
+    init(index: Int, strategy: DivScrollStrategy = .default) {
         self.index = index
         self.strategy = strategy
     }
@@ -2329,10 +2330,4 @@ public struct ScrollHandle: Sendable {
     public func childrenCount() -> Int {
         state.childBounds.count
     }
-}
-
-// MARK: - ImageCacheProvider
-
-public protocol ImageCacheProvider: Sendable {
-    func provide(_ window: inout Window, _ cx: inout App) -> Any?
 }

@@ -10,7 +10,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Target | Files | Not started | In progress | Ported | Verified | Skipped | Upstream lines | Lines done |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `GPUI` | 81 | 39 | 3 | 39 | 0 | 0 | 53,398 | 55% |
+| `GPUI` | 81 | 23 | 2 | 56 | 0 | 0 | 53,398 | 80% |
 | `Taffy` | 47 | 3 | 0 | 44 | 0 | 0 | 18,695 | 98% |
 | `GPUILinux` | 24 | 24 | 0 | 0 | 0 | 0 | 12,710 | 0% |
 | `GPUIExamples` | 40 | 40 | 0 | 0 | 0 | 0 | 12,441 | 0% |
@@ -24,7 +24,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIWeb` | 10 | 10 | 0 | 0 | 0 | 0 | 2,787 | 0% |
 | `Scheduler` | 5 | 0 | 0 | 4 | 0 | 1 | 2,091 | 100% |
 | `GPUIMetal` | 3 | 3 | 0 | 0 | 0 | 0 | 2,083 | 0% |
-| `HTTPClient` | 4 | 4 | 0 | 0 | 0 | 0 | 1,073 | 0% |
+| `HTTPClient` | 4 | 2 | 0 | 2 | 0 | 0 | 1,073 | 56% |
 | `DeriveRefineable` | 1 | 1 | 0 | 0 | 0 | 0 | 548 | 0% |
 | `GPUIUtil` | 2 | 0 | 0 | 2 | 0 | 0 | 433 | 100% |
 | `GPUICollections` | 3 | 0 | 0 | 2 | 0 | 1 | 414 | 100% |
@@ -32,7 +32,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **338** | 214 | 3 | 102 | 0 | 19 | 154,333 | 41% |
+| **Total** | **338** | 196 | 2 | 121 | 0 | 19 | 154,333 | 50% |
 
 ## Files
 
@@ -56,27 +56,27 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui/src/app/test_app.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/test_app.rs) | [Sources/GPUI/app/test_app.swift](../Sources/GPUI/app/test_app.swift) | source | 607 | ported |
 | [crates/gpui/src/app/test_context.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/test_context.rs) | [Sources/GPUI/app/test_context.swift](../Sources/GPUI/app/test_context.swift) | source | 1064 | ported |
 | [crates/gpui/src/app/visual_test_context.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/visual_test_context.rs) | [Sources/GPUI/app/visual_test_context.swift](../Sources/GPUI/app/visual_test_context.swift) | source | 476 | not-started |
-| [crates/gpui/src/arena.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/arena.rs) | [Sources/GPUI/arena.swift](../Sources/GPUI/arena.swift) | source | 289 | not-started |
-| [crates/gpui/src/asset_cache.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/asset_cache.rs) | [Sources/GPUI/asset_cache.swift](../Sources/GPUI/asset_cache.swift) | source | 84 | not-started |
-| [crates/gpui/src/assets.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/assets.rs) | [Sources/GPUI/assets.swift](../Sources/GPUI/assets.swift) | source | 115 | not-started |
+| [crates/gpui/src/arena.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/arena.rs) | [Sources/GPUI/arena.swift](../Sources/GPUI/arena.swift) | source | 289 | ported |
+| [crates/gpui/src/asset_cache.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/asset_cache.rs) | [Sources/GPUI/asset_cache.swift](../Sources/GPUI/asset_cache.swift) | source | 84 | ported |
+| [crates/gpui/src/assets.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/assets.rs) | [Sources/GPUI/assets.swift](../Sources/GPUI/assets.swift) | source | 115 | ported |
 | [crates/gpui/src/bounds_tree.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/bounds_tree.rs) | [Sources/GPUI/bounds_tree.swift](../Sources/GPUI/bounds_tree.swift) | source | 466 | ported |
 | [crates/gpui/src/color.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/color.rs) | [Sources/GPUI/color.swift](../Sources/GPUI/color.swift) | source | 947 | ported |
 | [crates/gpui/src/colors.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/colors.rs) | [Sources/GPUI/colors.swift](../Sources/GPUI/colors.swift) | source | 122 | ported |
 | [crates/gpui/src/composite_hosts/mod.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/composite_hosts/mod.rs) | [Sources/GPUI/composite_hosts/composite_hosts.swift](../Sources/GPUI/composite_hosts/composite_hosts.swift) | source | 5 | not-started |
 | [crates/gpui/src/element.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/element.rs) | [Sources/GPUI/element.swift](../Sources/GPUI/element.swift) | source | 797 | ported |
-| [crates/gpui/src/elements/anchored.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/anchored.rs) | [Sources/GPUI/elements/anchored.swift](../Sources/GPUI/elements/anchored.swift) | source | 292 | not-started |
-| [crates/gpui/src/elements/animation.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/animation.rs) | [Sources/GPUI/elements/animation.swift](../Sources/GPUI/elements/animation.swift) | source | 263 | not-started |
-| [crates/gpui/src/elements/canvas.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/canvas.rs) | [Sources/GPUI/elements/canvas.swift](../Sources/GPUI/elements/canvas.swift) | source | 95 | not-started |
-| [crates/gpui/src/elements/deferred.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/deferred.rs) | [Sources/GPUI/elements/deferred.swift](../Sources/GPUI/elements/deferred.swift) | source | 118 | not-started |
+| [crates/gpui/src/elements/anchored.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/anchored.rs) | [Sources/GPUI/elements/anchored.swift](../Sources/GPUI/elements/anchored.swift) | source | 292 | ported |
+| [crates/gpui/src/elements/animation.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/animation.rs) | [Sources/GPUI/elements/animation.swift](../Sources/GPUI/elements/animation.swift) | source | 263 | ported |
+| [crates/gpui/src/elements/canvas.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/canvas.rs) | [Sources/GPUI/elements/canvas.swift](../Sources/GPUI/elements/canvas.swift) | source | 95 | ported |
+| [crates/gpui/src/elements/deferred.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/deferred.rs) | [Sources/GPUI/elements/deferred.swift](../Sources/GPUI/elements/deferred.swift) | source | 118 | ported |
 | [crates/gpui/src/elements/div.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/div.rs) | [Sources/GPUI/elements/div.swift](../Sources/GPUI/elements/div.swift) | source | 3614 | ported |
-| [crates/gpui/src/elements/image_cache.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/image_cache.rs) | [Sources/GPUI/elements/image_cache.swift](../Sources/GPUI/elements/image_cache.swift) | source | 353 | not-started |
-| [crates/gpui/src/elements/img.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/img.rs) | [Sources/GPUI/elements/img.swift](../Sources/GPUI/elements/img.swift) | source | 766 | not-started |
-| [crates/gpui/src/elements/list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/list.rs) | [Sources/GPUI/elements/list.swift](../Sources/GPUI/elements/list.swift) | source | 2093 | not-started |
-| [crates/gpui/src/elements/mod.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/mod.rs) | [Sources/GPUI/elements/elements.swift](../Sources/GPUI/elements/elements.swift) | source | 25 | not-started |
-| [crates/gpui/src/elements/surface.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/surface.rs) | [Sources/GPUI/elements/surface.swift](../Sources/GPUI/elements/surface.swift) | source | 121 | not-started |
-| [crates/gpui/src/elements/svg.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/svg.rs) | [Sources/GPUI/elements/svg.swift](../Sources/GPUI/elements/svg.swift) | source | 276 | not-started |
-| [crates/gpui/src/elements/text.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/text.rs) | [Sources/GPUI/elements/text.swift](../Sources/GPUI/elements/text.swift) | source | 953 | not-started |
-| [crates/gpui/src/elements/uniform_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/uniform_list.rs) | [Sources/GPUI/elements/uniform_list.swift](../Sources/GPUI/elements/uniform_list.swift) | source | 853 | not-started |
+| [crates/gpui/src/elements/image_cache.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/image_cache.rs) | [Sources/GPUI/elements/image_cache.swift](../Sources/GPUI/elements/image_cache.swift) | source | 353 | ported |
+| [crates/gpui/src/elements/img.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/img.rs) | [Sources/GPUI/elements/img.swift](../Sources/GPUI/elements/img.swift) | source | 766 | ported |
+| [crates/gpui/src/elements/list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/list.rs) | [Sources/GPUI/elements/list.swift](../Sources/GPUI/elements/list.swift) | source | 2093 | ported |
+| [crates/gpui/src/elements/mod.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/mod.rs) | [Sources/GPUI/elements/elements.swift](../Sources/GPUI/elements/elements.swift) | source | 25 | ported |
+| [crates/gpui/src/elements/surface.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/surface.rs) | [Sources/GPUI/elements/surface.swift](../Sources/GPUI/elements/surface.swift) | source | 121 | ported |
+| [crates/gpui/src/elements/svg.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/svg.rs) | [Sources/GPUI/elements/svg.swift](../Sources/GPUI/elements/svg.swift) | source | 276 | ported |
+| [crates/gpui/src/elements/text.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/text.rs) | [Sources/GPUI/elements/text.swift](../Sources/GPUI/elements/text.swift) | source | 953 | ported |
+| [crates/gpui/src/elements/uniform_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/uniform_list.rs) | [Sources/GPUI/elements/uniform_list.swift](../Sources/GPUI/elements/uniform_list.swift) | source | 853 | ported |
 | [crates/gpui/src/executor.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/executor.rs) | [Sources/GPUI/executor.swift](../Sources/GPUI/executor.swift) | source | 585 | not-started |
 | [crates/gpui/src/geometry.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/geometry.rs) | [Sources/GPUI/geometry.swift](../Sources/GPUI/geometry.swift) | source | 3871 | ported |
 | [crates/gpui/src/global.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/global.rs) | [Sources/GPUI/global.swift](../Sources/GPUI/global.swift) | source | 75 | ported |
@@ -109,7 +109,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui/src/queue.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/queue.rs) | [Sources/GPUI/queue.swift](../Sources/GPUI/queue.swift) | source | 423 | not-started |
 | [crates/gpui/src/scene.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/scene.rs) | [Sources/GPUI/scene.swift](../Sources/GPUI/scene.swift) | source | 895 | ported |
 | [crates/gpui/src/shared_string.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/shared_string.rs) | [Sources/GPUI/shared_string.swift](../Sources/GPUI/shared_string.swift) | source | 145 | ported |
-| [crates/gpui/src/shared_uri.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/shared_uri.rs) | [Sources/GPUI/shared_uri.swift](../Sources/GPUI/shared_uri.swift) | source | 25 | not-started |
+| [crates/gpui/src/shared_uri.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/shared_uri.rs) | [Sources/GPUI/shared_uri.swift](../Sources/GPUI/shared_uri.swift) | source | 25 | ported |
 | [crates/gpui/src/style.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/style.rs) | [Sources/GPUI/style.swift](../Sources/GPUI/style.swift) | source | 1538 | ported |
 | [crates/gpui/src/styled.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/styled.rs) | [Sources/GPUI/styled.swift](../Sources/GPUI/styled.swift) | source | 846 | ported |
 | [crates/gpui/src/subscription.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/subscription.rs) | [Sources/GPUI/subscription.swift](../Sources/GPUI/subscription.swift) | source | 344 | ported |
@@ -125,19 +125,19 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui/src/text_system/line_wrapper.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/text_system/line_wrapper.rs) | [Sources/GPUI/text_system/line_wrapper.swift](../Sources/GPUI/text_system/line_wrapper.swift) | source | 935 | ported |
 | [crates/gpui/src/util.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/util.rs) | [Sources/GPUI/util.swift](../Sources/GPUI/util.swift) | source | 158 | not-started |
 | [crates/gpui/src/view.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/view.rs) | [Sources/GPUI/view.swift](../Sources/GPUI/view.swift) | source | 320 | ported |
-| [crates/gpui/src/window.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/window.rs) | [Sources/GPUI/window.swift](../Sources/GPUI/window.swift) | source | 6571 | in-progress |
+| [crates/gpui/src/window.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/window.rs) | [Sources/GPUI/window.swift](../Sources/GPUI/window.swift) | source | 6571 | ported |
 | [crates/gpui/src/window/prompts.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/window/prompts.rs) | [Sources/GPUI/window/prompts.swift](../Sources/GPUI/window/prompts.swift) | source | 232 | ported |
 | [crates/gpui/src/app.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app.rs) | [Tests/GPUITests/app.swift](../Tests/GPUITests/app.swift) | inline-test |  | ported |
 | [crates/gpui/src/app/entity_map.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/entity_map.rs) | [Tests/GPUITests/app/entity_map.swift](../Tests/GPUITests/app/entity_map.swift) | inline-test |  | ported |
 | [crates/gpui/src/app/test_app.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/test_app.rs) | [Tests/GPUITests/app/test_app.swift](../Tests/GPUITests/app/test_app.swift) | inline-test |  | ported |
 | [crates/gpui/src/app/test_context.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/test_context.rs) | [Tests/GPUITests/app/test_context.swift](../Tests/GPUITests/app/test_context.swift) | inline-test |  | not-started |
-| [crates/gpui/src/arena.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/arena.rs) | [Tests/GPUITests/arena.swift](../Tests/GPUITests/arena.swift) | inline-test |  | not-started |
+| [crates/gpui/src/arena.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/arena.rs) | [Tests/GPUITests/arena.swift](../Tests/GPUITests/arena.swift) | inline-test |  | ported |
 | [crates/gpui/src/bounds_tree.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/bounds_tree.rs) | [Tests/GPUITests/bounds_tree.swift](../Tests/GPUITests/bounds_tree.swift) | inline-test |  | ported |
 | [crates/gpui/src/color.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/color.rs) | [Tests/GPUITests/color.swift](../Tests/GPUITests/color.swift) | inline-test |  | ported |
 | [crates/gpui/src/elements/div.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/div.rs) | [Tests/GPUITests/elements/div.swift](../Tests/GPUITests/elements/div.swift) | inline-test |  | ported |
-| [crates/gpui/src/elements/list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/list.rs) | [Tests/GPUITests/elements/list.swift](../Tests/GPUITests/elements/list.swift) | inline-test |  | not-started |
-| [crates/gpui/src/elements/text.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/text.rs) | [Tests/GPUITests/elements/text.swift](../Tests/GPUITests/elements/text.swift) | inline-test |  | not-started |
-| [crates/gpui/src/elements/uniform_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/uniform_list.rs) | [Tests/GPUITests/elements/uniform_list.swift](../Tests/GPUITests/elements/uniform_list.swift) | inline-test |  | not-started |
+| [crates/gpui/src/elements/list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/list.rs) | [Tests/GPUITests/elements/list.swift](../Tests/GPUITests/elements/list.swift) | inline-test |  | ported |
+| [crates/gpui/src/elements/text.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/text.rs) | [Tests/GPUITests/elements/text.swift](../Tests/GPUITests/elements/text.swift) | inline-test |  | ported |
+| [crates/gpui/src/elements/uniform_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/elements/uniform_list.rs) | [Tests/GPUITests/elements/uniform_list.swift](../Tests/GPUITests/elements/uniform_list.swift) | inline-test |  | ported |
 | [crates/gpui/src/executor.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/executor.rs) | [Tests/GPUITests/executor.swift](../Tests/GPUITests/executor.swift) | inline-test |  | not-started |
 | [crates/gpui/src/geometry.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/geometry.rs) | [Tests/GPUITests/geometry.swift](../Tests/GPUITests/geometry.swift) | inline-test |  | ported |
 | [crates/gpui/src/interactive.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/interactive.rs) | [Tests/GPUITests/interactive.swift](../Tests/GPUITests/interactive.swift) | inline-test |  | not-started |
@@ -428,10 +428,10 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/http_client/src/async_body.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/http_client/src/async_body.rs) | [Sources/HTTPClient/async_body.swift](../Sources/HTTPClient/async_body.swift) | source | 152 | not-started |
+| [crates/http_client/src/async_body.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/http_client/src/async_body.rs) | [Sources/HTTPClient/async_body.swift](../Sources/HTTPClient/async_body.swift) | source | 152 | ported |
 | [crates/http_client/src/github.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/http_client/src/github.rs) | [Sources/HTTPClient/github.swift](../Sources/HTTPClient/github.swift) | source | 194 | not-started |
 | [crates/http_client/src/github_download.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/http_client/src/github_download.rs) | [Sources/HTTPClient/github_download.swift](../Sources/HTTPClient/github_download.swift) | source | 282 | not-started |
-| [crates/http_client/src/http_client.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/http_client/src/http_client.rs) | [Sources/HTTPClient/http_client.swift](../Sources/HTTPClient/http_client.swift) | source | 445 | not-started |
+| [crates/http_client/src/http_client.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/http_client/src/http_client.rs) | [Sources/HTTPClient/http_client.swift](../Sources/HTTPClient/http_client.swift) | source | 445 | ported |
 | [crates/http_client/src/github.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/http_client/src/github.rs) | [Tests/HTTPClientTests/github.swift](../Tests/HTTPClientTests/github.swift) | inline-test |  | not-started |
 
 ### `Media`

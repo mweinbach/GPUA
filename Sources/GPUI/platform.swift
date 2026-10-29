@@ -129,34 +129,6 @@ public struct AtlasTile: Sendable, Equatable, Hashable {
 
 // MARK: - Image and SVG Params
 
-/// Identifier for an image asset.
-@frozen
-public struct ImageId: RawRepresentable, Sendable, Equatable, Hashable, Comparable {
-    public var rawValue: Int
-
-    public init(rawValue: Int) {
-        self.rawValue = rawValue
-    }
-
-    public init(_ rawValue: Int) {
-        self.rawValue = rawValue
-    }
-
-    public static func < (lhs: ImageId, rhs: ImageId) -> Bool {
-        lhs.rawValue < rhs.rawValue
-    }
-}
-
-/// Parameters for rendering an image to the atlas.
-public struct RenderImageParams: Sendable, Equatable, Hashable {
-    public var imageId: ImageId
-    public var crop: Bounds<DevicePixels>?
-
-    public init(imageId: ImageId, crop: Bounds<DevicePixels>? = nil) {
-        self.imageId = imageId
-        self.crop = crop
-    }
-}
 
 /// Parameters for rendering an SVG to the atlas.
 public struct RenderSvgParams: Sendable, Equatable, Hashable {

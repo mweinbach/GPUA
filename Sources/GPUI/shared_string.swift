@@ -46,6 +46,18 @@ public struct SharedString: Sendable, Equatable, Hashable, Comparable, Codable,
         value
     }
 
+    public var count: Int {
+        value.count
+    }
+
+    public var len: Int {
+        value.utf8.count
+    }
+
+    public var isEmpty: Bool {
+        value.isEmpty
+    }
+
     public func as_str() -> String {
         value
     }
