@@ -711,9 +711,10 @@ public struct DispatchTree {
     }
 
     public func dispatchPath(_ target: DispatchNodeId) -> [DispatchNodeId] {
+        guard target.rawValue < nodes.count else { return [] }
         var path: [DispatchNodeId] = []
         var current: DispatchNodeId? = target
-        while let node = current {
+        while let node = current, node.rawValue < nodes.count {
             path.append(node)
             current = nodes[node.rawValue].parent
         }
@@ -767,7 +768,10 @@ public struct DispatchTree {
     }
 
     public func node(_ nodeId: DispatchNodeId) -> DispatchNode {
-        nodes[nodeId.rawValue]
+        guard nodeId.rawValue < nodes.count else {
+            return DispatchNode()
+        }
+        return nodes[nodeId.rawValue]
     }
 
     public func focusableNodeId(_ target: FocusId) -> DispatchNodeId? {

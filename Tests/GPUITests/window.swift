@@ -424,4 +424,220 @@ struct WindowTests {
         #expect(el.style.boxShadow != nil)
         #expect(el.style.mouseCursor == .pointingHand)
     }
+
+    // Custom test action for window event testing
+    struct WindowTestCustomAction: Action, Equatable {
+        static var name: String { "WindowTestCustomAction" }
+        static func build(json: [String: Any]) throws -> any Action {
+            WindowTestCustomAction(value: json["value"] as? Int ?? 0)
+        }
+        var value: Int
+        init(value: Int = 42) { self.value = value }
+    }
+
+    final class MockInputHandler: PlatformInputHandlerProtocol, @unchecked Sendable {
+        var dispatchedInputs: [String] = []
+        func acceptsTextInput(window: Window, cx: App) -> Bool { true }
+        func dispatchInput(_ text: String, _ window: inout Window, _ cx: inout App) {
+            dispatchedInputs.append(text)
+        }
+    }
+
+    @Test("Phased mouse dispatch and pointer capture auto-release")
+    @MainActor
+    func phasedMouseDispatchAndPointerCapture() {
+        var app = App()
+        var window = Window()
+
+        let phasesCalled = TestBox<[DispatchPhase]>([])
+
+        window.onMouseEvent { (event: MouseDownEvent, phase: DispatchPhase, win: inout Window, cx: inout App) in
+            phasesCalled.value.append(phase)
+        }
+
+        window.draw(cx: &app)
+
+        // Mouse down triggers capture phase, then bubble phase
+        let downEvent = PlatformInput.mouseDown(MouseDownEvent(
+            button: .left,
+            position: point(px(100), px(100)),
+            modifiers: Modifiers.none(),
+            clickCount: 1,
+            firstMouse: true
+        ))
+
+        _ = window.dispatchEvent(event: downEvent, cx: &app)
+        #expect(phasesCalled.value == [.capture, .bubble])
+
+        // Pointer capture test
+        let hitboxId = HitboxId(12345)
+        window.capturePointer(hitboxId)
+        #expect(window.capturedHitbox == hitboxId)
+
+        // Mouse up auto-releases pointer capture
+        let upEvent = PlatformInput.mouseUp(MouseUpEvent(
+            button: .left,
+            position: point(px(100), px(100)),
+            modifiers: Modifiers.none(),
+            clickCount: 1
+        ))
+        _ = window.dispatchEvent(event: upEvent, cx: &app)
+        #expect(window.capturedHitbox == nil)
+    }
+
+    @Test("Mouse dispatch stops propagation when stopPropagation is invoked")
+    @MainActor
+    func mouseDispatchStopPropagation() {
+        var app = App()
+        var window = Window()
+
+        let phasesCalled = TestBox<[DispatchPhase]>([])
+
+        window.onMouseEvent { (event: MouseDownEvent, phase: DispatchPhase, win: inout Window, cx: inout App) in
+            phasesCalled.value.append(phase)
+            if phase == .capture {
+                win.stopPropagation()
+            }
+        }
+
+        window.draw(cx: &app)
+
+        let downEvent = PlatformInput.mouseDown(MouseDownEvent(
+            button: .left,
+            position: point(px(100), px(100)),
+            modifiers: Modifiers.none(),
+            clickCount: 1,
+            firstMouse: true
+        ))
+
+        let result = window.dispatchEvent(event: downEvent, cx: &app)
+        #expect(!result.propagate)
+        #expect(phasesCalled.value == [.capture]) // Bubble phase was halted
+    }
+
+    @Test("Action routing and key dispatch on window")
+    @MainActor
+    func actionRoutingAndKeyDispatch() {
+        var app = App()
+        var window = Window()
+
+        let actionReceived = TestBox<Int?>(nil)
+
+        window.onAction { (action: WindowTestCustomAction, win: inout Window, cx: inout App) in
+            actionReceived.value = action.value
+        }
+
+        window.draw(cx: &app)
+
+        // Dispatch action directly
+        window.dispatchAction(WindowTestCustomAction(value: 99), &app)
+        #expect(actionReceived.value == 99)
+
+        // Key dispatch chord state machine
+        app.bindKeys([
+            KeyBinding(keystrokes: "x y", action: WindowTestCustomAction(value: 100))
+        ])
+        let keystroke = Keystroke(modifiers: Modifiers.none(), key: "x")
+        _ = window.dispatchKeystroke(keystroke, &app)
+        #expect(window.pendingInputKeystrokes()?.count == 1)
+        #expect(window.pendingInputKeystrokes()?.first?.key == "x")
+
+        window.clearPendingKeystrokes()
+        #expect(window.pendingInputKeystrokes() == nil || window.pendingInputKeystrokes()?.isEmpty == true)
+    }
+
+    @Test("IME and platform input handler integration")
+    @MainActor
+    func imeAndInputHandler() {
+        var app = App()
+        var window = Window()
+
+        let handler = MockInputHandler()
+        window.setInputHandler(handler)
+        #expect(window.activeInputHandler() != nil)
+
+        // Send input
+        window.handleInput("GPUI Text Input", cx: &app)
+        #expect(handler.dispatchedInputs == ["GPUI Text Input"])
+
+        // Take input handler
+        let taken = window.takeInputHandler()
+        #expect(taken != nil)
+        #expect(window.activeInputHandler() == nil)
+    }
+
+    @Test("Element scoping, IDs, namespaces, offsets, and opacity")
+    @MainActor
+    func elementScopingAndKeyedState() {
+        var window = Window()
+
+        let rootId = window.elementIdStack
+        window.withId("scoped_button") { win in
+            #expect(win.elementIdStack.count == rootId.count + 1)
+
+            win.withElementNamespace("custom_namespace") { nsWin in
+                #expect(nsWin.elementIdStack.count == rootId.count + 2)
+
+                nsWin.withAbsoluteElementOffset(point(px(30), px(40))) { offWin in
+                    #expect(offWin.elementOffsetStack.last == point(px(30), px(40)))
+
+                    offWin.withElementOpacity(0.8) { opWin in
+                        #expect(opWin.elementOpacity == 0.8)
+                    }
+                    #expect(offWin.elementOpacity == 1.0)
+                }
+                #expect(nsWin.elementOffsetStack.last == .zero)
+            }
+        }
+        #expect(window.elementIdStack == rootId)
+
+        // useKeyedState preserves state across calls with same key
+        let s1: Int = window.useKeyedState("state_key", { 10 })
+        #expect(s1 == 10)
+        let s2: Int = window.useKeyedState("state_key", { 20 })
+        #expect(s2 == 10) // preserved!
+    }
+
+    @Test("Paint quad fluent builder and geometry helpers")
+    @MainActor
+    func paintQuadHelpers() {
+        let b = Bounds(origin: point(px(10), px(20)), size: size(px(100), px(50)))
+        let c = hsla(0.3, 0.6, 0.4, 1.0)
+
+        // quad fluent helper
+        let q = quad(bounds: b).fill(c).cornerRadius(px(4)).border(width: px(1), color: hsla(0, 0, 0, 1))
+        #expect(q.bounds == b)
+        #expect(q.background == Fill(c))
+        #expect(q.cornerRadii.topLeft == px(4))
+        #expect(q.borderWidths.top == px(1))
+
+        // fill helper
+        let f = fill(bounds: b, color: c)
+        #expect(f.bounds == b)
+        #expect(f.background == Fill(c))
+
+        // outline helper
+        let o = outline(bounds: b, borderColor: c, width: px(2))
+        #expect(o.bounds == b)
+        #expect(o.borderWidths.top == px(2))
+        #expect(o.borderColor == c)
+    }
+
+    @Test("Window rem size and dynamic scaling")
+    @MainActor
+    func remSizeAndScaling() {
+        var window = Window()
+        #expect(window.remSize == px(16.0))
+
+        window.setRemSize(px(20.0))
+        #expect(window.remSize == px(20.0))
+
+        window.withRemSize(px(24.0)) { win in
+            #expect(win.remSize == px(24.0))
+        }
+        #expect(window.remSize == px(20.0))
+
+        let lh = window.lineHeight()
+        #expect(lh.value > 0)
+    }
 }

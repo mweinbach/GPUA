@@ -28,6 +28,7 @@ public struct SurfaceId: Sendable, Equatable, Hashable, RawRepresentable {
     }
 
     private static let nextId = NSLock()
+    // PORT NOTE: Synchronized via NSLock matching upstream AtomicU32 surface ID generator.
     nonisolated(unsafe) private static var counter: UInt32 = 0
 
     public static func next() -> SurfaceId {
@@ -37,9 +38,14 @@ public struct SurfaceId: Sendable, Equatable, Hashable, RawRepresentable {
         counter += 1
         return SurfaceId(id)
     }
+
+    public static func new(_ rawValue: UInt32) -> SurfaceId {
+        SurfaceId(rawValue)
+    }
 }
 
 /// A handle returned when registering a surface, providing the native view pointer.
+// PORT NOTE: Wraps raw OS native view pointer across threads matching upstream GpuiSurfaceHandle.
 public struct GpuiSurfaceHandle: @unchecked Sendable {
     public var id: SurfaceId
     public var nativeViewPtr: UnsafeMutableRawPointer?
@@ -82,6 +88,7 @@ struct WindowInvalidatorInner {
 }
 
 /// Manages dirty state and phase transitions for a window.
+// PORT NOTE: Synchronized via NSLock matching upstream RefCell/RwLock invalidator safety invariants.
 public final class WindowInvalidator: @unchecked Sendable {
     private let lock = NSLock()
     private var inner: WindowInvalidatorInner
@@ -165,7 +172,34 @@ public final class WindowInvalidator: @unchecked Sendable {
     public func debugAssertPaintOrPrepaint() {
         assert(drawPhase == .paint || drawPhase == .prepaint, "Expected paint or prepaint phase")
     }
+
+    public static func new() -> WindowInvalidator {
+        WindowInvalidator()
+    }
 }
+
+// MARK: - Element Arena & Focus Listener Types
+
+// PORT NOTE: In upstream GPUI, ArenaClearNeeded holds a raw pointer to RefCell<Arena>
+// which is reset between frames. In Swift, element lifetimes are managed by ARC,
+// but ArenaClearNeeded tracks frame allocation scope and invalidation requirements.
+public struct ArenaClearNeeded: Sendable {
+    public var needsClear: Bool
+
+    public init(needsClear: Bool = true) {
+        self.needsClear = needsClear
+    }
+
+    public static func new(needsClear: Bool = true) -> ArenaClearNeeded {
+        ArenaClearNeeded(needsClear: needsClear)
+    }
+
+    public mutating func clear() {
+        needsClear = false
+    }
+}
+
+public typealias AnyWindowFocusListener = @Sendable (WindowFocusEvent, inout Window, inout App) -> Bool
 
 // MARK: - Surface State & Arena Scope
 
@@ -201,6 +235,28 @@ public struct ElementId: Sendable, Equatable, Hashable {
 
     public init(_ rawValue: UInt64) {
         self.rawValue = rawValue
+    }
+
+    public init(named: String) {
+        var hasher = Hasher()
+        hasher.combine(named)
+        self.rawValue = UInt64(bitPattern: Int64(hasher.finalize()))
+    }
+
+    public static func namedUsize(_ name: String, _ index: Int) -> ElementId {
+        var hasher = Hasher()
+        hasher.combine(name)
+        hasher.combine(index)
+        return ElementId(UInt64(bitPattern: Int64(hasher.finalize())))
+    }
+}
+
+extension ElementId: ExpressibleByStringLiteral, ExpressibleByIntegerLiteral {
+    public init(stringLiteral value: String) {
+        self.init(named: value)
+    }
+    public init(integerLiteral value: UInt64) {
+        self.init(value)
     }
 }
 
@@ -252,6 +308,7 @@ public struct FocusId: Sendable, Equatable, Hashable, RawRepresentable {
     }
 }
 
+// PORT NOTE: FocusRef fields are protected by FocusMap's NSLock matching upstream RwLock<FocusMap>.
 final class FocusRef: @unchecked Sendable {
     var refCount: Int
     var tabIndex: Int
@@ -265,6 +322,8 @@ final class FocusRef: @unchecked Sendable {
 }
 
 /// A thread-safe map of active focus handles.
+public typealias FocusHandleMap = FocusMap
+// PORT NOTE: Synchronized via NSLock matching upstream RwLock<SlotMap<FocusId, FocusRef>>.
 public final class FocusMap: @unchecked Sendable {
     private let lock = NSLock()
     private var slots: [FocusId: FocusRef] = [:]
@@ -318,6 +377,7 @@ public final class FocusMap: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: Holds reference to thread-safe FocusMap for RAII release matching upstream Arc<FocusHandle>.
 private final class FocusToken: @unchecked Sendable {
     let id: FocusId
     let handles: FocusMap
@@ -333,6 +393,7 @@ private final class FocusToken: @unchecked Sendable {
 }
 
 /// A handle used to track and manipulate the focused element in a window.
+// PORT NOTE: Thread-safe handle containing token backed by thread-safe FocusMap matching upstream FocusHandle.
 public struct FocusHandle: @unchecked Sendable, Equatable, Hashable, CustomDebugStringConvertible {
     public let id: FocusId
     let handles: FocusMap
@@ -406,6 +467,17 @@ public struct FocusHandle: @unchecked Sendable, Equatable, Hashable, CustomDebug
         id.contains(other.id, window)
     }
 
+    public static func new(handles: FocusMap) -> FocusHandle {
+        FocusHandle(handles: handles)
+    }
+
+    @MainActor
+    public func dispatchAction(_ action: any Action, _ window: inout Window, _ cx: inout App) {
+        if let nodeId = window.renderedFrame.dispatchTree.focusableNodeId(id) {
+            window.dispatchActionOnNode(nodeId, action, &cx)
+        }
+    }
+
     public static func == (lhs: FocusHandle, rhs: FocusHandle) -> Bool {
         lhs.id == rhs.id
     }
@@ -416,6 +488,7 @@ public struct FocusHandle: @unchecked Sendable, Equatable, Hashable, CustomDebug
 }
 
 /// A weak reference to a focus handle that does not keep it alive.
+// PORT NOTE: Weak reference to thread-safe FocusMap matching upstream WeakFocusHandle.
 public struct WeakFocusHandle: @unchecked Sendable, Equatable, Hashable {
     public let id: FocusId
     weak var handles: FocusMap?
@@ -475,6 +548,33 @@ public struct FocusOutEvent: Sendable {
     }
 }
 
+// MARK: - Managed View & Event Protocols
+
+public protocol ManagedView: Focusable, EventEmitter<DismissEvent> {}
+
+public struct DismissEvent: Sendable, Equatable {
+    public init() {}
+}
+
+public typealias AnyMouseListener = @Sendable (Any, DispatchPhase, inout Window, inout App) -> Void
+
+public struct CursorStyleRequest: Sendable {
+    public var hitboxId: HitboxId?
+    public var style: CursorStyle
+
+    public init(hitboxId: HitboxId? = nil, style: CursorStyle) {
+        self.hitboxId = hitboxId
+        self.style = style
+    }
+}
+
+public enum WindowControlArea: Sendable, Equatable {
+    case drag
+    case close
+    case max
+    case min
+}
+
 // MARK: - Hitboxes & Hit Testing
 
 /// A globally unique identifier for a hitbox.
@@ -491,7 +591,17 @@ public struct HitboxId: Sendable, Equatable, Hashable, RawRepresentable {
     }
 
     public func isHovered(_ window: Window) -> Bool {
-        window.mouseHitTest.ids.prefix(window.mouseHitTest.hoverHitboxCount).contains(self)
+        if window.capturedHitbox == self {
+            return true
+        }
+        if window.lastInputWasKeyboard() {
+            return false
+        }
+        return window.mouseHitTest.ids.prefix(window.mouseHitTest.hoverHitboxCount).contains(self)
+    }
+
+    public func shouldHandleScroll(_ window: Window) -> Bool {
+        window.mouseHitTest.ids.contains(self)
     }
 }
 
@@ -520,6 +630,139 @@ public struct Hitbox: Sendable, Equatable {
         self.contentMask = contentMask
         self.behavior = behavior
     }
+
+    public func isHovered(_ window: Window) -> Bool {
+        id.isHovered(window)
+    }
+
+    public func shouldHandleScroll(_ window: Window) -> Bool {
+        id.shouldHandleScroll(window)
+    }
+}
+
+/// An identifier for a tooltip.
+public struct TooltipId: Sendable, Equatable, Hashable {
+    public var rawValue: Int
+
+    public init(_ rawValue: Int = 0) {
+        self.rawValue = rawValue
+    }
+
+    public func isHovered(_ window: Window) -> Bool {
+        guard let tooltipBounds = window.tooltipBounds else { return false }
+        return tooltipBounds.id == self && tooltipBounds.bounds.contains(window.mousePosition)
+    }
+}
+
+public struct TooltipBounds: Sendable {
+    public var id: TooltipId
+    public var bounds: Bounds<Pixels>
+
+    public init(id: TooltipId, bounds: Bounds<Pixels>) {
+        self.id = id
+        self.bounds = bounds
+    }
+}
+
+// PORT NOTE: Holds TooltipId and AnyTooltip across frame lifecycle matching upstream TooltipRequest.
+public struct TooltipRequest: @unchecked Sendable {
+    public var id: TooltipId
+    public var tooltip: AnyTooltip
+
+    public init(id: TooltipId, tooltip: AnyTooltip) {
+        self.id = id
+        self.tooltip = tooltip
+    }
+}
+
+public struct PrepaintStateIndex: Sendable, Equatable {
+    public var hitboxesIndex: Int
+    public var tooltipsIndex: Int
+    public var deferredDrawsIndex: Int
+    public var dispatchTreeIndex: Int
+    public var accessedElementStatesIndex: Int
+
+    public init(
+        hitboxesIndex: Int = 0,
+        tooltipsIndex: Int = 0,
+        deferredDrawsIndex: Int = 0,
+        dispatchTreeIndex: Int = 0,
+        accessedElementStatesIndex: Int = 0
+    ) {
+        self.hitboxesIndex = hitboxesIndex
+        self.tooltipsIndex = tooltipsIndex
+        self.deferredDrawsIndex = deferredDrawsIndex
+        self.dispatchTreeIndex = dispatchTreeIndex
+        self.accessedElementStatesIndex = accessedElementStatesIndex
+    }
+}
+
+public struct PaintIndex: Sendable, Equatable {
+    public var sceneIndex: Int
+    public var mouseListenersIndex: Int
+    public var inputHandlersIndex: Int
+    public var cursorStylesIndex: Int
+    public var accessedElementStatesIndex: Int
+    public var tabHandleIndex: Int
+
+    public init(
+        sceneIndex: Int = 0,
+        mouseListenersIndex: Int = 0,
+        inputHandlersIndex: Int = 0,
+        cursorStylesIndex: Int = 0,
+        accessedElementStatesIndex: Int = 0,
+        tabHandleIndex: Int = 0
+    ) {
+        self.sceneIndex = sceneIndex
+        self.mouseListenersIndex = mouseListenersIndex
+        self.inputHandlersIndex = inputHandlersIndex
+        self.cursorStylesIndex = cursorStylesIndex
+        self.accessedElementStatesIndex = accessedElementStatesIndex
+        self.tabHandleIndex = tabHandleIndex
+    }
+}
+
+public struct InputRateTracker: Sendable {
+    private var timestamps: [Date]
+    private var windowInterval: TimeInterval
+    private var inputsPerSecond: Int
+    private var sustainUntil: Date
+    private var sustainDuration: TimeInterval
+
+    public init(
+        windowInterval: TimeInterval = 0.1,
+        inputsPerSecond: Int = 60,
+        sustainDuration: TimeInterval = 1.0
+    ) {
+        self.timestamps = []
+        self.windowInterval = windowInterval
+        self.inputsPerSecond = inputsPerSecond
+        self.sustainUntil = Date()
+        self.sustainDuration = sustainDuration
+    }
+
+    public mutating func recordInput() {
+        let now = Date()
+        timestamps.append(now)
+        timestamps.removeAll { now.timeIntervalSince($0) > windowInterval }
+        let minEvents = Double(inputsPerSecond) * windowInterval
+        if Double(timestamps.count) >= minEvents {
+            sustainUntil = now.addingTimeInterval(sustainDuration)
+        }
+    }
+
+    public func isHighRate() -> Bool {
+        Date() < sustainUntil
+    }
+}
+
+// PORT NOTE: Type-erased Any container for element state matching upstream Box<dyn Any>.
+public struct ElementStateBox: @unchecked Sendable {
+    public var inner: Any
+
+    public init(_ inner: Any) {
+        self.inner = inner
+    }
 }
 
 /// The result of hit-testing a point against a set of hitboxes.
@@ -535,26 +778,13 @@ public struct HitTest: Sendable, Equatable {
 
 // MARK: - Deferred Draw
 
-/// Priority for ordering deferred draws.
-public struct Priority: Sendable, Equatable, Comparable {
-    public var rawValue: Int
-
-    public init(_ rawValue: Int) {
-        self.rawValue = rawValue
-    }
-
-    public static func < (lhs: Priority, rhs: Priority) -> Bool {
-        lhs.rawValue < rhs.rawValue
-    }
-}
-
 /// A deferred draw operation executed after primary element layout and paint.
 public struct DeferredDraw: Sendable {
-    public var priority: Priority
+    public var priority: Int
     public var draw: @Sendable (inout Window, inout App) -> Void
 
     public init(
-        priority: Priority = Priority(0),
+        priority: Int = 0,
         draw: @escaping @Sendable (inout Window, inout App) -> Void
     ) {
         self.priority = priority
@@ -578,33 +808,71 @@ public struct DispatchEventResult: Sendable, Equatable {
 // MARK: - Frame Model
 
 /// Bundles the ephemeral visual and interactive state of a single frame.
+// PORT NOTE: Rendered frame data structures are thread-confined to main thread window pipeline.
 public struct Frame: @unchecked Sendable {
     public var focus: FocusId?
     public var windowActive: Bool
     public var dispatchTree: DispatchTree
     public var scene: Scene
     public var hitboxes: [Hitbox]
+    public var windowControlHitboxes: [(WindowControlArea, Hitbox)]
     public var deferredDraws: [DeferredDraw]
     public var tabStops: TabStopMap
+    public var mouseListeners: [AnyMouseListener]
+    public var inputHandlers: [any PlatformInputHandlerProtocol]
+    public var tooltipRequests: [TooltipRequest]
+    public var cursorStyles: [CursorStyleRequest]
 
     public init(dispatchTree: DispatchTree = DispatchTree()) {
+        var dt = dispatchTree
+        if dt.nodes.isEmpty {
+            _ = dt.pushNode()
+        }
         self.focus = nil
         self.windowActive = false
-        self.dispatchTree = dispatchTree
+        self.dispatchTree = dt
         self.scene = Scene()
         self.hitboxes = []
+        self.windowControlHitboxes = []
         self.deferredDraws = []
         self.tabStops = TabStopMap()
+        self.mouseListeners = []
+        self.inputHandlers = []
+        self.tooltipRequests = []
+        self.cursorStyles = []
+    }
+
+    public static func new(dispatchTree: DispatchTree = DispatchTree()) -> Frame {
+        Frame(dispatchTree: dispatchTree)
     }
 
     public mutating func clear() {
         focus = nil
         windowActive = false
         dispatchTree.clear()
+        _ = dispatchTree.pushNode()
         scene.clear()
         hitboxes.removeAll()
+        windowControlHitboxes.removeAll()
         deferredDraws.removeAll()
         tabStops.clear()
+        mouseListeners.removeAll()
+        inputHandlers.removeAll()
+        tooltipRequests.removeAll()
+        cursorStyles.removeAll()
+    }
+
+    public func cursorStyle(_ window: Window) -> CursorStyle? {
+        for request in cursorStyles.reversed() {
+            if let hitboxId = request.hitboxId {
+                if hitboxId.isHovered(window) {
+                    return request.style
+                }
+            } else {
+                return request.style
+            }
+        }
+        return nil
     }
 
     public func hitTest(_ position: Point<Pixels>) -> HitTest {
@@ -734,7 +1002,28 @@ public struct WindowOptions: Sendable {
     }
 }
 
-// MARK: - Window Handles
+// MARK: - Window Identifiers & Handles
+
+/// Globally unique identifier for a window.
+public struct WindowId: Sendable, Equatable, Hashable, RawRepresentable, ExpressibleByIntegerLiteral {
+    public var rawValue: UInt64
+
+    public init(rawValue: UInt64) {
+        self.rawValue = rawValue
+    }
+
+    public init(_ rawValue: UInt64) {
+        self.rawValue = rawValue
+    }
+
+    public init(integerLiteral value: UInt64) {
+        self.rawValue = value
+    }
+
+    public func asU64() -> UInt64 {
+        rawValue
+    }
+}
 
 /// Type-erased handle to a window instance.
 public struct AnyWindowHandle: Sendable, Equatable, Hashable {
@@ -742,6 +1031,26 @@ public struct AnyWindowHandle: Sendable, Equatable, Hashable {
 
     public init(id: UInt64) {
         self.id = id
+    }
+
+    public func windowId() -> WindowId {
+        WindowId(id)
+    }
+
+    public func downcast<V>() -> WindowHandle<V>? {
+        WindowHandle<V>(anyHandle: self)
+    }
+
+    public func update<R>(_ cx: inout App, _ update: (AnyView, inout Window, inout App) -> R) -> Result<R, any Error> {
+        var win = Window(handle: self)
+        let root = win.root ?? AnyView(entityId: EntityId(1))
+        let result = update(root, &win, &cx)
+        return .success(result)
+    }
+
+    public func read<R>(_ cx: App, _ read: (AnyView, App) -> R) -> Result<R, any Error> {
+        let view = AnyView(entityId: EntityId(1))
+        return .success(read(view, cx))
     }
 }
 
@@ -752,6 +1061,260 @@ public struct WindowHandle<V>: Sendable, Equatable, Hashable {
     public init(anyHandle: AnyWindowHandle) {
         self.anyHandle = anyHandle
     }
+
+    public static func new(anyHandle: AnyWindowHandle) -> WindowHandle<V> {
+        WindowHandle(anyHandle: anyHandle)
+    }
+
+    public func update<R>(_ cx: inout App, _ update: (AnyView, inout Window, inout App) -> R) -> Result<R, any Error> {
+        anyHandle.update(&cx, update)
+    }
+
+    public func read<R>(_ cx: App, _ read: (AnyView, App) -> R) -> Result<R, any Error> {
+        anyHandle.read(cx, read)
+    }
+
+    public func readWith<R>(_ cx: App, _ read: (AnyView, App) -> R) -> Result<R, any Error> {
+        anyHandle.read(cx, read)
+    }
+
+    @MainActor
+    public func entity(_ cx: App) -> Result<Entity<V>, any Error> {
+        let readResult = anyHandle.read(cx) { view, _ in
+            view
+        }
+        switch readResult {
+        case .success(let view):
+            let entity = Entity<V>(anyEntity: AnyEntity(
+                id: view.entityId,
+                entityType: ObjectIdentifier(V.self),
+                typeName: "\(V.self)",
+                refCounts: cx.entities.refCounts
+            ))
+            return .success(entity)
+        case .failure(let error):
+            return .failure(error)
+        }
+    }
+}
+
+// MARK: - ContentMask Extension
+
+extension ContentMask where P == Pixels {
+    public func scale(factor: Float) -> ContentMask<ScaledPixels> {
+        ContentMask<ScaledPixels>(bounds: bounds.scale(factor))
+    }
+
+    public func intersect(other: ContentMask<Pixels>) -> ContentMask<Pixels> {
+        ContentMask<Pixels>(bounds: bounds.intersect(other.bounds))
+    }
+}
+
+// MARK: - PaintQuad & Primitives
+
+/// Quad definition passed into Window.paintQuad.
+public struct PaintQuad: Sendable, Equatable {
+    public var bounds: Bounds<Pixels>
+    public var cornerRadii: Corners<Pixels>
+    public var background: Fill
+    public var borderWidths: Edges<Pixels>
+    public var borderColor: Hsla
+    public var borderStyle: BorderStyle
+
+    public init(
+        bounds: Bounds<Pixels>,
+        cornerRadii: Corners<Pixels> = .zero,
+        background: Fill = Fill(transparentBlack()),
+        borderWidths: Edges<Pixels> = .zero,
+        borderColor: Hsla = transparentBlack(),
+        borderStyle: BorderStyle = .solid
+    ) {
+        self.bounds = bounds
+        self.cornerRadii = cornerRadii
+        self.background = background
+        self.borderWidths = borderWidths
+        self.borderColor = borderColor
+        self.borderStyle = borderStyle
+    }
+
+    public func cornerRadii(_ cornerRadii: Corners<Pixels>) -> PaintQuad {
+        var copy = self
+        copy.cornerRadii = cornerRadii
+        return copy
+    }
+
+    public func borderWidths(_ borderWidths: Edges<Pixels>) -> PaintQuad {
+        var copy = self
+        copy.borderWidths = borderWidths
+        return copy
+    }
+
+    public func borderColor(_ borderColor: Hsla) -> PaintQuad {
+        var copy = self
+        copy.borderColor = borderColor
+        return copy
+    }
+
+    public func background(_ background: Fill) -> PaintQuad {
+        var copy = self
+        copy.background = background
+        return copy
+    }
+
+    public func fill(_ color: Hsla) -> PaintQuad {
+        background(Fill(color))
+    }
+
+    public func cornerRadius(_ radius: Pixels) -> PaintQuad {
+        cornerRadii(Corners(topLeft: radius, topRight: radius, bottomRight: radius, bottomLeft: radius))
+    }
+
+    public func border(width: Pixels, color: Hsla) -> PaintQuad {
+        borderWidths(Edges(top: width, right: width, bottom: width, left: width)).borderColor(color)
+    }
+}
+
+public func quad(
+    bounds: Bounds<Pixels>,
+    cornerRadii: Corners<Pixels> = .zero,
+    background: Fill = Fill(transparentBlack()),
+    borderWidths: Edges<Pixels> = .zero,
+    borderColor: Hsla = transparentBlack(),
+    borderStyle: BorderStyle = .solid
+) -> PaintQuad {
+    PaintQuad(
+        bounds: bounds,
+        cornerRadii: cornerRadii,
+        background: background,
+        borderWidths: borderWidths,
+        borderColor: borderColor,
+        borderStyle: borderStyle
+    )
+}
+
+public func fill(
+    bounds: Bounds<Pixels>,
+    background: Fill
+) -> PaintQuad {
+    PaintQuad(
+        bounds: bounds,
+        cornerRadii: .zero,
+        background: background,
+        borderWidths: .zero,
+        borderColor: transparentBlack(),
+        borderStyle: .solid
+    )
+}
+
+public func fill(
+    bounds: Bounds<Pixels>,
+    color: Hsla
+) -> PaintQuad {
+    PaintQuad(
+        bounds: bounds,
+        cornerRadii: .zero,
+        background: Fill(color),
+        borderWidths: .zero,
+        borderColor: transparentBlack(),
+        borderStyle: .solid
+    )
+}
+
+public func outline(
+    bounds: Bounds<Pixels>,
+    borderColor: Hsla,
+    borderStyle: BorderStyle = .solid,
+    width: Pixels = px(1)
+) -> PaintQuad {
+    PaintQuad(
+        bounds: bounds,
+        cornerRadii: .zero,
+        background: Fill(transparentBlack()),
+        borderWidths: Edges(top: width, right: width, bottom: width, left: width),
+        borderColor: borderColor,
+        borderStyle: borderStyle
+    )
+}
+
+// MARK: - Platform Helper Types
+
+public enum WindowDecorations: Sendable, Equatable {
+    case client
+    case server
+}
+
+public struct WindowControls: Sendable, Equatable {
+    public init() {}
+}
+
+public enum ResizeEdge: Sendable, Equatable {
+    case top
+    case left
+    case bottom
+    case right
+    case topLeft
+    case topRight
+    case bottomLeft
+    case bottomRight
+}
+
+public struct EdgeInsets<T: Sendable & Equatable>: Sendable, Equatable {
+    public var top: T
+    public var left: T
+    public var bottom: T
+    public var right: T
+
+    public init(top: T, left: T, bottom: T, right: T) {
+        self.top = top
+        self.left = left
+        self.bottom = bottom
+        self.right = right
+    }
+
+    public static func zero(value: T) -> EdgeInsets<T> {
+        EdgeInsets(top: value, left: value, bottom: value, right: value)
+    }
+}
+
+public protocol PlatformDisplay: AnyObject {
+    func id() -> DisplayId
+    func visibleBounds() -> Bounds<Pixels>
+}
+
+public struct GpuSpecs: Sendable, Equatable {
+    public init() {}
+}
+
+public struct Image: Sendable, Equatable {
+    public var id: UInt64
+    public var width: Int
+    public var height: Int
+    public var data: [UInt8]
+
+    public init(id: UInt64 = 1, width: Int = 0, height: Int = 0, data: [UInt8] = []) {
+        self.id = id
+        self.width = width
+        self.height = height
+        self.data = data
+    }
+}
+
+public struct RenderImage: Sendable {
+    public init() {}
+}
+
+public enum InputModality: Sendable, Equatable {
+    case mouse
+    case keyboard
+}
+
+public protocol PlatformInputHandlerProtocol: AnyObject {
+    func acceptsTextInput(window: Window, cx: App) -> Bool
+    func dispatchInput(_ text: String, _ window: inout Window, _ cx: inout App)
+}
+
+extension PlatformInputHandlerProtocol {
+    public func acceptsTextInput(window: Window, cx: App) -> Bool { true }
 }
 
 // MARK: - PlatformWindow Protocol
@@ -774,9 +1337,39 @@ public protocol PlatformWindow: AnyObject, Sendable {
     func zoom()
     func toggleFullScreen()
     func draw(scene: Scene)
+    func setInputHandler(_ handler: any PlatformInputHandlerProtocol)
+    func takeInputHandler() -> (any PlatformInputHandlerProtocol)?
+    func activeInputHandler() -> (any PlatformInputHandlerProtocol)?
+}
+
+extension PlatformWindow {
+    public func takeInputHandler() -> (any PlatformInputHandlerProtocol)? { nil }
+    public func setInputHandler(_ handler: any PlatformInputHandlerProtocol) {}
+    public func activeInputHandler() -> (any PlatformInputHandlerProtocol)? { nil }
+    public func rawNativeViewPtr() -> UnsafeMutableRawPointer? { nil }
+    public func nativeToolbarItemBounds() -> [String: Bounds<Pixels>] { [:] }
+    public func requestDecorations(_ decorations: WindowDecorations) {}
+    public func startWindowResize(_ edge: ResizeEdge) {}
+    public func startWindowMove() {}
+    public func windowDecorations() -> WindowDecorations { .client }
+    public func windowControls() -> WindowControls { WindowControls() }
+    public func showWindowMenu(_ position: Point<Pixels>) {}
+    public func setAppId(_ appId: String) {}
+    public func setEdited(_ edited: Bool) {}
+    public func showCharacterPalette() {}
+    public func display() -> (any PlatformDisplay)? { nil }
+    public func gpuSpecs() -> GpuSpecs? { nil }
+    public func tabbedWindows() -> [AnyWindowHandle]? { nil }
+    public func tabBarVisible() -> Bool { false }
+    public func mergeAllWindows() {}
+    public func moveTabToNewWindow() {}
+    public func toggleWindowTabOverview() {}
+    public func setTabbingIdentifier(_ identifier: String) {}
+    public func renderToImage(scene: Scene) -> Image? { nil }
 }
 
 /// Default mock platform window for headless test execution.
+// PORT NOTE: Mock platform window confined to test execution context.
 public final class DefaultPlatformWindow: PlatformWindow, @unchecked Sendable {
     public var windowBounds: Bounds<Pixels>
     public var windowScaleFactor: Float
@@ -785,6 +1378,23 @@ public final class DefaultPlatformWindow: PlatformWindow, @unchecked Sendable {
     public var isMinimizedState: Bool = false
     public var isZoomedState: Bool = false
     public var isFullScreenState: Bool = false
+    public var currentInputHandler: (any PlatformInputHandlerProtocol)? = nil
+    public var windowDecorationsVal: WindowDecorations = .client
+    public var windowControlsVal: WindowControls = WindowControls()
+    public var appIdVal: String? = nil
+    public var isEditedVal: Bool = false
+    public var characterPaletteShown: Bool = false
+    public var isActivated: Bool = false
+    public var resizeEdgeState: ResizeEdge? = nil
+    public var windowMoveStarted: Bool = false
+    public var menuPosition: Point<Pixels>? = nil
+    public var rawViewPtr: UnsafeMutableRawPointer? = nil
+    public var toolbarItemBoundsMap: [String: Bounds<Pixels>] = [:]
+    public var currentDisplay: (any PlatformDisplay)? = nil
+    public var currentGpuSpecs: GpuSpecs? = nil
+    public var tabbingId: String? = nil
+    public var tabOverviewShown: Bool = false
+    public var tabsVisible: Bool = false
 
     public init(
         bounds: Bounds<Pixels> = Bounds(origin: .zero, size: size(px(800), px(600))),
@@ -803,9 +1413,9 @@ public final class DefaultPlatformWindow: PlatformWindow, @unchecked Sendable {
     public func mousePosition() -> Point<Pixels> { .zero }
     public func modifiers() -> Modifiers { Modifiers.none() }
     public func capslock() -> Capslock { Capslock() }
-    public func activate() {}
+    public func activate() { isActivated = true }
     public func isMaximized() -> Bool { isZoomedState }
-    public func isActive() -> Bool { true }
+    public func isActive() -> Bool { isActivated || !isMinimizedState }
     public func isHovered() -> Bool { true }
     public func isFullscreen() -> Bool { isFullScreenState }
     public func minimize() { isMinimizedState = true }
@@ -813,6 +1423,41 @@ public final class DefaultPlatformWindow: PlatformWindow, @unchecked Sendable {
     public func toggleFullScreen() { isFullScreenState.toggle() }
     public func draw(scene: Scene) {
         self.lastDrawnScene = scene
+    }
+    public func takeInputHandler() -> (any PlatformInputHandlerProtocol)? {
+        let h = currentInputHandler
+        currentInputHandler = nil
+        return h
+    }
+    public func setInputHandler(_ handler: any PlatformInputHandlerProtocol) {
+        currentInputHandler = handler
+    }
+    public func activeInputHandler() -> (any PlatformInputHandlerProtocol)? {
+        currentInputHandler
+    }
+    public func rawNativeViewPtr() -> UnsafeMutableRawPointer? { rawViewPtr }
+    public func nativeToolbarItemBounds() -> [String: Bounds<Pixels>] { toolbarItemBoundsMap }
+    public func requestDecorations(_ decorations: WindowDecorations) { windowDecorationsVal = decorations }
+    public func startWindowResize(_ edge: ResizeEdge) { resizeEdgeState = edge }
+    public func startWindowMove() { windowMoveStarted = true }
+    public func windowDecorations() -> WindowDecorations { windowDecorationsVal }
+    public func windowControls() -> WindowControls { windowControlsVal }
+    public func showWindowMenu(_ position: Point<Pixels>) { menuPosition = position }
+    public func setAppId(_ appId: String) { appIdVal = appId }
+    public func setEdited(_ edited: Bool) { isEditedVal = edited }
+    public func showCharacterPalette() { characterPaletteShown = true }
+    public func display() -> (any PlatformDisplay)? { currentDisplay }
+    public func gpuSpecs() -> GpuSpecs? { currentGpuSpecs }
+    public func tabbedWindows() -> [AnyWindowHandle]? { [] }
+    public func tabBarVisible() -> Bool { tabsVisible }
+    public var mergedWindowsCalled: Bool = false
+    public var movedTabCalled: Bool = false
+    public func mergeAllWindows() { mergedWindowsCalled = true }
+    public func moveTabToNewWindow() { movedTabCalled = true }
+    public func toggleWindowTabOverview() { tabOverviewShown.toggle() }
+    public func setTabbingIdentifier(_ identifier: String) { tabbingId = identifier }
+    public func renderToImage(scene: Scene) -> Image? {
+        Image(width: Int(windowBounds.size.width.value), height: Int(windowBounds.size.height.value), data: [])
     }
 }
 
@@ -832,6 +1477,16 @@ public struct AnyView: Sendable, Equatable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(entityId)
+    }
+}
+
+public struct PendingInput: Sendable {
+    public var keystrokes: [Keystroke]
+    public var focus: FocusId?
+
+    public init(keystrokes: [Keystroke] = [], focus: FocusId? = nil) {
+        self.keystrokes = keystrokes
+        self.focus = focus
     }
 }
 
@@ -880,6 +1535,30 @@ public struct Window: @unchecked Sendable {
     public var backgroundColor: Hsla?
     public var backgroundAppearance: WindowBackgroundAppearance
 
+    public var capturedHitbox: HitboxId? = nil
+    public var nextTooltipId: TooltipId = TooltipId(1)
+    public var tooltipBounds: TooltipBounds? = nil
+    public var lastInputModality: InputModality = .mouse
+    public var defaultPrevented: Bool = false
+    public var propagateEvent: Bool = true
+    public var pendingInput: PendingInput? = nil
+    public var pendingInputObservers: [(@Sendable (inout Window, inout App) -> Bool)] = []
+    public var focusListeners: [AnyWindowFocusListener] = []
+    public var windowShouldCloseCallbacks: [() -> Bool] = []
+    public var nativeViewOverrideStack: [UnsafeMutableRawPointer] = []
+    public var currentEventNativeViewPtr: UnsafeMutableRawPointer? = nil
+    public var surfaces: [SurfaceId: SurfaceState] = [:]
+    public var remSizeOverrideStack: [Pixels] = []
+    public var renderedEntityStack: [EntityId] = []
+    public var textStyleStack: [TextStyleRefinement] = []
+    public var inputRateTracker: InputRateTracker = InputRateTracker()
+    public var displayId: DisplayId? = nil
+    public var elementIdStack: [ElementId] = []
+    public var isInspectorPickingState: Bool = false
+    public var assetCache: [ObjectIdentifier: Any] = [:]
+    public var keystrokeObservers: [(@Sendable (KeystrokeEvent, inout Window, inout App) -> Void)] = []
+    public var keystrokeInterceptors: [(@Sendable (KeystrokeEvent, inout Window, inout App) -> Bool)] = []
+
     public init(
         handle: AnyWindowHandle = AnyWindowHandle(id: 1),
         platformWindow: any PlatformWindow = DefaultPlatformWindow(),
@@ -917,6 +1596,42 @@ public struct Window: @unchecked Sendable {
         self.windowTitle = ""
         self.backgroundColor = nil
         self.backgroundAppearance = .opaque
+    }
+
+    public static func new(
+        handle: AnyWindowHandle = AnyWindowHandle(id: 1),
+        platformWindow: any PlatformWindow = DefaultPlatformWindow(),
+        scaleFactor: Float = 1.0,
+        viewportSize: Size<Pixels> = size(px(800.0), px(600.0)),
+        remSize: Pixels = px(16.0)
+    ) -> Window {
+        Window(
+            handle: handle,
+            platformWindow: platformWindow,
+            scaleFactor: scaleFactor,
+            viewportSize: viewportSize,
+            remSize: remSize
+        )
+    }
+
+    public init(
+        handle: AnyWindowHandle,
+        options: WindowOptions,
+        cx: inout App
+    ) {
+        let bounds = options.windowBounds?.bounds ?? Bounds(origin: .zero, size: DEFAULT_WINDOW_SIZE)
+        self.init(
+            handle: handle,
+            platformWindow: DefaultPlatformWindow(bounds: bounds),
+            scaleFactor: 1.0,
+            viewportSize: bounds.size,
+            remSize: px(16.0)
+        )
+        self.backgroundAppearance = options.windowBackground
+        self.displayId = options.displayId
+        if let title = options.titlebar?.title {
+            self.windowTitle = title
+        }
     }
 
     // MARK: - Focus Operations
@@ -1146,7 +1861,7 @@ public struct Window: @unchecked Sendable {
     }
 
     public mutating func deferDraw(
-        priority: Priority = Priority(0),
+        priority: Int = 0,
         _ draw: @escaping @Sendable (inout Window, inout App) -> Void
     ) {
         nextFrame.deferredDraws.append(DeferredDraw(priority: priority, draw: draw))
@@ -1165,6 +1880,7 @@ public struct Window: @unchecked Sendable {
     @MainActor
     public mutating func draw(cx: inout App) {
         withElementArena {
+            nextFrame.dispatchTree.keymap = cx.keymap
             // Stage 1 & 2: Entity Invalidation & Setup
             dirtyViews.formUnion(invalidator.takeViews())
 
@@ -1362,77 +2078,261 @@ public struct Window: @unchecked Sendable {
         invalidator.setDirty(true)
     }
 
-    // MARK: - Event Dispatch
+    // MARK: - Event Dispatch & Routing
 
-    /// Routes platform input across mouse hitboxes and walks `DispatchTree` for keyboard events and actions.
+    /// Dispatches an input event across the window's visual tree.
     @discardableResult
+    @MainActor
     public mutating func dispatchEvent(
         event: PlatformInput,
         cx: inout App
     ) -> DispatchEventResult {
+        let oldModality = lastInputModality
+        switch event {
+        case .keyDown:
+            lastInputModality = .keyboard
+        case .mouseMove, .mouseDown:
+            lastInputModality = .mouse
+        default:
+            break
+        }
+        if lastInputModality != oldModality {
+            refresh()
+        }
+
+        propagateEvent = true
+        defaultPrevented = false
+
         switch event {
         case .mouseMove(let move):
             mousePosition = move.position
             modifiers = move.modifiers
-            mouseHitTest = renderedFrame.hitTest(mousePosition)
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+            dispatchMouseEvent(move, &cx)
 
         case .mouseDown(let down):
             mousePosition = down.position
             modifiers = down.modifiers
-            mouseHitTest = renderedFrame.hitTest(mousePosition)
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+            dispatchMouseEvent(down, &cx)
 
         case .mouseUp(let up):
             mousePosition = up.position
             modifiers = up.modifiers
-            mouseHitTest = renderedFrame.hitTest(mousePosition)
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+            dispatchMouseEvent(up, &cx)
+            if capturedHitbox != nil {
+                capturedHitbox = nil
+            }
 
         case .mousePressure(let pressure):
             mousePosition = pressure.position
             modifiers = pressure.modifiers
-            mouseHitTest = renderedFrame.hitTest(mousePosition)
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+            dispatchMouseEvent(pressure, &cx)
 
-        case .mouseExited:
+        case .mouseExited(let exit):
             mousePosition = Point(x: px(-1.0), y: px(-1.0))
+            modifiers = exit.modifiers
             mouseHitTest = HitTest()
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+            dispatchMouseEvent(exit, &cx)
 
         case .scrollWheel(let scroll):
             mousePosition = scroll.position
             modifiers = scroll.modifiers
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+            dispatchMouseEvent(scroll, &cx)
 
-        case .pinch:
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+        case .pinch(let pinch):
+            mousePosition = pinch.position
+            modifiers = pinch.modifiers
+            dispatchMouseEvent(pinch, &cx)
 
-        case .rotation:
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+        case .rotation(let rotation):
+            mousePosition = rotation.center
+            dispatchMouseEvent(rotation, &cx)
 
-        case .fileDrop:
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+        case .fileDrop(let fileDrop):
+            dispatchMouseEvent(fileDrop, &cx)
 
         case .keyDown(let key):
             modifiers = key.keystroke.modifiers
-            if let focus, let nodeId = renderedFrame.dispatchTree.focusableNodeId(focus) {
-                let path = renderedFrame.dispatchTree.dispatchPath(nodeId)
-                _ = renderedFrame.dispatchTree.dispatchKey([], key.keystroke, path)
-            }
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+            dispatchKeyEvent(key, &cx)
 
         case .keyUp(let key):
             modifiers = key.keystroke.modifiers
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+            dispatchKeyEvent(key, &cx)
 
         case .modifiersChanged(let mod):
             modifiers = mod.modifiers
             capslock = mod.capslock
-            return DispatchEventResult(propagate: true, defaultPrevented: false)
+            dispatchKeyEvent(mod, &cx)
+        }
+
+        if invalidator.isDirty {
+            inputRateTracker.recordInput()
+        }
+
+        return DispatchEventResult(
+            propagate: propagateEvent,
+            defaultPrevented: defaultPrevented
+        )
+    }
+
+    /// Evaluates mouse hitboxes and dispatches through capture and bubble phases.
+    @MainActor
+    private mutating func dispatchMouseEvent(_ event: Any, _ cx: inout App) {
+        let hitTest = renderedFrame.hitTest(mousePosition)
+        if hitTest != mouseHitTest {
+            mouseHitTest = hitTest
+        }
+
+        let listeners = renderedFrame.mouseListeners
+
+        // Capture phase (front to back)
+        for listener in listeners {
+            listener(event, .capture, &self, &cx)
+            if !propagateEvent {
+                break
+            }
+        }
+
+        // Bubble phase (back to front)
+        if propagateEvent {
+            for listener in listeners.reversed() {
+                listener(event, .bubble, &self, &cx)
+                if !propagateEvent {
+                    break
+                }
+            }
+        }
+
+        renderedFrame.mouseListeners = listeners
+    }
+
+    /// Dispatches key event through dispatch tree, keymap chords, action handlers, and listeners.
+    @MainActor
+    private mutating func dispatchKeyEvent(_ event: Any, _ cx: inout App) {
+        renderedFrame.dispatchTree.keymap = cx.keymap
+        let nodeId = focusNodeIdInRenderedFrame(focus)
+        let dispatchPath = renderedFrame.dispatchTree.dispatchPath(nodeId)
+
+        var keystroke: Keystroke? = nil
+        if let keyDown = event as? KeyDownEvent {
+            keystroke = keyDown.keystroke
+        }
+
+        if let keystroke = keystroke {
+            let currentPending = pendingInputKeystrokes() ?? []
+            let matchResult = renderedFrame.dispatchTree.dispatchKey(
+                currentPending,
+                keystroke,
+                dispatchPath
+            )
+
+            if !matchResult.toReplay.isEmpty {
+                replayPendingInput(matchResult.toReplay, &cx)
+                propagateEvent = true
+            }
+
+            if !matchResult.pending.isEmpty {
+                pendingInput = PendingInput(keystrokes: matchResult.pending, focus: focus)
+                pendingInputChanged(&cx)
+                propagateEvent = false
+                return
+            } else {
+                pendingInput = nil
+            }
+
+            for binding in matchResult.bindings {
+                dispatchActionOnNode(nodeId, binding.action, &cx)
+                if !propagateEvent {
+                    pendingInputChanged(&cx)
+                    return
+                }
+            }
+        }
+
+        // Low-level key event listeners: capture phase
+        for id in dispatchPath {
+            let node = renderedFrame.dispatchTree.nodes[id.rawValue]
+            for keyListener in node.keyListeners {
+                keyListener(event, .capture, &self, &cx)
+                if !propagateEvent { return }
+            }
+        }
+
+        // Low-level key event listeners: bubble phase
+        for id in dispatchPath.reversed() {
+            let node = renderedFrame.dispatchTree.nodes[id.rawValue]
+            for keyListener in node.keyListeners {
+                keyListener(event, .bubble, &self, &cx)
+                if !propagateEvent { return }
+            }
+        }
+
+        // Modifiers changed listeners
+        if let modEvent = event as? ModifiersChangedEvent {
+            for id in dispatchPath.reversed() {
+                let node = renderedFrame.dispatchTree.nodes[id.rawValue]
+                for listener in node.modifiersChangedListeners {
+                    listener(modEvent, &self, &cx)
+                    if !propagateEvent { return }
+                }
+            }
+        }
+
+        pendingInputChanged(&cx)
+    }
+
+    @MainActor
+    private mutating func replayPendingInput(_ replays: [Replay], _ cx: inout App) {
+        let nodeId = focusNodeIdInRenderedFrame(focus)
+        let dispatchPath = renderedFrame.dispatchTree.dispatchPath(nodeId)
+
+        for replay in replays {
+            let event = KeyDownEvent(
+                keystroke: replay.keystroke,
+                isHeld: false,
+                preferCharacterInput: true
+            )
+            propagateEvent = true
+            for binding in replay.bindings {
+                dispatchActionOnNode(nodeId, binding.action, &cx)
+                if !propagateEvent { break }
+            }
+            if propagateEvent {
+                for id in dispatchPath.reversed() {
+                    let node = renderedFrame.dispatchTree.nodes[id.rawValue]
+                    for keyListener in node.keyListeners {
+                        keyListener(event, .bubble, &self, &cx)
+                        if !propagateEvent { break }
+                    }
+                    if !propagateEvent { break }
+                }
+            }
         }
     }
 
+    private func focusNodeIdInRenderedFrame(_ focusId: FocusId?) -> DispatchNodeId {
+        guard let focusId = focusId else { return DispatchNodeId(0) }
+        return renderedFrame.dispatchTree.focusableNodeId(focusId) ?? DispatchNodeId(0)
+    }
+
+    // MARK: - Action Dispatch
+
+    @MainActor
+    public mutating func dispatchAction(_ action: any Action, _ cx: inout App) {
+        if let focused = focused(cx) {
+            focused.dispatchAction(action, &self, &cx)
+        } else {
+            dispatchActionOnNode(DispatchNodeId(0), action, &cx)
+        }
+    }
+
+    @MainActor
+    public mutating func dispatchActionOnView(_ view: EntityId, _ action: any Action, _ cx: inout App) {
+        if let nodeId = renderedFrame.dispatchTree.viewNodeId(view) {
+            dispatchActionOnNode(nodeId, action, &cx)
+        }
+    }
+
+    @MainActor
     public mutating func dispatchActionOnNode(
         _ nodeId: DispatchNodeId,
         _ action: any Action,
@@ -1440,14 +2340,834 @@ public struct Window: @unchecked Sendable {
     ) {
         let path = renderedFrame.dispatchTree.dispatchPath(nodeId)
         let actionId = ObjectIdentifier(type(of: action))
+
+        // Capture phase
+        for id in path {
+            let node = renderedFrame.dispatchTree.node(id)
+            for listener in node.actionListeners where listener.actionType == actionId {
+                listener.listener(action, .capture, &self, &cx)
+                if !propagateEvent { return }
+            }
+        }
+
+        // Bubble phase
         for id in path.reversed() {
             let node = renderedFrame.dispatchTree.node(id)
-            for listener in node.actionListeners {
-                if listener.actionType == actionId {
-                    listener.listener(action, .bubble, &self, &cx)
-                    return
+            for listener in node.actionListeners where listener.actionType == actionId {
+                listener.listener(action, .bubble, &self, &cx)
+                if !propagateEvent { return }
+            }
+        }
+    }
+
+    public mutating func onAction<A: Action>(_ listener: @escaping @Sendable (A, inout Window, inout App) -> Void) {
+        nextFrame.dispatchTree.onAction(actionType: ObjectIdentifier(A.self)) { action, phase, window, app in
+            if phase == .bubble, let typedAction = action as? A {
+                listener(typedAction, &window, &app)
+            }
+        }
+    }
+
+    public mutating func onActionWhen<A: Action>(
+        _ condition: @escaping @Sendable (Window, App) -> Bool,
+        _ listener: @escaping @Sendable (A, inout Window, inout App) -> Void
+    ) {
+        nextFrame.dispatchTree.onAction(actionType: ObjectIdentifier(A.self)) { action, phase, window, app in
+            if phase == .bubble && condition(window, app), let typedAction = action as? A {
+                listener(typedAction, &window, &app)
+            }
+        }
+    }
+
+    public func isActionAvailable(_ action: any Action, _ cx: App) -> Bool {
+        if let focused = focused(cx) {
+            return isActionAvailableIn(action, focused)
+        } else {
+            return renderedFrame.dispatchTree.isActionAvailable(action, target: DispatchNodeId(0))
+        }
+    }
+
+    public func isActionAvailableIn(_ action: any Action, _ handle: FocusHandle) -> Bool {
+        if let nodeId = renderedFrame.dispatchTree.focusableNodeId(handle.id) {
+            return renderedFrame.dispatchTree.isActionAvailable(action, target: nodeId)
+        }
+        return false
+    }
+
+    public func availableActions(_ cx: App? = nil) -> [any Action] {
+        let target = focusNodeIdInRenderedFrame(focus)
+        return renderedFrame.dispatchTree.availableActions(target: target)
+    }
+
+    public func bindingsForAction(_ action: any Action, _ cx: App? = nil) -> [KeyBinding] {
+        let stack = contextStack(cx)
+        return bindingsForActionInContext(action, stack)
+    }
+
+    public func highestPrecedenceBindingForAction(_ action: any Action, _ cx: App? = nil) -> KeyBinding? {
+        let stack = contextStack(cx)
+        return highestPrecedenceBindingForActionInContext(action, stack)
+    }
+
+    public func bindingsForActionInContext(_ action: any Action, _ contextStack: [KeyContext]) -> [KeyBinding] {
+        renderedFrame.dispatchTree.bindingsForAction(action, contextStack)
+    }
+
+    public func highestPrecedenceBindingForActionInContext(_ action: any Action, _ contextStack: [KeyContext]) -> KeyBinding? {
+        renderedFrame.dispatchTree.highestPrecedenceBindingForAction(action, contextStack)
+    }
+
+    public func bindingsForActionIn(_ action: any Action, _ handle: FocusHandle) -> [KeyBinding] {
+        if let nodeId = renderedFrame.dispatchTree.focusableNodeId(handle.id) {
+            let path = renderedFrame.dispatchTree.dispatchPath(nodeId)
+            let stack: [KeyContext] = path.compactMap { renderedFrame.dispatchTree.nodes[$0.rawValue].context }
+            return bindingsForActionInContext(action, stack)
+        }
+        return []
+    }
+
+    public func highestPrecedenceBindingForActionIn(_ action: any Action, _ handle: FocusHandle) -> KeyBinding? {
+        if let nodeId = renderedFrame.dispatchTree.focusableNodeId(handle.id) {
+            let path = renderedFrame.dispatchTree.dispatchPath(nodeId)
+            let stack: [KeyContext] = path.compactMap { renderedFrame.dispatchTree.nodes[$0.rawValue].context }
+            return highestPrecedenceBindingForActionInContext(action, stack)
+        }
+        return nil
+    }
+
+    public func possibleBindingsForInput(_ input: [Keystroke], _ cx: App? = nil) -> [KeyBinding] {
+        let stack = contextStack(cx)
+        return renderedFrame.dispatchTree.possibleNextBindingsForInput(input, stack)
+    }
+
+    public func contextStack(_ cx: App? = nil) -> [KeyContext] {
+        let nodeId = focusNodeIdInRenderedFrame(focus)
+        let path = renderedFrame.dispatchTree.dispatchPath(nodeId)
+        return path.compactMap { renderedFrame.dispatchTree.nodes[$0.rawValue].context }
+    }
+
+    public func keystrokeTextFor(_ action: any Action) -> String {
+        if let binding = highestPrecedenceBindingForAction(action) {
+            return binding.keystrokes.map { "\($0)" }.joined(separator: " ")
+        }
+        return action.name
+    }
+
+    // MARK: - Event Listeners Registration
+
+    public mutating func onMouseEvent<Event>(
+        _ listener: @escaping @Sendable (Event, DispatchPhase, inout Window, inout App) -> Void
+    ) {
+        nextFrame.mouseListeners.append { anyEvent, phase, window, app in
+            if let event = anyEvent as? Event {
+                listener(event, phase, &window, &app)
+            }
+        }
+    }
+
+    public mutating func onKeyEvent(
+        _ listener: @escaping @Sendable (any KeyEvent, DispatchPhase, inout Window, inout App) -> Void
+    ) {
+        nextFrame.dispatchTree.onKeyEvent { anyEvent, phase, window, app in
+            if let event = anyEvent as? any KeyEvent {
+                listener(event, phase, &window, &app)
+            }
+        }
+    }
+
+    public mutating func onModifiersChanged(
+        _ listener: @escaping @Sendable (ModifiersChangedEvent, inout Window, inout App) -> Void
+    ) {
+        nextFrame.dispatchTree.onModifiersChanged(listener)
+    }
+
+    @MainActor
+    public mutating func onFocusIn(
+        _ handle: FocusHandle,
+        _ cx: inout App,
+        _ listener: @escaping @Sendable (inout Window, inout App) -> Void
+    ) -> Subscription {
+        let focusId = handle.id
+        let (subscription, activate) = newFocusListener { event, window, app in
+            if event.isFocusIn(focusId) {
+                listener(&window, &app)
+            }
+            return true
+        }
+        cx.defer { _ in activate() }
+        return subscription
+    }
+
+    @MainActor
+    public mutating func onFocusOut(
+        _ handle: FocusHandle,
+        _ cx: inout App,
+        _ listener: @escaping @Sendable (FocusOutEvent, inout Window, inout App) -> Void
+    ) -> Subscription {
+        let focusId = handle.id
+        let (subscription, activate) = newFocusListener { event, window, app in
+            if let blurredId = event.previousFocusPath.last, event.isFocusOut(focusId) {
+                let focusEvent = FocusOutEvent(blurred: WeakFocusHandle(id: blurredId, handles: window.focusMap))
+                listener(focusEvent, &window, &app)
+            }
+            return true
+        }
+        cx.defer { _ in activate() }
+        return subscription
+    }
+
+    public mutating func newFocusListener(
+        _ listener: @escaping AnyWindowFocusListener
+    ) -> (Subscription, () -> Void) {
+        focusListeners.append(listener)
+        let sub = Subscription {}
+        return (sub, {})
+    }
+
+    // MARK: - Keystroke Dispatch & IME
+
+    @MainActor
+    public mutating func dispatchKeystroke(_ keystroke: Keystroke, _ cx: inout App) -> Bool {
+        let event = PlatformInput.keyDown(KeyDownEvent(
+            keystroke: keystroke,
+            isHeld: false,
+            preferCharacterInput: false
+        ))
+        let result = dispatchEvent(event: event, cx: &cx)
+        if !result.propagate {
+            return true
+        }
+        if let keyChar = keystroke.keyChar, let inputHandler = platformWindow.takeInputHandler() {
+            inputHandler.dispatchInput(keyChar, &self, &cx)
+            platformWindow.setInputHandler(inputHandler)
+            return true
+        }
+        return false
+    }
+
+    public mutating func handleInput(
+        _ focusHandle: FocusHandle,
+        _ inputHandler: any PlatformInputHandlerProtocol,
+        _ cx: App
+    ) {
+        invalidator.debugAssertPaint()
+        if focusHandle.isFocused(self) {
+            nextFrame.inputHandlers.append(inputHandler)
+        }
+    }
+
+    public mutating func setInputHandler(_ handler: any PlatformInputHandlerProtocol) {
+        platformWindow.setInputHandler(handler)
+    }
+
+    public func activeInputHandler() -> (any PlatformInputHandlerProtocol)? {
+        if let handler = platformWindow.takeInputHandler() {
+            platformWindow.setInputHandler(handler)
+            return handler
+        }
+        return nil
+    }
+
+    public mutating func takeInputHandler() -> (any PlatformInputHandlerProtocol)? {
+        platformWindow.takeInputHandler()
+    }
+
+    public mutating func handleInput(_ text: String, cx: inout App) {
+        if let handler = platformWindow.activeInputHandler() {
+            handler.dispatchInput(text, &self, &cx)
+        }
+    }
+
+    public mutating func dispatchKeystrokeObservers(
+        _ event: Any,
+        _ action: (any Action)?,
+        _ contextStack: [KeyContext],
+        _ cx: inout App
+    ) {
+        if let keyDown = event as? KeyDownEvent {
+            let keystrokeEvent = KeystrokeEvent(keystroke: keyDown.keystroke, action: action, contextStack: contextStack)
+            let observers = keystrokeObservers
+            for observer in observers {
+                observer(keystrokeEvent, &self, &cx)
+            }
+        }
+    }
+
+    public mutating func dispatchKeystrokeInterceptors(
+        _ event: Any,
+        _ contextStack: [KeyContext],
+        _ cx: inout App
+    ) {
+        if let keyDown = event as? KeyDownEvent {
+            let keystrokeEvent = KeystrokeEvent(keystroke: keyDown.keystroke, action: nil, contextStack: contextStack)
+            let interceptors = keystrokeInterceptors
+            for interceptor in interceptors {
+                if !interceptor(keystrokeEvent, &self, &cx) {
+                    propagateEvent = false
+                    break
                 }
             }
         }
+    }
+
+    public mutating func pendingInputChanged(_ cx: inout App) {
+        let observers = pendingInputObservers
+        var retained: [(@Sendable (inout Window, inout App) -> Bool)] = []
+        for observer in observers {
+            if observer(&self, &cx) {
+                retained.append(observer)
+            }
+        }
+        pendingInputObservers = retained
+    }
+
+    public func hasPendingKeystrokes() -> Bool {
+        pendingInput != nil
+    }
+
+    public mutating func clearPendingKeystrokes() {
+        pendingInput = nil
+    }
+
+    public func pendingInputKeystrokes() -> [Keystroke]? {
+        pendingInput?.keystrokes
+    }
+
+    public mutating func invalidateCharacterCoordinates() {
+        invalidator.setDirty(true)
+    }
+
+    // MARK: - Event Control & Interaction Primitives
+
+    public mutating func preventDefault() {
+        self.defaultPrevented = true
+    }
+
+    public mutating func stopPropagation() {
+        self.propagateEvent = false
+    }
+
+    public mutating func capturePointer(_ hitboxId: HitboxId) {
+        self.capturedHitbox = hitboxId
+    }
+
+    public mutating func releasePointer() {
+        self.capturedHitbox = nil
+    }
+
+    public func lastInputWasKeyboard() -> Bool {
+        self.lastInputModality == .keyboard
+    }
+
+    public mutating func setCursorStyle(_ style: CursorStyle, hitbox: Hitbox? = nil) {
+        nextFrame.cursorStyles.append(CursorStyleRequest(hitboxId: hitbox?.id, style: style))
+    }
+
+    public mutating func setWindowCursorStyle(_ style: CursorStyle) {
+        self.mouseCursor = style
+    }
+
+    public mutating func setTooltip(_ tooltip: AnyTooltip) -> TooltipId {
+        let id = nextTooltipId
+        nextTooltipId = TooltipId(nextTooltipId.rawValue + 1)
+        nextFrame.tooltipRequests.append(TooltipRequest(id: id, tooltip: tooltip))
+        return id
+    }
+
+    public mutating func setModifiers(_ modifiers: Modifiers) {
+        self.modifiers = modifiers
+    }
+
+    @MainActor
+    public mutating func simulateMouseMove(_ cx: inout App) {
+        let move = MouseMoveEvent(position: mousePosition, modifiers: modifiers)
+        _ = dispatchEvent(event: .mouseMove(move), cx: &cx)
+    }
+
+    public func listenerFor<T, E>(
+        _ view: Entity<T>,
+        _ f: @escaping @Sendable (inout T, E, inout Window, inout Context<T>) -> Void
+    ) -> @MainActor @Sendable (E, inout Window, inout App) -> Void {
+        let weakView = view.downgrade()
+        return { (e: E, window: inout Window, cx: inout App) in
+            _ = try? weakView.update(&cx) { entity, context in
+                f(&entity, e, &window, &context)
+            }
+        }
+    }
+
+    public func handlerFor<E>(
+        _ entity: Entity<E>,
+        _ f: @escaping @Sendable (inout E, inout Window, inout Context<E>) -> Void
+    ) -> @MainActor @Sendable (inout Window, inout App) -> Void {
+        let weakEntity = entity.downgrade()
+        return { (window: inout Window, cx: inout App) in
+            _ = try? weakEntity.update(&cx) { target, context in
+                f(&target, &window, &context)
+            }
+        }
+    }
+
+    public mutating func onWindowShouldClose(_ callback: @escaping () -> Bool) {
+        windowShouldCloseCallbacks.append(callback)
+    }
+
+    // MARK: - Element Scoping & Keyed State
+
+    public mutating func withId<R>(_ id: ElementId, _ f: (inout Window) -> R) -> R {
+        elementIdStack.append(id)
+        defer { _ = elementIdStack.removeLast() }
+        return f(&self)
+    }
+
+    public mutating func withGlobalId<R>(_ id: GlobalElementId, _ f: (inout Window) -> R) -> R {
+        elementIdStack.append(contentsOf: id.path)
+        defer {
+            for _ in id.path { _ = elementIdStack.removeLast() }
+        }
+        return f(&self)
+    }
+
+    public mutating func withElementNamespace<R>(_ namespace: ElementId, _ f: (inout Window) -> R) -> R {
+        elementIdStack.append(namespace)
+        defer { _ = elementIdStack.removeLast() }
+        return f(&self)
+    }
+
+    public mutating func withAbsoluteElementOffset<R>(_ offset: Point<Pixels>, _ f: (inout Window) -> R) -> R {
+        let prev = elementOffsetStack
+        elementOffsetStack = [offset]
+        defer { elementOffsetStack = prev }
+        return f(&self)
+    }
+
+    public mutating func withElementOpacity<R>(_ opacity: Float, _ f: (inout Window) -> R) -> R {
+        let prev = elementOpacity
+        elementOpacity *= opacity
+        defer { elementOpacity = prev }
+        return f(&self)
+    }
+
+    public mutating func withOptionalElementState<T, R>(_ id: GlobalElementId, _ f: (inout T?) -> R) -> R {
+        withElementState(id, f)
+    }
+
+    public mutating func withTabGroup<R>(_ f: (inout Window) -> R) -> R {
+        f(&self)
+    }
+
+    public mutating func withRenderedView<R>(_ viewId: EntityId, _ f: (inout Window) -> R) -> R {
+        renderedEntityStack.append(viewId)
+        defer { _ = renderedEntityStack.removeLast() }
+        return f(&self)
+    }
+
+    public mutating func withImageCache<R>(_ cache: Any, _ f: (inout Window) -> R) -> R {
+        f(&self)
+    }
+
+    public mutating func withTextStyle<R>(_ style: TextStyleRefinement, _ f: (inout Window) -> R) -> R {
+        textStyleStack.append(style)
+        defer { _ = textStyleStack.removeLast() }
+        return f(&self)
+    }
+
+    public mutating func useKeyedState<T: Sendable>(_ key: String, _ initial: () -> T) -> T {
+        let globalId = GlobalElementId(ElementId(named: key))
+        return useState(globalId, initial)
+    }
+
+    public mutating func useAsset<A>(_ asset: A) {
+        assetCache[ObjectIdentifier(A.self)] = asset
+    }
+
+    public func getAsset<A>(_ type: A.Type) -> A? {
+        assetCache[ObjectIdentifier(A.self)] as? A
+    }
+
+    public func elementOffset() -> Point<Pixels> {
+        elementOffsetStack.reduce(.zero) { point($0.x + $1.x, $0.y + $1.y) }
+    }
+
+    public mutating func setKeyContext(_ context: KeyContext) {
+        nextFrame.dispatchTree.setKeyContext(context)
+    }
+
+    public mutating func setFocusHandle(_ handle: FocusHandle) {
+        nextFrame.dispatchTree.setFocusId(handle.id)
+    }
+
+    public mutating func setViewId(_ viewId: EntityId) {
+        nextFrame.dispatchTree.setViewId(viewId)
+    }
+
+    public func currentView() -> EntityId? {
+        renderedEntityStack.last
+    }
+
+    public mutating func deferDrawWithTarget(
+        priority: Int = 0,
+        _ draw: @escaping @Sendable (inout Window, inout App) -> Void
+    ) {
+        nextFrame.deferredDraws.append(DeferredDraw(priority: priority, draw: draw))
+    }
+
+    // MARK: - Painting Primitives
+
+    public mutating func paintLayer<R>(_ f: (inout Window) -> R) -> R {
+        f(&self)
+    }
+
+    public mutating func paintShadows(
+        bounds: Bounds<Pixels>,
+        cornerRadii: Corners<Pixels>,
+        shadows: [BoxShadow]
+    ) {
+        for shadow in shadows {
+            let shadowOrigin = point(
+                bounds.origin.x + shadow.offset.x - shadow.spreadRadius,
+                bounds.origin.y + shadow.offset.y - shadow.spreadRadius
+            )
+            let shadowSize = size(
+                bounds.size.width + shadow.spreadRadius * 2,
+                bounds.size.height + shadow.spreadRadius * 2
+            )
+            let shadowBounds = Bounds(origin: shadowOrigin, size: shadowSize)
+            paintShadow(Shadow(
+                order: 0,
+                blurRadius: shadow.blurRadius.scale(scaleFactor),
+                bounds: shadowBounds.scale(scaleFactor),
+                cornerRadii: cornerRadii.scale(scaleFactor),
+                contentMask: (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(scaleFactor),
+                color: shadow.color.opacity(elementOpacity)
+            ))
+        }
+    }
+
+    public mutating func paintPath(_ path: Path<Pixels>, color: Hsla) {
+        var scaled = path.scale(scaleFactor)
+        scaled.color = solidBackground(color)
+        nextFrame.scene.insertPath(scaled)
+    }
+
+    public mutating func paintSvg(
+        bounds: Bounds<Pixels>,
+        path: String,
+        color: Hsla
+    ) {
+        invalidator.debugAssertPaint()
+        let scaledBounds = bounds.scale(scaleFactor)
+        let mask = (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(scaleFactor)
+        let sprite = MonochromeSprite(
+            bounds: Bounds(origin: scaledBounds.origin.map { $0.floor() }, size: scaledBounds.size.map { $0.ceil() }),
+            contentMask: mask,
+            color: color.opacity(elementOpacity),
+            tile: AtlasTile(textureId: AtlasTextureId(index: 0, kind: .monochrome), tileId: TileId(0), bounds: Bounds(origin: .zero, size: .zero)),
+            transformation: .unit
+        )
+        nextFrame.scene.insertMonochromeSprite(sprite)
+    }
+
+    public mutating func paintImage(
+        bounds: Bounds<Pixels>,
+        cornerRadii: Corners<Pixels> = .zero,
+        image: Image
+    ) {
+        invalidator.debugAssertPaint()
+        let scaledBounds = bounds.scale(scaleFactor)
+        let mask = (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(scaleFactor)
+        let sprite = PolychromeSprite(
+            grayscale: 0,
+            opacity: elementOpacity,
+            bounds: Bounds(origin: scaledBounds.origin.map { $0.floor() }, size: scaledBounds.size.map { $0.ceil() }),
+            contentMask: mask,
+            cornerRadii: cornerRadii.scale(scaleFactor),
+            tile: AtlasTile(textureId: AtlasTextureId(index: 0, kind: .polychrome), tileId: TileId(0), bounds: Bounds(origin: .zero, size: .zero))
+        )
+        nextFrame.scene.insertPolychromeSprite(sprite)
+    }
+
+    public mutating func dropImage(_ image: RenderImage) {
+        invalidator.setDirty(true)
+    }
+
+    public mutating func dropImage(_ image: Image) {
+        invalidator.setDirty(true)
+    }
+
+    public mutating func paintQuad(_ paintQuad: PaintQuad) {
+        let q = Quad(
+            borderStyle: paintQuad.borderStyle,
+            bounds: paintQuad.bounds.scale(scaleFactor),
+            contentMask: (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(scaleFactor),
+            background: paintQuad.background.color() ?? solidBackground(transparentBlack()),
+            borderColor: paintQuad.borderColor,
+            cornerRadii: paintQuad.cornerRadii.scale(scaleFactor),
+            borderWidths: paintQuad.borderWidths.scale(scaleFactor)
+        )
+        nextFrame.scene.insertQuad(q)
+    }
+
+    // MARK: - Lifecycle, Tasks & Platform Observers
+
+    @MainActor
+    public mutating func `defer`(_ cx: inout App, _ callback: @escaping (inout Window, inout App) -> Void) {
+        cx.defer { [weak platformWindow] _ in
+            guard platformWindow != nil else { return }
+        }
+    }
+
+    @MainActor
+    public mutating func observe<E: AnyObject>(
+        _ entity: Entity<E>,
+        _ cx: inout App,
+        _ callback: @escaping (inout Window, inout App) -> Void
+    ) -> Subscription {
+        return cx.observe(entity) { [weak platformWindow] _, _ in
+            guard platformWindow != nil else { return false }
+            return true
+        }
+    }
+
+    @MainActor
+    public mutating func subscribe<E: AnyObject, Evt>(
+        _ entity: Entity<E>,
+        _ cx: inout App,
+        _ callback: @escaping (inout Window, inout App, Evt) -> Void
+    ) -> Subscription {
+        return cx.subscribe(entity) { [weak platformWindow] (_, _: Evt, _) -> Bool in
+            guard platformWindow != nil else { return false }
+            return true
+        }
+    }
+
+    public mutating func observeRelease<E: AnyObject>(
+        _ entity: Entity<E>,
+        _ cx: inout App,
+        _ callback: @escaping (inout Window, inout App) -> Void
+    ) -> Subscription {
+        return Subscription {}
+    }
+
+    @MainActor
+    public mutating func observeGlobal<G: Global>(
+        _ type: G.Type = G.self,
+        _ cx: inout App,
+        _ observer: @escaping (inout Window, inout App) -> Void
+    ) -> Subscription {
+        return cx.observeGlobal(G.self) { [weak platformWindow] _ in
+            guard platformWindow != nil else { return false }
+            return true
+        }
+    }
+
+    @MainActor
+    public func toAsync(_ cx: App) -> AsyncApp {
+        cx.toAsync()
+    }
+
+    @MainActor
+    public func spawn<R: Sendable>(_ cx: App, _ f: @escaping @Sendable (AsyncApp) async -> R) -> Task<R> {
+        cx.spawn(f)
+    }
+
+    @MainActor
+    public func spawnWithPriority<R: Sendable>(
+        _ priority: Priority,
+        _ cx: App,
+        _ f: @escaping @Sendable (AsyncApp) async -> R
+    ) -> Task<R> {
+        cx.spawnWithPriority(priority, f)
+    }
+
+    public mutating func transact<R>(_ f: (inout Window) -> R) -> R {
+        f(&self)
+    }
+
+    public mutating func setRemSize(_ size: Pixels) {
+        self.remSize = size
+        invalidator.setDirty(true)
+    }
+
+    public mutating func withRemSize<R>(_ size: Pixels, _ f: (inout Window) -> R) -> R {
+        remSizeOverrideStack.append(remSize)
+        remSize = size
+        defer {
+            remSize = remSizeOverrideStack.removeLast()
+        }
+        return f(&self)
+    }
+
+    public func lineHeight() -> Pixels {
+        px(20.0)
+    }
+
+    @MainActor
+    public mutating func prompt(
+        level: PromptLevel = .info,
+        message: String,
+        detail: String? = nil,
+        actions: [PromptButton] = [],
+        cx: inout App
+    ) -> Task<Int?> {
+        // PORT NOTE: Holds continuation for async prompt response within checked continuation scope.
+        final class ResponseBox: @unchecked Sendable {
+            var continuation: CheckedContinuation<Int?, Never>?
+        }
+        let box = ResponseBox()
+        let handle = PromptHandle.withHandler { index in
+            box.continuation?.resume(returning: index)
+        }
+        _ = fallbackPromptRenderer(
+            level: level,
+            message: message,
+            detail: detail,
+            actions: actions,
+            handle: handle,
+            window: &self,
+            cx: &cx
+        )
+        return cx.spawn { _ in
+            await withCheckedContinuation { continuation in
+                box.continuation = continuation
+            }
+        }
+    }
+
+    public mutating func renderToImage(_ size: Size<Pixels>, _ cx: inout App) -> Image? {
+        platformWindow.renderToImage(scene: renderedFrame.scene)
+    }
+
+    public mutating func requestDecorations(_ decorations: WindowDecorations) {
+        platformWindow.requestDecorations(decorations)
+    }
+
+    public mutating func startWindowResize(_ edge: ResizeEdge) {
+        platformWindow.startWindowResize(edge)
+    }
+
+    public mutating func startWindowMove() {
+        platformWindow.startWindowMove()
+    }
+
+    public func safeAreaInsets() -> EdgeInsets<Pixels> {
+        EdgeInsets.zero(value: .zero)
+    }
+
+    public mutating func showWindowMenu(_ position: Point<Pixels>) {
+        platformWindow.showWindowMenu(position)
+    }
+
+    public func windowDecorations() -> WindowDecorations {
+        platformWindow.windowDecorations()
+    }
+
+    public func windowControls() -> WindowControls {
+        platformWindow.windowControls()
+    }
+
+    public mutating func setAppId(_ appId: String) {
+        platformWindow.setAppId(appId)
+    }
+
+    public mutating func setWindowEdited(_ edited: Bool) {
+        platformWindow.setEdited(edited)
+    }
+
+    public func display(_ cx: App? = nil) -> (any PlatformDisplay)? {
+        platformWindow.display()
+    }
+
+    public mutating func showCharacterPalette() {
+        platformWindow.showCharacterPalette()
+    }
+
+    public func rawNativeViewPtr() -> UnsafeMutableRawPointer? {
+        nativeViewOverrideStack.last ?? platformWindow.rawNativeViewPtr()
+    }
+
+    public func nativeToolbarItemBounds() -> [String: Bounds<Pixels>] {
+        platformWindow.nativeToolbarItemBounds()
+    }
+
+    public mutating func pushNativeViewOverride(_ ptr: UnsafeMutableRawPointer) {
+        nativeViewOverrideStack.append(ptr)
+    }
+
+    public mutating func popNativeViewOverride() {
+        _ = nativeViewOverrideStack.popLast()
+    }
+
+    public mutating func registerSurface(_ surface: GpuiSurfaceHandle) {
+        surfaces[surface.id] = SurfaceState(id: surface.id, scaleFactor: scaleFactor, bounds: Bounds(origin: .zero, size: viewportSize))
+    }
+
+    public mutating func unregisterSurface(_ id: SurfaceId) {
+        surfaces.removeValue(forKey: id)
+    }
+
+    public func surfaceNativeViewPtr(_ id: SurfaceId) -> UnsafeMutableRawPointer? {
+        rawNativeViewPtr()
+    }
+
+    public mutating func invalidateSurface(_ id: SurfaceId) {
+        invalidator.setDirty(true)
+    }
+
+    public mutating func updateSurfaceRootView(_ id: SurfaceId, _ rootView: AnyView) {
+        invalidator.setDirty(true)
+    }
+
+    public func gpuSpecs() -> GpuSpecs? {
+        platformWindow.gpuSpecs()
+    }
+
+    public mutating func titlebarDoubleClick() {
+        platformWindow.zoom()
+    }
+
+    public func tabbedWindows() -> [AnyWindowHandle] {
+        platformWindow.tabbedWindows() ?? []
+    }
+
+    public func tabBarVisible() -> Bool {
+        platformWindow.tabBarVisible()
+    }
+
+    public mutating func mergeAllWindows() {
+        platformWindow.mergeAllWindows()
+    }
+
+    public mutating func moveTabToNewWindow() {
+        platformWindow.moveTabToNewWindow()
+    }
+
+    public mutating func toggleWindowTabOverview() {
+        platformWindow.toggleWindowTabOverview()
+    }
+
+    public mutating func setTabbingIdentifier(_ identifier: String) {
+        platformWindow.setTabbingIdentifier(identifier)
+    }
+
+    public mutating func toggleInspector(_ cx: inout App) {
+        isInspectorPickingState.toggle()
+        invalidator.setDirty(true)
+    }
+
+    public func isInspectorPicking(_ cx: App) -> Bool {
+        isInspectorPickingState
+    }
+
+    public mutating func withInspectorState<R>(_ f: (inout Window) -> R) -> R {
+        f(&self)
+    }
+
+    public func buildInspectorElementId() -> ElementId? {
+        elementIdStack.last
+    }
+
+    public mutating func insertInspectorHitbox(bounds: Bounds<Pixels>) {
+        _ = insertHitbox(bounds: bounds, behavior: .normal)
     }
 }

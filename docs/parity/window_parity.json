@@ -1,0 +1,105 @@
+[
+  {
+    "item": "SurfaceId::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Batch 3.2 (Window)",
+    "reason": "Idiomatic Swift initializer SurfaceId.init(_:)"
+  },
+  {
+    "item": "WindowInvalidator::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Batch 3.2 (Window)",
+    "reason": "Idiomatic Swift initializer WindowInvalidator.init()"
+  },
+  {
+    "item": "ArenaClearNeeded::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Batch 3.2 (Window)",
+    "reason": "Idiomatic Swift initializer ArenaClearNeeded.init()"
+  },
+  {
+    "item": "FocusHandle::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Batch 3.2 (Window)",
+    "reason": "Idiomatic Swift initializer FocusHandle.init(handles:)"
+  },
+  {
+    "item": "Frame::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Batch 3.2 (Window)",
+    "reason": "Idiomatic Swift initializer Frame.init(dispatchTree:)"
+  },
+  {
+    "item": "Window::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Batch 3.2 (Window)",
+    "reason": "Idiomatic Swift initializer Window.init(handle:platformWindow:scaleFactor:viewportSize:remSize:)"
+  },
+  {
+    "item": "WindowHandle::new",
+    "status": "renamed",
+    "swift_name": "init",
+    "target_batch": "Batch 3.2 (Window)",
+    "reason": "Idiomatic Swift initializer WindowHandle.init(anyHandle:)"
+  },
+  {
+    "item": "Window::paint_glyph",
+    "status": "deferred",
+    "target_batch": "Batch 3.3 (Text System)",
+    "reason": "Requires TextSystem shaping and glyph atlas from Batch 3.3"
+  },
+  {
+    "item": "Window::paint_emoji",
+    "status": "deferred",
+    "target_batch": "Batch 3.3 (Text System)",
+    "reason": "Requires TextSystem shaping and glyph atlas from Batch 3.3"
+  },
+  {
+    "item": "Window::text_system",
+    "status": "deferred",
+    "target_batch": "Batch 3.3 (Text System)",
+    "reason": "Requires PlatformTextSystem from Batch 3.3"
+  },
+  {
+    "item": "Window::text_style",
+    "status": "deferred",
+    "target_batch": "Batch 3.3 (Text System)",
+    "reason": "Requires TextSystem shaping and glyph atlas from Batch 3.3"
+  },
+  {
+    "item": "Window::prepaint_index",
+    "status": "deferred",
+    "target_batch": "Batch 3.4 (Element Tree)",
+    "reason": "Requires ElementArena and AnyElement lifecycle from Batch 3.4"
+  },
+  {
+    "item": "Window::reuse_prepaint",
+    "status": "deferred",
+    "target_batch": "Batch 3.4 (Element Tree)",
+    "reason": "Requires ElementArena and AnyElement lifecycle from Batch 3.4"
+  },
+  {
+    "item": "Window::paint_index",
+    "status": "deferred",
+    "target_batch": "Batch 3.4 (Element Tree)",
+    "reason": "Requires ElementArena and AnyElement lifecycle from Batch 3.4"
+  },
+  {
+    "item": "Window::reuse_paint",
+    "status": "deferred",
+    "target_batch": "Batch 3.4 (Element Tree)",
+    "reason": "Requires ElementArena and AnyElement lifecycle from Batch 3.4"
+  },
+  {
+    "item": "ELEMENT_ARENA",
+    "status": "deferred",
+    "target_batch": "Batch 3.4 (Element Tree)",
+    "reason": "Requires ElementArena from Batch 3.4"
+  }
+]
