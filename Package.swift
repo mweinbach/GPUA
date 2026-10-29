@@ -109,7 +109,6 @@ let package = Package(
             publicHeadersPath: "include",
             cSettings: [
                 .headerSearchPath("include"),
-                .unsafeFlags(["-I/usr/include/freetype2", "-I/usr/include/harfbuzz"], .when(platforms: [.linux])),
             ]
         ),
 
@@ -125,11 +124,19 @@ let package = Package(
               resources: [.copy("shaders.metal")]),
         crate(
             "GPUIWGPU",
-            ["GPUI", "GPUICollections", "GPUIUtil", "CWebGPU"],
+            [
+                "GPUI",
+                "GPUICollections",
+                "GPUIUtil",
+                "CWebGPU",
+                .target(name: "CLinuxSys", condition: .when(platforms: [.linux])),
+            ],
             resources: [.copy("shaders.wgsl"), .copy("shaders_subpixel.wgsl")],
             linkerSettings: [
-                .unsafeFlags(["-L/usr/local/lib"], .when(platforms: [.linux])),
                 .linkedLibrary("wgpu_native", .when(platforms: [.linux])),
+                .linkedLibrary("freetype", .when(platforms: [.linux])),
+                .linkedLibrary("harfbuzz", .when(platforms: [.linux])),
+                .linkedLibrary("fontconfig", .when(platforms: [.linux])),
             ]
         ),
 
@@ -145,6 +152,12 @@ let package = Package(
                 .linkedLibrary("X11", .when(platforms: [.linux])),
                 .linkedLibrary("X11-xcb", .when(platforms: [.linux])),
                 .linkedLibrary("xcb", .when(platforms: [.linux])),
+                .linkedLibrary("xcb-randr", .when(platforms: [.linux])),
+                .linkedLibrary("xcb-xinput", .when(platforms: [.linux])),
+                .linkedLibrary("xcb-sync", .when(platforms: [.linux])),
+                .linkedLibrary("xcb-shape", .when(platforms: [.linux])),
+                .linkedLibrary("xcb-xkb", .when(platforms: [.linux])),
+                .linkedLibrary("Xcursor", .when(platforms: [.linux])),
                 .linkedLibrary("xkbcommon", .when(platforms: [.linux])),
                 .linkedLibrary("xkbcommon-x11", .when(platforms: [.linux])),
                 .linkedLibrary("freetype", .when(platforms: [.linux])),

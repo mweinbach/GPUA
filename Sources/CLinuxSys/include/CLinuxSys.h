@@ -1,7 +1,7 @@
 // Swift-only: C bridge umbrella header for Linux system libraries
 #pragma once
 
-#if defined(__linux__)
+#if defined(__linux__) && !defined(__ANDROID__)
 #include <wayland-client.h>
 #include <X11/Xlib.h>
 #include <X11/Xlib-xcb.h>

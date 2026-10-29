@@ -55,6 +55,16 @@ $SUDO apt-get install -y --no-install-recommends \
     curl \
     unzip
 
+echo "=== Symlinking FreeType headers into /usr/local/include ==="
+$SUDO mkdir -p /usr/local/include
+if [ -e /usr/include/freetype2/ft2build.h ]; then
+    $SUDO ln -sf /usr/include/freetype2/ft2build.h /usr/local/include/ft2build.h
+fi
+if [ -d /usr/include/freetype2/freetype ]; then
+    $SUDO rm -rf /usr/local/include/freetype
+    $SUDO ln -sf /usr/include/freetype2/freetype /usr/local/include/freetype
+fi
+
 WGPU_VERSION="v24.0.0.2"
 TMP_DIR="$(mktemp -d)"
 cleanup() {
