@@ -74,8 +74,8 @@ struct WindowsEventsTests {
 
     @Test
     func testNegativeCoordinatesAndWheelDelta() {
-        let wparam: UInt = UInt(UInt16(bitPattern: -120)) << 16
-        let lparam: Int = (Int(Int16(bitPattern: -20)) << 16) | Int(UInt16(bitPattern: -10))
+        let wparam: UInt = UInt(UInt16(bitPattern: Int16(-120))) << 16
+        let lparam: Int = (Int(UInt16(bitPattern: Int16(-20))) << 16) | Int(UInt16(bitPattern: Int16(-10)))
         let event = decode_mouse_wheel(
             wparam: wparam,
             lparam: lparam,
