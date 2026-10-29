@@ -5,10 +5,6 @@
 import Foundation
 import Scheduler
 
-// PORT NOTE: EmptyView provides an empty renderable view for test windows.
-public struct EmptyView: Render, @unchecked Sendable {
-    public init() {}
-}
 
 // PORT NOTE: TestAppContext wraps App and mock platform services for deterministic testing.
 @MainActor

@@ -58,10 +58,6 @@ public struct PromptResponse: Sendable, Equatable {
     }
 }
 
-/// A protocol for components that can be focused.
-public protocol Focusable {
-    func focusHandle(_ cx: App) -> FocusHandle
-}
 
 /// A prompt that can be rendered in the window.
 public protocol Prompt: EventEmitter<PromptResponse>, Focusable {}
@@ -113,7 +109,7 @@ public protocol PromptViewHandle: Sendable {
 }
 
 /// The default GPUI fallback renderer for prompts when the platform doesn't provide native dialogs.
-public struct FallbackPromptRenderer: Prompt, Sendable {
+public struct FallbackPromptRenderer: Prompt, Render, Sendable {
     public var level: PromptLevel
     public var message: String
     public var detail: String?
@@ -136,6 +132,10 @@ public struct FallbackPromptRenderer: Prompt, Sendable {
 
     public func focusHandle(_ cx: App) -> FocusHandle {
         focus
+    }
+
+    public mutating func render(_ window: inout Window, _ cx: inout Context<FallbackPromptRenderer>) -> AnyElement {
+        AnyElement(Empty())
     }
 }
 
@@ -202,5 +202,5 @@ public func fallbackPromptRenderer(
         focus: focus
     )
     let entity = cx.new { _ in renderer }
-    return RenderablePromptHandle(view: AnyView(entityId: entity.entityId))
+    return RenderablePromptHandle(view: AnyView(entity))
 }

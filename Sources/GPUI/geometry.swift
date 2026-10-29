@@ -667,6 +667,10 @@ extension Edges where T == DefiniteLength {
             left: left.toPixels(baseSize: parentSize.width, remSize: remSize)
         )
     }
+
+    public func toPixels(parentSize: Size<Pixels>, remSize: Pixels) -> Edges<Pixels> {
+        toPixels(parentSize: parentSize.map { AbsoluteLength.pixels($0) }, remSize: remSize)
+    }
 }
 
 extension Edges where T == AbsoluteLength {
@@ -1268,6 +1272,36 @@ public enum Length: Sendable, Equatable, Hashable {
         } else {
             return nil
         }
+    }
+
+    public init(_ px: Pixels) {
+        self = .definite(.pixels(px))
+    }
+
+    public init(_ r: Rems) {
+        self = .definite(.rems(r))
+    }
+
+    public init(_ def: DefiniteLength) {
+        self = .definite(def)
+    }
+
+    public static func pixels(_ px: Pixels) -> Length {
+        .definite(.pixels(px))
+    }
+
+    public static func rems(_ r: Rems) -> Length {
+        .definite(.rems(r))
+    }
+}
+
+extension DefiniteLength {
+    public init(_ px: Pixels) {
+        self = .absolute(.pixels(px))
+    }
+
+    public init(_ r: Rems) {
+        self = .absolute(.rems(r))
     }
 }
 

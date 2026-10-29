@@ -1719,6 +1719,92 @@ public struct Style: Sendable, Equatable, Refineable, DefaultInitializable {
         return ContentMask(bounds: maskBounds)
     }
 
+    @MainActor
+    public func paint(
+        _ bounds: Bounds<Pixels>,
+        _ window: inout Window,
+        _ cx: inout App,
+        _ continuation: (inout Window, inout App) -> Void
+    ) {
+        let remSize = window.remSize
+        let cornerRadii = self.cornerRadii
+            .toPixels(remSize: remSize)
+            .clampRadiiForQuadSize(bounds.size)
+
+        window.paintShadows(bounds: bounds, cornerRadii: cornerRadii, shadows: self.boxShadow)
+
+        let backgroundColor = self.background?.color()
+        if let bg = backgroundColor, !bg.isTransparent {
+            var borderColor = bg.solid
+            borderColor.a = 0
+            window.paintQuad(quad(
+                bounds: bounds,
+                cornerRadii: cornerRadii,
+                background: Fill(bg),
+                borderWidths: .zero,
+                borderColor: borderColor,
+                borderStyle: self.borderStyle
+            ))
+        }
+
+        continuation(&window, &cx)
+
+        if self.isBorderVisible() {
+            let borderWidths = self.borderWidths.toPixels(remSize: remSize)
+            let maxBorderWidth = borderWidths.max()
+            let maxCornerRadius = cornerRadii.max()
+            let zeroSize = Size<Pixels>(width: .zero, height: .zero)
+
+            var topBounds = Bounds.fromCorners(
+                bounds.origin,
+                bounds.topRight + point(Pixels.zero, max(maxBorderWidth, maxCornerRadius))
+            )
+            topBounds.size = topBounds.size.max(zeroSize)
+
+            var bottomBounds = Bounds.fromCorners(
+                bounds.bottomLeft - point(Pixels.zero, max(maxBorderWidth, maxCornerRadius)),
+                bounds.bottomRight
+            )
+            bottomBounds.size = bottomBounds.size.max(zeroSize)
+
+            var leftBounds = Bounds.fromCorners(
+                topBounds.bottomLeft,
+                bottomBounds.origin + point(maxBorderWidth, Pixels.zero)
+            )
+            leftBounds.size = leftBounds.size.max(zeroSize)
+
+            var rightBounds = Bounds.fromCorners(
+                topBounds.bottomRight - point(maxBorderWidth, Pixels.zero),
+                bottomBounds.topRight
+            )
+            rightBounds.size = rightBounds.size.max(zeroSize)
+
+            var background = self.borderColor ?? transparentBlack()
+            background.a = 0
+            let q = quad(
+                bounds: bounds,
+                cornerRadii: cornerRadii,
+                background: Fill(background),
+                borderWidths: borderWidths,
+                borderColor: self.borderColor ?? transparentBlack(),
+                borderStyle: self.borderStyle
+            )
+
+            window.withContentMask(ContentMask(bounds: topBounds)) { window in
+                window.paintQuad(q)
+            }
+            window.withContentMask(ContentMask(bounds: rightBounds)) { window in
+                window.paintQuad(q)
+            }
+            window.withContentMask(ContentMask(bounds: bottomBounds)) { window in
+                window.paintQuad(q)
+            }
+            window.withContentMask(ContentMask(bounds: leftBounds)) { window in
+                window.paintQuad(q)
+            }
+        }
+    }
+
     public mutating func refine(with refinement: StyleRefinement) {
         if let d = refinement.display { self.display = d }
         if let v = refinement.visibility { self.visibility = v }

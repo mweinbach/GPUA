@@ -29,6 +29,10 @@ struct TestAppTests {
         func focusHandle(_ cx: App) -> FocusHandle {
             focusHandle ?? FocusHandle(handles: FocusMap())
         }
+
+        func render(_ window: inout Window, _ cx: inout Context<Counter>) -> AnyElement {
+            div().intoAnyElement()
+        }
     }
 
     struct MyGlobal: Global {

@@ -216,6 +216,27 @@ public struct SurfaceState: Sendable, Equatable {
     }
 }
 
+// PORT NOTE: In Rust GPUI, ELEMENT_ARENA is a typed_arena::Arena used to pool element allocations.
+// In Swift, element lifetimes are managed by ARC with ElementArena tracking draw-scoped objects.
+public final class ElementArena: @unchecked Sendable {
+    private var storage: [AnyObject] = []
+
+    public init() {}
+
+    public func alloc<T: AnyObject>(_ create: () -> T) -> T {
+        let object = create()
+        storage.append(object)
+        return object
+    }
+
+    public func clear() {
+        storage.removeAll(keepingCapacity: true)
+    }
+}
+
+// PORT NOTE: Thread/draw-scoped fallback element arena matching upstream ELEMENT_ARENA.
+public nonisolated(unsafe) var elementArena: ElementArena = ElementArena()
+
 /// Scope managing element arena memory allocations during layout and drawing.
 public struct ElementArenaScope: Sendable {
     public static func enter() -> ElementArenaScope {
@@ -224,52 +245,81 @@ public struct ElementArenaScope: Sendable {
 }
 
 /// Executes a closure within an active element arena scope.
-public func withElementArena<R>(_ f: () -> R) -> R {
-    _ = ElementArenaScope.enter()
-    return f()
+public func withElementArena<R>(_ f: (inout ElementArena) -> R) -> R {
+    f(&elementArena)
 }
 
-/// An identifier for an element within a window tree.
-public struct ElementId: Sendable, Equatable, Hashable {
-    public var rawValue: UInt64
+public func withElementArena<R>(_ f: () -> R) -> R {
+    f()
+}
 
-    public init(_ rawValue: UInt64) {
-        self.rawValue = rawValue
+/// An identifier for an `Element`.
+public enum ElementId: Sendable, Equatable, Hashable, CustomStringConvertible {
+    case view(EntityId)
+    case integer(UInt64)
+    case name(SharedString)
+    case uuid(UUID)
+    case focusHandle(FocusId)
+    case namedInteger(SharedString, UInt64)
+    case path(String)
+    case codeLocation(String)
+    indirect case namedChild(ElementId, SharedString)
+
+    public init(_ integer: UInt64) {
+        self = .integer(integer)
     }
 
     public init(named: String) {
-        var hasher = Hasher()
-        hasher.combine(named)
-        self.rawValue = UInt64(bitPattern: Int64(hasher.finalize()))
+        self = .name(SharedString(named))
     }
 
     public static func namedUsize(_ name: String, _ index: Int) -> ElementId {
-        var hasher = Hasher()
-        hasher.combine(name)
-        hasher.combine(index)
-        return ElementId(UInt64(bitPattern: Int64(hasher.finalize())))
+        .namedInteger(SharedString(name), UInt64(index))
+    }
+
+    public var description: String {
+        switch self {
+        case .view(let entityId):
+            return "view-\(entityId)"
+        case .integer(let ix):
+            return "\(ix)"
+        case .name(let name):
+            return "\(name)"
+        case .uuid(let id):
+            return "\(id)"
+        case .focusHandle(let id):
+            return "FocusHandle(\(id))"
+        case .namedInteger(let s, let i):
+            return "\(s)-\(i)"
+        case .path(let p):
+            return "\(p)"
+        case .codeLocation(let loc):
+            return "\(loc)"
+        case .namedChild(let id, let name):
+            return "\(id)-\(name)"
+        }
     }
 }
 
 extension ElementId: ExpressibleByStringLiteral, ExpressibleByIntegerLiteral {
     public init(stringLiteral value: String) {
-        self.init(named: value)
+        self = .name(SharedString(value))
     }
     public init(integerLiteral value: UInt64) {
-        self.init(value)
+        self = .integer(value)
     }
 }
 
-/// A globally qualified element identifier.
-public struct GlobalElementId: Sendable, Equatable, Hashable {
-    public var path: [ElementId]
+/// Focusable allows users of your view to easily focus it (using window.focus_view(cx, view)).
+public protocol Focusable {
+    func focusHandle(_ cx: App) -> FocusHandle
+}
 
-    public init(_ path: [ElementId]) {
-        self.path = path
-    }
-
-    public init(_ id: ElementId) {
-        self.path = [id]
+extension Entity: Focusable where T: Focusable {
+    public func focusHandle(_ cx: App) -> FocusHandle {
+        MainActor.assumeIsolated {
+            read(cx).focusHandle(cx)
+        }
     }
 }
 
@@ -675,35 +725,47 @@ public struct TooltipRequest: @unchecked Sendable {
     }
 }
 
-public struct PrepaintStateIndex: Sendable, Equatable {
+public struct PrepaintStateIndex: Sendable, Equatable, Hashable, Comparable {
     public var hitboxesIndex: Int
     public var tooltipsIndex: Int
     public var deferredDrawsIndex: Int
     public var dispatchTreeIndex: Int
     public var accessedElementStatesIndex: Int
+    public var lineLayoutIndex: LineLayoutIndex
 
     public init(
         hitboxesIndex: Int = 0,
         tooltipsIndex: Int = 0,
         deferredDrawsIndex: Int = 0,
         dispatchTreeIndex: Int = 0,
-        accessedElementStatesIndex: Int = 0
+        accessedElementStatesIndex: Int = 0,
+        lineLayoutIndex: LineLayoutIndex = LineLayoutIndex()
     ) {
         self.hitboxesIndex = hitboxesIndex
         self.tooltipsIndex = tooltipsIndex
         self.deferredDrawsIndex = deferredDrawsIndex
         self.dispatchTreeIndex = dispatchTreeIndex
         self.accessedElementStatesIndex = accessedElementStatesIndex
+        self.lineLayoutIndex = lineLayoutIndex
+    }
+
+    public static func < (lhs: PrepaintStateIndex, rhs: PrepaintStateIndex) -> Bool {
+        if lhs.hitboxesIndex != rhs.hitboxesIndex { return lhs.hitboxesIndex < rhs.hitboxesIndex }
+        if lhs.tooltipsIndex != rhs.tooltipsIndex { return lhs.tooltipsIndex < rhs.tooltipsIndex }
+        if lhs.deferredDrawsIndex != rhs.deferredDrawsIndex { return lhs.deferredDrawsIndex < rhs.deferredDrawsIndex }
+        if lhs.dispatchTreeIndex != rhs.dispatchTreeIndex { return lhs.dispatchTreeIndex < rhs.dispatchTreeIndex }
+        return lhs.accessedElementStatesIndex < rhs.accessedElementStatesIndex
     }
 }
 
-public struct PaintIndex: Sendable, Equatable {
+public struct PaintIndex: Sendable, Equatable, Hashable, Comparable {
     public var sceneIndex: Int
     public var mouseListenersIndex: Int
     public var inputHandlersIndex: Int
     public var cursorStylesIndex: Int
     public var accessedElementStatesIndex: Int
     public var tabHandleIndex: Int
+    public var lineLayoutIndex: LineLayoutIndex
 
     public init(
         sceneIndex: Int = 0,
@@ -711,7 +773,8 @@ public struct PaintIndex: Sendable, Equatable {
         inputHandlersIndex: Int = 0,
         cursorStylesIndex: Int = 0,
         accessedElementStatesIndex: Int = 0,
-        tabHandleIndex: Int = 0
+        tabHandleIndex: Int = 0,
+        lineLayoutIndex: LineLayoutIndex = LineLayoutIndex()
     ) {
         self.sceneIndex = sceneIndex
         self.mouseListenersIndex = mouseListenersIndex
@@ -719,6 +782,16 @@ public struct PaintIndex: Sendable, Equatable {
         self.cursorStylesIndex = cursorStylesIndex
         self.accessedElementStatesIndex = accessedElementStatesIndex
         self.tabHandleIndex = tabHandleIndex
+        self.lineLayoutIndex = lineLayoutIndex
+    }
+
+    public static func < (lhs: PaintIndex, rhs: PaintIndex) -> Bool {
+        if lhs.sceneIndex != rhs.sceneIndex { return lhs.sceneIndex < rhs.sceneIndex }
+        if lhs.mouseListenersIndex != rhs.mouseListenersIndex { return lhs.mouseListenersIndex < rhs.mouseListenersIndex }
+        if lhs.inputHandlersIndex != rhs.inputHandlersIndex { return lhs.inputHandlersIndex < rhs.inputHandlersIndex }
+        if lhs.cursorStylesIndex != rhs.cursorStylesIndex { return lhs.cursorStylesIndex < rhs.cursorStylesIndex }
+        if lhs.accessedElementStatesIndex != rhs.accessedElementStatesIndex { return lhs.accessedElementStatesIndex < rhs.accessedElementStatesIndex }
+        return lhs.tabHandleIndex < rhs.tabHandleIndex
     }
 }
 
@@ -1100,16 +1173,13 @@ public struct WindowHandle<V>: Sendable, Equatable, Hashable {
         }
         switch readResult {
         case .success(let view):
-            if let anyEntity = view.entity {
-                return .success(Entity<V>(anyEntity: anyEntity))
+            let downcastRes: Result<Entity<V>, AnyView> = view.downcast()
+            switch downcastRes {
+            case .success(let entity):
+                return .success(entity)
+            case .failure(let errView):
+                return .failure(errView)
             }
-            let entity = Entity<V>(anyEntity: AnyEntity(
-                id: view.entityId,
-                entityType: ObjectIdentifier(V.self),
-                typeName: "\(V.self)",
-                refCounts: cx.entities.refCounts
-            ))
-            return .success(entity)
         case .failure(let error):
             return .failure(error)
         }
@@ -1479,31 +1549,6 @@ public final class DefaultPlatformWindow: PlatformWindow, @unchecked Sendable {
     }
 }
 
-// MARK: - View & Element Forward Declarations
-
-/// Type-erased view handle.
-public struct AnyView: Sendable, Equatable, Hashable {
-    public var entityId: EntityId
-    public var entity: AnyEntity?
-
-    public init(entityId: EntityId, entity: AnyEntity? = nil) {
-        self.entityId = entityId
-        self.entity = entity
-    }
-
-    public init<V>(_ entity: Entity<V>) {
-        self.entityId = entity.entityId
-        self.entity = entity.anyEntity
-    }
-
-    public static func == (lhs: AnyView, rhs: AnyView) -> Bool {
-        lhs.entityId == rhs.entityId
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(entityId)
-    }
-}
 
 public struct PendingInput: Sendable {
     public var keystrokes: [Keystroke]
@@ -1585,6 +1630,8 @@ public struct Window: @unchecked Sendable {
     public var keystrokeInterceptors: [(@Sendable (KeystrokeEvent, inout Window, inout App) -> Bool)] = []
     public var spriteAtlas: any PlatformAtlas = TestAtlas.new()
     public var windowTextSystem: WindowTextSystem? = nil
+    public var refreshing: Bool = false
+    public var accessedElementStates: [(GlobalElementId, ObjectIdentifier)] = []
 
     public init(
         handle: AnyWindowHandle = AnyWindowHandle(id: 1),
@@ -1717,22 +1764,29 @@ public struct Window: @unchecked Sendable {
     // MARK: - Hitboxes
 
     public mutating func insertHitbox(
-        bounds: Bounds<Pixels>,
-        behavior: HitboxBehavior = .normal
-    ) -> HitboxId {
+        _ bounds: Bounds<Pixels>,
+        _ behavior: HitboxBehavior = .normal
+    ) -> Hitbox {
         let id = HitboxId(nextHitboxIdValue)
         nextHitboxIdValue += 1
         let mask = contentMaskStack.last ?? ContentMask(bounds: .zero)
         let hitbox = Hitbox(id: id, bounds: bounds, contentMask: mask, behavior: behavior)
         nextFrame.hitboxes.append(hitbox)
-        return id
+        return hitbox
+    }
+
+    public mutating func insertHitbox(
+        bounds: Bounds<Pixels>,
+        behavior: HitboxBehavior = .normal
+    ) -> Hitbox {
+        insertHitbox(bounds, behavior)
     }
 
     public mutating func insertWindowControlHitbox(
-        bounds: Bounds<Pixels>,
-        behavior: HitboxBehavior = .normal
-    ) -> HitboxId {
-        insertHitbox(bounds: bounds, behavior: behavior)
+        _ area: WindowControlArea,
+        _ hitbox: Hitbox
+    ) {
+        nextFrame.windowControlHitboxes.append((area, hitbox))
     }
 
     // MARK: - Mouse Cursor
@@ -1752,9 +1806,25 @@ public struct Window: @unchecked Sendable {
         _ f: (inout State?) -> R
     ) -> R {
         var state = elementStates[id] as? State
+        accessedElementStates.append((id, ObjectIdentifier(State.self)))
         let result = f(&state)
         if let state = state {
             elementStates[id] = state
+        } else {
+            elementStates.removeValue(forKey: id)
+        }
+        return result
+    }
+
+    public mutating func withElementState<State, R>(
+        _ id: GlobalElementId,
+        _ f: (State?, inout Window) -> (R, State?)
+    ) -> R {
+        let existing = elementStates[id] as? State
+        accessedElementStates.append((id, ObjectIdentifier(State.self)))
+        let (result, newState) = f(existing, &self)
+        if let newState = newState {
+            elementStates[id] = newState
         } else {
             elementStates.removeValue(forKey: id)
         }
@@ -1811,8 +1881,12 @@ public struct Window: @unchecked Sendable {
         self.layoutEngine = engine
     }
 
-    public mutating func layoutBounds(id: LayoutId) -> Bounds<Pixels> {
+    public mutating func layoutBounds(_ id: LayoutId) -> Bounds<Pixels> {
         layoutEngine?.layoutBounds(id: id, scaleFactor: scaleFactor) ?? .zero
+    }
+
+    public mutating func layoutBounds(id: LayoutId) -> Bounds<Pixels> {
+        layoutBounds(id)
     }
 
     // MARK: - Scene Painting Helpers
@@ -1900,14 +1974,24 @@ public struct Window: @unchecked Sendable {
     // MARK: - Stacks & Scoping
 
     public mutating func withContentMask<R>(
-        _ mask: ContentMask<Pixels>,
+        _ mask: ContentMask<Pixels>?,
         _ f: (inout Window) -> R
     ) -> R {
+        guard let mask = mask else {
+            return f(&self)
+        }
         let parentMask = contentMaskStack.last ?? ContentMask(bounds: .zero)
         let combined = parentMask.intersect(mask)
         contentMaskStack.append(combined)
         defer { contentMaskStack.removeLast() }
         return f(&self)
+    }
+
+    public mutating func withContentMask<R>(
+        _ mask: ContentMask<Pixels>,
+        _ f: (inout Window) -> R
+    ) -> R {
+        withContentMask(Optional(mask), f)
     }
 
     public func contentMask() -> ContentMask<Pixels> {
@@ -2443,6 +2527,24 @@ public struct Window: @unchecked Sendable {
         }
     }
 
+    public mutating func onAction(
+        _ actionType: ObjectIdentifier,
+        _ listener: @escaping @Sendable (Any, DispatchPhase, inout Window, inout App) -> Void
+    ) {
+        nextFrame.dispatchTree.onAction(actionType: actionType, listener: listener)
+    }
+
+    public mutating func onAction(
+        _ actionType: ObjectIdentifier,
+        _ listener: @escaping ActionListener
+    ) {
+        nextFrame.dispatchTree.onAction(actionType: actionType) { action, phase, window, app in
+            if let action = action as? any Action {
+                listener(action, phase, &window, &app)
+            }
+        }
+    }
+
     public mutating func onActionWhen<A: Action>(
         _ condition: @escaping @Sendable (Window, App) -> Bool,
         _ listener: @escaping @Sendable (A, inout Window, inout App) -> Void
@@ -2816,18 +2918,45 @@ public struct Window: @unchecked Sendable {
         return f(&self)
     }
 
-    public mutating func withElementOpacity<R>(_ opacity: Float, _ f: (inout Window) -> R) -> R {
+    public mutating func withElementOpacity<R>(_ opacity: Float?, _ f: (inout Window) -> R) -> R {
+        guard let opacity = opacity else {
+            return f(&self)
+        }
         let prev = elementOpacity
         elementOpacity *= opacity
         defer { elementOpacity = prev }
         return f(&self)
     }
 
-    public mutating func withOptionalElementState<T, R>(_ id: GlobalElementId, _ f: (inout T?) -> R) -> R {
-        withElementState(id, f)
+    public mutating func withElementOpacity<R>(_ opacity: Float, _ f: (inout Window) -> R) -> R {
+        withElementOpacity(Optional(opacity), f)
+    }
+
+    public mutating func withOptionalElementState<State, R>(
+        _ id: GlobalElementId?,
+        _ f: (inout State?, inout Window) -> R
+    ) -> (R, State?) {
+        guard let id = id else {
+            var state: State? = nil
+            let result = f(&state, &self)
+            return (result, state)
+        }
+        var state = elementStates[id] as? State
+        accessedElementStates.append((id, ObjectIdentifier(State.self)))
+        let result = f(&state, &self)
+        if let state = state {
+            elementStates[id] = state
+        } else {
+            elementStates.removeValue(forKey: id)
+        }
+        return (result, state)
     }
 
     public mutating func withTabGroup<R>(_ f: (inout Window) -> R) -> R {
+        f(&self)
+    }
+
+    public mutating func withTabGroup<R>(_ tabGroupIndex: Int?, _ f: (inout Window) -> R) -> R {
         f(&self)
     }
 
@@ -2841,10 +2970,90 @@ public struct Window: @unchecked Sendable {
         f(&self)
     }
 
-    public mutating func withTextStyle<R>(_ style: TextStyleRefinement, _ f: (inout Window) -> R) -> R {
+    public func prepaintIndex() -> PrepaintStateIndex {
+        PrepaintStateIndex(
+            hitboxesIndex: nextFrame.hitboxes.count,
+            tooltipsIndex: nextFrame.tooltipRequests.count,
+            deferredDrawsIndex: nextFrame.deferredDraws.count,
+            dispatchTreeIndex: nextFrame.dispatchTree.count,
+            accessedElementStatesIndex: accessedElementStates.count,
+            lineLayoutIndex: textSystem().layoutIndex()
+        )
+    }
+
+    public mutating func reusePrepaint(_ range: Range<PrepaintStateIndex>) {
+        if range.lowerBound.hitboxesIndex <= range.upperBound.hitboxesIndex &&
+           range.upperBound.hitboxesIndex <= renderedFrame.hitboxes.count {
+            nextFrame.hitboxes.append(contentsOf: renderedFrame.hitboxes[range.lowerBound.hitboxesIndex..<range.upperBound.hitboxesIndex])
+        }
+        if range.lowerBound.tooltipsIndex <= range.upperBound.tooltipsIndex &&
+           range.upperBound.tooltipsIndex <= renderedFrame.tooltipRequests.count {
+            nextFrame.tooltipRequests.append(contentsOf: renderedFrame.tooltipRequests[range.lowerBound.tooltipsIndex..<range.upperBound.tooltipsIndex])
+        }
+        textSystem().reuseLayouts(range.lowerBound.lineLayoutIndex..<range.upperBound.lineLayoutIndex)
+
+        let reusedSubtree = nextFrame.dispatchTree.reuseSubtree(
+            oldRange: range.lowerBound.dispatchTreeIndex..<range.upperBound.dispatchTreeIndex,
+            source: &renderedFrame.dispatchTree,
+            focus: focus
+        )
+        if reusedSubtree.containsFocus {
+            nextFrame.focus = focus
+        }
+        if range.lowerBound.deferredDrawsIndex <= range.upperBound.deferredDrawsIndex &&
+           range.upperBound.deferredDrawsIndex <= renderedFrame.deferredDraws.count {
+            for draw in renderedFrame.deferredDraws[range.lowerBound.deferredDrawsIndex..<range.upperBound.deferredDrawsIndex] {
+                nextFrame.deferredDraws.append(draw)
+            }
+        }
+    }
+
+    public func paintIndex() -> PaintIndex {
+        PaintIndex(
+            sceneIndex: nextFrame.scene.count,
+            mouseListenersIndex: nextFrame.mouseListeners.count,
+            inputHandlersIndex: nextFrame.inputHandlers.count,
+            cursorStylesIndex: nextFrame.cursorStyles.count,
+            accessedElementStatesIndex: accessedElementStates.count,
+            tabHandleIndex: nextFrame.tabStops.paintIndex,
+            lineLayoutIndex: textSystem().layoutIndex()
+        )
+    }
+
+    public mutating func reusePaint(_ range: Range<PaintIndex>) {
+        if range.lowerBound.cursorStylesIndex <= range.upperBound.cursorStylesIndex &&
+           range.upperBound.cursorStylesIndex <= renderedFrame.cursorStyles.count {
+            nextFrame.cursorStyles.append(contentsOf: renderedFrame.cursorStyles[range.lowerBound.cursorStylesIndex..<range.upperBound.cursorStylesIndex])
+        }
+        if range.lowerBound.inputHandlersIndex <= range.upperBound.inputHandlersIndex &&
+           range.upperBound.inputHandlersIndex <= renderedFrame.inputHandlers.count {
+            nextFrame.inputHandlers.append(contentsOf: renderedFrame.inputHandlers[range.lowerBound.inputHandlersIndex..<range.upperBound.inputHandlersIndex])
+        }
+        if range.lowerBound.mouseListenersIndex <= range.upperBound.mouseListenersIndex &&
+           range.upperBound.mouseListenersIndex <= renderedFrame.mouseListeners.count {
+            nextFrame.mouseListeners.append(contentsOf: renderedFrame.mouseListeners[range.lowerBound.mouseListenersIndex..<range.upperBound.mouseListenersIndex])
+        }
+        nextFrame.tabStops.replay(
+            Array(renderedFrame.tabStops.insertionHistory[range.lowerBound.tabHandleIndex..<min(range.upperBound.tabHandleIndex, renderedFrame.tabStops.insertionHistory.count)])
+        )
+        textSystem().reuseLayouts(range.lowerBound.lineLayoutIndex..<range.upperBound.lineLayoutIndex)
+        nextFrame.scene.replay(
+            range: range.lowerBound.sceneIndex..<min(range.upperBound.sceneIndex, renderedFrame.scene.paintOperations.count),
+            prevScene: renderedFrame.scene
+        )
+    }
+
+    public mutating func withTextStyle<R>(_ style: TextStyleRefinement?, _ f: (inout Window) -> R) -> R {
+        guard let style = style else {
+            return f(&self)
+        }
         textStyleStack.append(style)
         defer { _ = textStyleStack.removeLast() }
         return f(&self)
+    }
+
+    public mutating func withTextStyle<R>(_ style: TextStyleRefinement, _ f: (inout Window) -> R) -> R {
+        withTextStyle(Optional(style), f)
     }
 
     public mutating func useKeyedState<T: Sendable>(_ key: String, _ initial: () -> T) -> T {
@@ -2969,9 +3178,9 @@ public struct Window: @unchecked Sendable {
         let factor = scaleFactor
         let glyphOrigin = origin.scale(factor)
 
-        let fractX = (glyphOrigin.x.value - floor(glyphOrigin.x.value)) * 4.0
-        let fractY = (glyphOrigin.y.value - floor(glyphOrigin.y.value)) * 4.0
-        let subpixelVariant = Point(x: UInt8(floor(fractX)), y: UInt8(floor(fractY)))
+        let fractX = (glyphOrigin.x.value - glyphOrigin.x.value.rounded(.down)) * 4.0
+        let fractY = (glyphOrigin.y.value - glyphOrigin.y.value.rounded(.down)) * 4.0
+        let subpixelVariant = Point(x: UInt8(fractX.rounded(.down)), y: UInt8(fractY.rounded(.down)))
 
         let params = RenderGlyphParams(
             fontId: fontId,

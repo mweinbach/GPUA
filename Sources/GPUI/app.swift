@@ -286,9 +286,6 @@ public struct GlobalLease<G: Global> {
     }
 }
 
-/// Protocol for types that can render UI into a window.
-public protocol Render {}
-
 /// Text rendering mode options.
 public enum TextRenderingMode: Sendable, Equatable, DefaultInitializable {
     case subpixel

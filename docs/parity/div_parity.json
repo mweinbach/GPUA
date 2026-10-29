@@ -1,0 +1,1920 @@
+{
+  "upstream_file": "/Users/mweinbach/Projects/GPUA/.upstream/gpui/crates/gpui/src/elements/div.rs",
+  "swift_files": [
+    "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift"
+  ],
+  "ledger_file": null,
+  "total_items": 100,
+  "genuine_count": 100,
+  "exempted_count": 0,
+  "deferred_count": 0,
+  "renamed_count": 0,
+  "omitted_count": 0,
+  "stub_allowed_count": 0,
+  "stubs_count": 0,
+  "missing_count": 0,
+  "stubs": [],
+  "missing": [],
+  "items": [
+    {
+      "line": 52,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "GroupStyle",
+      "enclosing": null,
+      "item": "GroupStyle",
+      "swift_name": "GroupStyle",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "GroupStyle",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 11,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 62,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "DragMoveEvent",
+      "enclosing": null,
+      "item": "DragMoveEvent",
+      "swift_name": "DragMoveEvent",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "DragMoveEvent",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 28,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 74,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "drag",
+      "enclosing": "DragMoveEvent",
+      "item": "DragMoveEvent::drag",
+      "swift_name": "drag",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "drag",
+        "enclosing": "DragMoveEvent",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 44,
+        "body": "\n        guard let drag = cx.activeDrag, let val = drag.value as? T else {\n            fatalError(\"DragMoveEvent is only valid when the stored active drag is of the same type.\")\n        }\n        return val\n    ",
+        "body_line": 44
+      }
+    },
+    {
+      "line": 82,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "dragged_item",
+      "enclosing": "DragMoveEvent",
+      "item": "DragMoveEvent::dragged_item",
+      "swift_name": "draggedItem",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "draggedItem",
+        "enclosing": "DragMoveEvent",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 52,
+        "body": "\n        draggedItemValue\n    ",
+        "body_line": 52
+      }
+    },
+    {
+      "line": 91,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "new",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::new",
+      "swift_name": "new",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "new",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 336,
+        "body": "\n        Interactivity(file: file, line: line)\n    ",
+        "body_line": 336
+      }
+    },
+    {
+      "line": 100,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "new",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::new",
+      "swift_name": "new",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "new",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 336,
+        "body": "\n        Interactivity(file: file, line: line)\n    ",
+        "body_line": 336
+      }
+    },
+    {
+      "line": 105,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "source_location",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::source_location",
+      "swift_name": "sourceLocation",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "sourceLocation",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 340,
+        "body": "\n        sourceLocationValue\n    ",
+        "body_line": 340
+      }
+    },
+    {
+      "line": 121,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_mouse_down",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_mouse_down",
+      "swift_name": "onMouseDown",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onMouseDown",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 344,
+        "body": "\n        mouseDownListeners.append { event, phase, hitbox, window, cx in\n            if phase == .bubble && event.button == button && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 347
+      }
+    },
+    {
+      "line": 141,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "capture_any_mouse_down",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::capture_any_mouse_down",
+      "swift_name": "captureAnyMouseDown",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "captureAnyMouseDown",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 355,
+        "body": "\n        mouseDownListeners.append { event, phase, hitbox, window, cx in\n            if phase == .capture && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 357
+      }
+    },
+    {
+      "line": 157,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_any_mouse_down",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_any_mouse_down",
+      "swift_name": "onAnyMouseDown",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onAnyMouseDown",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 365,
+        "body": "\n        mouseDownListeners.append { event, phase, hitbox, window, cx in\n            if phase == .bubble && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 367
+      }
+    },
+    {
+      "line": 173,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_mouse_pressure",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_mouse_pressure",
+      "swift_name": "onMousePressure",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onMousePressure",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 375,
+        "body": "\n        mousePressureListeners.append { event, phase, hitbox, window, cx in\n            if phase == .bubble && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 377
+      }
+    },
+    {
+      "line": 189,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "capture_mouse_pressure",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::capture_mouse_pressure",
+      "swift_name": "captureMousePressure",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "captureMousePressure",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 385,
+        "body": "\n        mousePressureListeners.append { event, phase, hitbox, window, cx in\n            if phase == .capture && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 387
+      }
+    },
+    {
+      "line": 205,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_mouse_up",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_mouse_up",
+      "swift_name": "onMouseUp",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onMouseUp",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 395,
+        "body": "\n        mouseUpListeners.append { event, phase, hitbox, window, cx in\n            if phase == .bubble && event.button == button && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 398
+      }
+    },
+    {
+      "line": 225,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "capture_any_mouse_up",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::capture_any_mouse_up",
+      "swift_name": "captureAnyMouseUp",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "captureAnyMouseUp",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 406,
+        "body": "\n        mouseUpListeners.append { event, phase, hitbox, window, cx in\n            if phase == .capture && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 408
+      }
+    },
+    {
+      "line": 241,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_any_mouse_up",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_any_mouse_up",
+      "swift_name": "onAnyMouseUp",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onAnyMouseUp",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 416,
+        "body": "\n        mouseUpListeners.append { event, phase, hitbox, window, cx in\n            if phase == .bubble && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 418
+      }
+    },
+    {
+      "line": 258,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_mouse_down_out",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_mouse_down_out",
+      "swift_name": "onMouseDownOut",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onMouseDownOut",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 426,
+        "body": "\n        mouseDownListeners.append { event, phase, hitbox, window, cx in\n            if phase == .capture && !hitbox.bounds.contains(window.mousePosition) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 428
+      }
+    },
+    {
+      "line": 275,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_mouse_up_out",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_mouse_up_out",
+      "swift_name": "onMouseUpOut",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onMouseUpOut",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 436,
+        "body": "\n        mouseUpListeners.append { event, phase, hitbox, window, cx in\n            if phase == .capture && event.button == button && !hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 439
+      }
+    },
+    {
+      "line": 295,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_mouse_move",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_mouse_move",
+      "swift_name": "onMouseMove",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onMouseMove",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 447,
+        "body": "\n        mouseMoveListeners.append { event, phase, hitbox, window, cx in\n            if phase == .bubble && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 449
+      }
+    },
+    {
+      "line": 314,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_drag_move",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_drag_move",
+      "swift_name": "onDragMove",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onDragMove",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 457,
+        "body": "\n        mouseMoveListeners.append { event, phase, hitbox, window, cx in\n            if phase == .capture {\n                MainActor.assumeIsolated {\n                    if let drag = cx.activeDrag, drag.value is T {\n                        let dragEvent = DragMoveEvent<T>(\n                            event: event,\n                            bounds: hitbox.bounds,\n                            draggedItem: drag.value\n                        )\n                        listener(dragEvent, &window, &cx)\n                    }\n                }\n            }\n        }\n    ",
+        "body_line": 459
+      }
+    },
+    {
+      "line": 344,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_scroll_wheel",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_scroll_wheel",
+      "swift_name": "onScrollWheel",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onScrollWheel",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 476,
+        "body": "\n        scrollWheelListeners.append { event, phase, hitbox, window, cx in\n            if phase == .bubble && hitbox.shouldHandleScroll(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 478
+      }
+    },
+    {
+      "line": 357,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_pinch",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_pinch",
+      "swift_name": "onPinch",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onPinch",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 486,
+        "body": "\n        pinchListeners.append { event, phase, hitbox, window, cx in\n            if phase == .bubble && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 488
+      }
+    },
+    {
+      "line": 367,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_rotation",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_rotation",
+      "swift_name": "onRotation",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onRotation",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 496,
+        "body": "\n        rotationListeners.append { event, phase, hitbox, window, cx in\n            if phase == .bubble && hitbox.isHovered(window) {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 498
+      }
+    },
+    {
+      "line": 383,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "capture_action",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::capture_action",
+      "swift_name": "captureAction",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "captureAction",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 506,
+        "body": "\n        actionListeners.append((ObjectIdentifier(A.self), { action, phase, window, cx in\n            if let a = action as? A {\n                if phase == .capture {\n                    listener(a, &window, &cx)\n                } else {\n                    MainActor.assumeIsolated {\n                        cx.propagate()\n                    }\n                }\n            }\n        }))\n    ",
+        "body_line": 508
+      }
+    },
+    {
+      "line": 404,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_action",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_action",
+      "swift_name": "onAction",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onAction",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 522,
+        "body": "\n        actionListeners.append((ObjectIdentifier(A.self), { action, phase, window, cx in\n            if let a = action as? A {\n                if phase == .bubble {\n                    listener(a, &window, &cx)\n                }\n            }\n        }))\n    ",
+        "body_line": 524
+      }
+    },
+    {
+      "line": 422,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_boxed_action",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_boxed_action",
+      "swift_name": "onBoxedAction",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onBoxedAction",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 534,
+        "body": "\n        let actionTypeId = ObjectIdentifier(type(of: action))\n        actionListeners.append((actionTypeId, { dynAction, phase, window, cx in\n            if phase == .bubble {\n                listener(dynAction, &window, &cx)\n            }\n        }))\n    ",
+        "body_line": 537
+      }
+    },
+    {
+      "line": 442,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_key_down",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_key_down",
+      "swift_name": "onKeyDown",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onKeyDown",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 546,
+        "body": "\n        keyDownListeners.append { event, phase, window, cx in\n            if phase == .bubble {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 548
+      }
+    },
+    {
+      "line": 458,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "capture_key_down",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::capture_key_down",
+      "swift_name": "captureKeyDown",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "captureKeyDown",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 556,
+        "body": "\n        keyDownListeners.append { event, phase, window, cx in\n            if phase == .capture {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 558
+      }
+    },
+    {
+      "line": 474,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_key_up",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_key_up",
+      "swift_name": "onKeyUp",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onKeyUp",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 566,
+        "body": "\n        keyUpListeners.append { event, phase, window, cx in\n            if phase == .bubble {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 568
+      }
+    },
+    {
+      "line": 487,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "capture_key_up",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::capture_key_up",
+      "swift_name": "captureKeyUp",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "captureKeyUp",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 576,
+        "body": "\n        keyUpListeners.append { event, phase, window, cx in\n            if phase == .capture {\n                listener(event, &window, &cx)\n            }\n        }\n    ",
+        "body_line": 578
+      }
+    },
+    {
+      "line": 503,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_modifiers_changed",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_modifiers_changed",
+      "swift_name": "onModifiersChanged",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onModifiersChanged",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 586,
+        "body": "\n        modifiersChangedListeners.append { event, window, cx in\n            listener(event, &window, &cx)\n        }\n    ",
+        "body_line": 588
+      }
+    },
+    {
+      "line": 517,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_drop",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_drop",
+      "swift_name": "onDrop",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onDrop",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 594,
+        "body": "\n        dropListeners.append((ObjectIdentifier(T.self), { draggedValue, window, cx in\n            if let val = draggedValue as? T {\n                listener(val, &window, &cx)\n            }\n        }))\n    ",
+        "body_line": 596
+      }
+    },
+    {
+      "line": 528,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "can_drop",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::can_drop",
+      "swift_name": "canDrop",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "canDrop",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 604,
+        "body": "\n        self.canDropPredicate = predicate\n    ",
+        "body_line": 606
+      }
+    },
+    {
+      "line": 539,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_click",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_click",
+      "swift_name": "onClick",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onClick",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 610,
+        "body": "\n        clickListeners.append(listener)\n    ",
+        "body_line": 612
+      }
+    },
+    {
+      "line": 552,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_aux_click",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_aux_click",
+      "swift_name": "onAuxClick",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onAuxClick",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 616,
+        "body": "\n        auxClickListeners.append(listener)\n    ",
+        "body_line": 618
+      }
+    },
+    {
+      "line": 568,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_drag",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_drag",
+      "swift_name": "onDrag",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onDrag",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 622,
+        "body": "\n        self.dragListener = DragInfo(value: value, listener: { val, offset, window, cx in\n            if let typed = val as? T {\n                let entity = constructor(typed, offset, &window, &cx)\n                return AnyView(entity)\n            }\n            fatalError(\"Unexpected drag value type\")\n        })\n    ",
+        "body_line": 625
+      }
+    },
+    {
+      "line": 594,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_hover",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::on_hover",
+      "swift_name": "onHover",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onHover",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 635,
+        "body": "\n        self.hoverListener = listener\n    ",
+        "body_line": 637
+      }
+    },
+    {
+      "line": 607,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "tooltip",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::tooltip",
+      "swift_name": "tooltip",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "tooltip",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 641,
+        "body": "\n        self.tooltipBuilder = TooltipBuilder(build: buildTooltip, hoverable: false)\n    ",
+        "body_line": 643
+      }
+    },
+    {
+      "line": 624,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "hoverable_tooltip",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::hoverable_tooltip",
+      "swift_name": "hoverableTooltip",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "hoverableTooltip",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 647,
+        "body": "\n        self.tooltipBuilder = TooltipBuilder(build: buildTooltip, hoverable: true)\n    ",
+        "body_line": 649
+      }
+    },
+    {
+      "line": 644,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "occlude_mouse",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::occlude_mouse",
+      "swift_name": "occludeMouse",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "occludeMouse",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 653,
+        "body": "\n        self.hitboxBehavior = .blockMouse\n    ",
+        "body_line": 653
+      }
+    },
+    {
+      "line": 650,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "window_control_area",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::window_control_area",
+      "swift_name": "windowControlArea",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "windowControlArea",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 657,
+        "body": "\n        self.windowControl = area\n    ",
+        "body_line": 657
+      }
+    },
+    {
+      "line": 658,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "block_mouse_except_scroll",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::block_mouse_except_scroll",
+      "swift_name": "blockMouseExceptScroll",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "blockMouseExceptScroll",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 661,
+        "body": "\n        self.hitboxBehavior = .blockMouseExceptScroll\n    ",
+        "body_line": 661
+      }
+    },
+    {
+      "line": 665,
+      "vis": "pub",
+      "kind": "trait",
+      "rust_name": "InteractiveElement",
+      "enclosing": null,
+      "item": "InteractiveElement",
+      "swift_name": "InteractiveElement",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "protocol",
+        "name": "InteractiveElement",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 1352,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1161,
+      "vis": "pub",
+      "kind": "trait",
+      "rust_name": "StatefulInteractiveElement",
+      "enclosing": null,
+      "item": "StatefulInteractiveElement",
+      "swift_name": "StatefulInteractiveElement",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "protocol",
+        "name": "StatefulInteractiveElement",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 1681,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1319,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "MouseDownListener",
+      "enclosing": null,
+      "item": "MouseDownListener",
+      "swift_name": "MouseDownListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "MouseDownListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 59,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1321,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "MouseUpListener",
+      "enclosing": null,
+      "item": "MouseUpListener",
+      "swift_name": "MouseUpListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "MouseUpListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 60,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1323,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "MousePressureListener",
+      "enclosing": null,
+      "item": "MousePressureListener",
+      "swift_name": "MousePressureListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "MousePressureListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 61,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1325,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "MouseMoveListener",
+      "enclosing": null,
+      "item": "MouseMoveListener",
+      "swift_name": "MouseMoveListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "MouseMoveListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 62,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1328,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "ScrollWheelListener",
+      "enclosing": null,
+      "item": "ScrollWheelListener",
+      "swift_name": "ScrollWheelListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "ScrollWheelListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 63,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1331,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "PinchListener",
+      "enclosing": null,
+      "item": "PinchListener",
+      "swift_name": "PinchListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "PinchListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 64,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1334,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "RotationListener",
+      "enclosing": null,
+      "item": "RotationListener",
+      "swift_name": "RotationListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "RotationListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 65,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1337,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "ClickListener",
+      "enclosing": null,
+      "item": "ClickListener",
+      "swift_name": "ClickListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "ClickListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 66,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1339,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "DragListener",
+      "enclosing": null,
+      "item": "DragListener",
+      "swift_name": "DragListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "DragListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 67,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1346,
+      "vis": "pub(crate)",
+      "kind": "struct",
+      "rust_name": "TooltipBuilder",
+      "enclosing": null,
+      "item": "TooltipBuilder",
+      "swift_name": "TooltipBuilder",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "TooltipBuilder",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 89,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1351,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "KeyDownListener",
+      "enclosing": null,
+      "item": "KeyDownListener",
+      "swift_name": "KeyDownListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "KeyDownListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 81,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1354,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "KeyUpListener",
+      "enclosing": null,
+      "item": "KeyUpListener",
+      "swift_name": "KeyUpListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "KeyUpListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 82,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1357,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "ModifiersChangedListener",
+      "enclosing": null,
+      "item": "ModifiersChangedListener",
+      "swift_name": "ModifiersChangedListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "ModifiersChangedListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 83,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1360,
+      "vis": "pub(crate)",
+      "kind": "type",
+      "rust_name": "ActionListener",
+      "enclosing": null,
+      "item": "ActionListener",
+      "swift_name": "ActionListener",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "typealias",
+        "name": "ActionListener",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 84,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1365,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "div",
+      "enclosing": null,
+      "item": "div",
+      "swift_name": "div",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "div",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 1796,
+        "body": "\n    Div()\n",
+        "body_line": 1796
+      }
+    },
+    {
+      "line": 1376,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "Div",
+      "enclosing": null,
+      "item": "Div",
+      "swift_name": "Div",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "Div",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 1801,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1387,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "on_children_prepainted",
+      "enclosing": "Div",
+      "item": "Div::on_children_prepainted",
+      "swift_name": "onChildrenPrepainted",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "onChildrenPrepainted",
+        "enclosing": "Div",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 1824,
+        "body": "\n        var copy = self\n        copy.prepaintListener = listener\n        return copy\n    ",
+        "body_line": 1826
+      }
+    },
+    {
+      "line": 1396,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "image_cache",
+      "enclosing": "Div",
+      "item": "Div::image_cache",
+      "swift_name": "imageCache",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "imageCache",
+        "enclosing": "Div",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 1832,
+        "body": "\n        var copy = self\n        copy.imageCacheProvider = cache\n        return copy\n    ",
+        "body_line": 1832
+      }
+    },
+    {
+      "line": 1409,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "with_dynamic_prepaint_order",
+      "enclosing": "Div",
+      "item": "Div::with_dynamic_prepaint_order",
+      "swift_name": "withDynamicPrepaintOrder",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "withDynamicPrepaintOrder",
+        "enclosing": "Div",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 1838,
+        "body": "\n        var copy = self\n        copy.prepaintOrderFn = orderFn\n        return copy\n    ",
+        "body_line": 1840
+      }
+    },
+    {
+      "line": 1424,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "DivFrameState",
+      "enclosing": null,
+      "item": "DivFrameState",
+      "swift_name": "DivFrameState",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "DivFrameState",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2030,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1430,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "DivInspectorState",
+      "enclosing": null,
+      "item": "DivInspectorState",
+      "swift_name": "DivInspectorState",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "DivInspectorState",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2038,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1654,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "Interactivity",
+      "enclosing": null,
+      "item": "Interactivity",
+      "swift_name": "Interactivity",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "Interactivity",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 278,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 1719,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "request_layout",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::request_layout",
+      "swift_name": "requestLayout",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "requestLayout",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 666,
+        "body": "\n        let (layoutId, _) = window.withOptionalElementState(globalId) { (elementState: inout InteractiveElementState?, window: inout Window) -> LayoutId in\n            let state = elementState ?? InteractiveElementState()\n\n            if cx.hasActiveDrag() {\n                state.pendingMouseDown = nil\n                state.clickedState = ElementClickedState()\n            }\n\n            if self.focusable && self.trackedFocusHandle == nil {\n                var handle = state.focusHandle ?? cx.focusHandle()\n                handle = handle.tabStop(self.tabStop)\n                if let index = self.tabIndex {\n                    handle = handle.tabIndex(index)\n                }\n                state.focusHandle = handle\n                self.trackedFocusHandle = handle\n            }\n\n            if let scrollHandle = self.trackedScrollHandle {\n                self.scrollOffset = scrollHandle.offset()\n            } else if self.baseStyle.overflow.x == .scroll || self.baseStyle.overflow.y == .scroll {\n                self.scrollOffset = state.scrollOffset\n            }\n\n            let style = self.computeStyleInternal(hitbox: nil, elementState: state, window: &window, cx: &cx)\n            let id = f(style, &window, &cx)\n            elementState = state\n            return id\n        }\n        return layoutId\n    ",
+        "body_line": 672
+      }
+    },
+    {
+      "line": 1804,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "prepaint",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::prepaint",
+      "swift_name": "prepaint",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "prepaint",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 706,
+        "body": "\n        self.contentSize = contentSize\n\n        if let focusHandle = self.trackedFocusHandle {\n            window.setFocusHandle(focusHandle)\n        }\n\n        let (result, _) = window.withOptionalElementState(globalId) { (elementState: inout InteractiveElementState?, window: inout Window) -> R in\n            let state = elementState ?? InteractiveElementState()\n            let style = self.computeStyleInternal(hitbox: nil, elementState: state, window: &window, cx: &cx)\n\n            self.active = state.clickedState.element\n\n            if self.hoverStyle != nil || self.groupHoverStyle != nil {\n                // Ensure hover state is tracked\n            }\n\n            if let activeTooltip = state.activeTooltip {\n                if self.tooltipBuilder != nil {\n                    self.tooltipId = setTooltipOnWindow(activeTooltip, &window)\n                } else {\n                    state.activeTooltip = nil\n                }\n            }\n\n            let hitbox: Hitbox?\n            if self.shouldInsertHitbox(style: style, window: window, cx: cx) {\n                hitbox = window.insertHitbox(bounds, self.hitboxBehavior)\n            } else {\n                hitbox = nil\n            }\n\n            let scrollOffset = self.clampScrollPosition(bounds: bounds, style: style, window: &window)\n            let res = f(style, scrollOffset, hitbox, &window, &cx)\n            elementState = state\n            return res\n        }\n\n        return result\n    ",
+        "body_line": 714
+      }
+    },
+    {
+      "line": 1970,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "paint",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::paint",
+      "swift_name": "paint",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "paint",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 756,
+        "body": "\n        self.hovered = hitbox?.isHovered(window)\n\n        let (_, _) = window.withOptionalElementState(globalId) { (elementState: inout InteractiveElementState?, window: inout Window) -> Void in\n            let state = elementState ?? InteractiveElementState()\n            let style = self.computeStyleInternal(hitbox: hitbox, elementState: state, window: &window, cx: &cx)\n\n            self.paintHoverGroupHandler(&window, &cx)\n\n            if style.visibility == .hidden {\n                elementState = state\n                return\n            }\n\n            var tabGroupIndex: Int? = nil\n            if self.tabGroup {\n                tabGroupIndex = self.tabIndex\n            }\n            if let focusHandle = self.trackedFocusHandle {\n                window.nextFrame.tabStops.insert(focusHandle)\n            }\n\n            window.withElementOpacity(style.opacity) { window in\n                style.paint(bounds, &window, &cx) { window, cx in\n                    window.withTextStyle(style.textStyle()) { window in\n                        window.withContentMask(style.overflowMask(bounds: bounds, remSize: window.remSize)) { window in\n                            window.withTabGroup(tabGroupIndex) { window in\n                                if let hb = hitbox {\n                                    if let drag = cx.activeDrag {\n                                        if let cursorStyle = drag.cursorStyle {\n                                            window.setWindowCursorStyle(cursorStyle)\n                                        }\n                                    } else if let mouseCursor = style.mouseCursor {\n                                        window.setCursorStyle(mouseCursor, hitbox: hb)\n                                    }\n\n                                    if let groupName = self.group {\n                                        GroupHitboxes.push(groupName, hb.id, &cx)\n                                    }\n\n                                    if let area = self.windowControl {\n                                        window.insertWindowControlHitbox(area, hb)\n                                    }\n\n                                    self.paintMouseListeners(hitbox: hb, elementState: state, window: &window, cx: &cx)\n                                    self.paintScrollListener(hitbox: hb, style: style, window: &window, cx: &cx)\n                                }\n\n                                self.paintKeyboardListeners(&window, &cx)\n                                f(style, &window, &cx)\n\n                                if hitbox != nil {\n                                    if let groupName = self.group {\n                                        GroupHitboxes.pop(groupName, &cx)\n                                    }\n                                }\n                            }\n                        }\n                    }\n                }\n            }\n\n            elementState = state\n        }\n    ",
+        "body_line": 764
+      }
+    },
+    {
+      "line": 2728,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "compute_style",
+      "enclosing": "Interactivity",
+      "item": "Interactivity::compute_style",
+      "swift_name": "computeStyle",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "computeStyle",
+        "enclosing": "Interactivity",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 831,
+        "body": "\n        let (style, _) = window.withOptionalElementState(globalId) { (elementState: inout InteractiveElementState?, window: inout Window) -> Style in\n            let state = elementState ?? InteractiveElementState()\n            return self.computeStyleInternal(hitbox: hitbox, elementState: state, window: &window, cx: &cx)\n        }\n        return style\n    ",
+        "body_line": 836
+      }
+    },
+    {
+      "line": 2870,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "InteractiveElementState",
+      "enclosing": null,
+      "item": "InteractiveElementState",
+      "swift_name": "InteractiveElementState",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "class",
+        "name": "InteractiveElementState",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 233,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 2882,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "ElementClickedState",
+      "enclosing": null,
+      "item": "ElementClickedState",
+      "swift_name": "ElementClickedState",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "ElementClickedState",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 204,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 2898,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "ElementHoverState",
+      "enclosing": null,
+      "item": "ElementHoverState",
+      "swift_name": "ElementHoverState",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "ElementHoverState",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 219,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 2906,
+      "vis": "pub(crate)",
+      "kind": "enum",
+      "rust_name": "ActiveTooltip",
+      "enclosing": null,
+      "item": "ActiveTooltip",
+      "swift_name": "ActiveTooltip",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "enum",
+        "name": "ActiveTooltip",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 102,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 2922,
+      "vis": "pub(crate)",
+      "kind": "fn",
+      "rust_name": "clear_active_tooltip",
+      "enclosing": null,
+      "item": "clear_active_tooltip",
+      "swift_name": "clearActiveTooltip",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "clearActiveTooltip",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 111,
+        "body": "\n    if let current = activeTooltip {\n        switch current {\n        case .waitingForShow:\n            break\n        case .visible, .waitingForHide:\n            window.refresh()\n        }\n        activeTooltip = nil\n    }\n",
+        "body_line": 114
+      }
+    },
+    {
+      "line": 2934,
+      "vis": "pub(crate)",
+      "kind": "fn",
+      "rust_name": "clear_active_tooltip_if_not_hoverable",
+      "enclosing": null,
+      "item": "clear_active_tooltip_if_not_hoverable",
+      "swift_name": "clearActiveTooltipIfNotHoverable",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "clearActiveTooltipIfNotHoverable",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 126,
+        "body": "\n    guard let current = activeTooltip else { return }\n    var shouldClear = false\n    switch current {\n    case .waitingForShow, .waitingForHide:\n        shouldClear = false\n    case .visible(_, let isHoverable):\n        shouldClear = !isHoverable\n    }\n    if shouldClear {\n        activeTooltip = nil\n        window.refresh()\n    }\n",
+        "body_line": 129
+      }
+    },
+    {
+      "line": 2950,
+      "vis": "pub(crate)",
+      "kind": "fn",
+      "rust_name": "set_tooltip_on_window",
+      "enclosing": null,
+      "item": "set_tooltip_on_window",
+      "swift_name": "setTooltipOnWindow",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "setTooltipOnWindow",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 144,
+        "body": "\n    guard let active = activeTooltip else { return nil }\n    let tooltip: AnyTooltip\n    switch active {\n    case .waitingForShow:\n        return nil\n    case .visible(let tt, _):\n        tooltip = tt\n    case .waitingForHide(let tt, _):\n        tooltip = tt\n    }\n    return window.setTooltip(tooltip)\n",
+        "body_line": 147
+      }
+    },
+    {
+      "line": 2963,
+      "vis": "pub(crate)",
+      "kind": "fn",
+      "rust_name": "register_tooltip_mouse_handlers",
+      "enclosing": null,
+      "item": "register_tooltip_mouse_handlers",
+      "swift_name": "registerTooltipMouseHandlers",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "registerTooltipMouseHandlers",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 161,
+        "body": "\n    window.onMouseEvent { (event: MouseMoveEvent, phase: DispatchPhase, window: inout Window, cx: inout App) in\n        if checkIsHovered(window) {\n            if activeTooltipHolder.activeTooltip == nil {\n                if let (view, hoverable) = buildTooltip(&window, &cx) {\n                    let tooltip = AnyTooltip(\n                        view: view,\n                        mousePosition: window.mousePosition\n                    )\n                    activeTooltipHolder.activeTooltip = .visible(tooltip: tooltip, isHoverable: hoverable)\n                    window.refresh()\n                }\n            }\n        } else {\n            clearActiveTooltipIfNotHoverable(&activeTooltipHolder.activeTooltip, &window)\n        }\n    }\n\n    window.onMouseEvent { (event: MouseDownEvent, phase: DispatchPhase, window: inout Window, cx: inout App) in\n        if let tooltipId = tooltipId, tooltipId.isHovered(window) {\n            return\n        }\n        clearActiveTooltipIfNotHoverable(&activeTooltipHolder.activeTooltip, &window)\n    }\n\n    window.onMouseEvent { (event: ScrollWheelEvent, phase: DispatchPhase, window: inout Window, cx: inout App) in\n        if let tooltipId = tooltipId, tooltipId.isHovered(window) {\n            return\n        }\n        clearActiveTooltipIfNotHoverable(&activeTooltipHolder.activeTooltip, &window)\n    }\n",
+        "body_line": 168
+      }
+    },
+    {
+      "line": 3189,
+      "vis": "pub(crate)",
+      "kind": "struct",
+      "rust_name": "GroupHitboxes",
+      "enclosing": null,
+      "item": "GroupHitboxes",
+      "swift_name": "GroupHitboxes",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "GroupHitboxes",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 248,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 3194,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "get",
+      "enclosing": "GroupHitboxes",
+      "item": "GroupHitboxes::get",
+      "swift_name": "get",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "get",
+        "enclosing": "GroupHitboxes",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 254,
+        "body": "\n        let global = cx.defaultGlobal(GroupHitboxes.self)\n        return global.hitboxes[name]?.last\n    ",
+        "body_line": 254
+      }
+    },
+    {
+      "line": 3202,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "push",
+      "enclosing": "GroupHitboxes",
+      "item": "GroupHitboxes::push",
+      "swift_name": "push",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "push",
+        "enclosing": "GroupHitboxes",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 260,
+        "body": "\n        var global = cx.defaultGlobal(GroupHitboxes.self)\n        global.hitboxes[name, default: []].append(hitboxId)\n        cx.setGlobal(global)\n    ",
+        "body_line": 260
+      }
+    },
+    {
+      "line": 3210,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "pop",
+      "enclosing": "GroupHitboxes",
+      "item": "GroupHitboxes::pop",
+      "swift_name": "pop",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "pop",
+        "enclosing": "GroupHitboxes",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 267,
+        "body": "\n        var global = cx.defaultGlobal(GroupHitboxes.self)\n        _ = global.hitboxes[name]?.popLast()\n        cx.setGlobal(global)\n    ",
+        "body_line": 267
+      }
+    },
+    {
+      "line": 3216,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "Stateful",
+      "enclosing": null,
+      "item": "Stateful",
+      "swift_name": "Stateful",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "Stateful",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2057,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 3328,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "ScrollAnchor",
+      "enclosing": null,
+      "item": "ScrollAnchor",
+      "swift_name": "ScrollAnchor",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "ScrollAnchor",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2148,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 3335,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "for_handle",
+      "enclosing": "ScrollAnchor",
+      "item": "ScrollAnchor::for_handle",
+      "swift_name": "forHandle",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "forHandle",
+        "enclosing": "ScrollAnchor",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2161,
+        "body": "\n        ScrollAnchor(handle: handle)\n    ",
+        "body_line": 2161
+      }
+    },
+    {
+      "line": 3342,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "scroll_to",
+      "enclosing": "ScrollAnchor",
+      "item": "ScrollAnchor::scroll_to",
+      "swift_name": "scrollTo",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "scrollTo",
+        "enclosing": "ScrollAnchor",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2169,
+        "body": "\n        let anchor = self\n        window.onNextFrame { window, _ in\n            let viewportBounds = anchor.handle.bounds()\n            let selfBounds = anchor.originHolder.lastOrigin\n            anchor.handle.setOffset(viewportBounds.origin - selfBounds)\n        }\n    ",
+        "body_line": 2169
+      }
+    },
+    {
+      "line": 3381,
+      "vis": "pub",
+      "kind": "struct",
+      "rust_name": "ScrollHandle",
+      "enclosing": null,
+      "item": "ScrollHandle",
+      "swift_name": "ScrollHandle",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "struct",
+        "name": "ScrollHandle",
+        "enclosing": null,
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2212,
+        "body": null,
+        "body_line": null
+      }
+    },
+    {
+      "line": 3391,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "new",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::new",
+      "swift_name": "new",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "new",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2219,
+        "body": "\n        ScrollHandle()\n    ",
+        "body_line": 2219
+      }
+    },
+    {
+      "line": 3396,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "offset",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::offset",
+      "swift_name": "offset",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "offset",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2223,
+        "body": "\n        state.offset\n    ",
+        "body_line": 2223
+      }
+    },
+    {
+      "line": 3401,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "max_offset",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::max_offset",
+      "swift_name": "maxOffset",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "maxOffset",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2227,
+        "body": "\n        state.maxOffset\n    ",
+        "body_line": 2227
+      }
+    },
+    {
+      "line": 3406,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "top_item",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::top_item",
+      "swift_name": "topItem",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "topItem",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2231,
+        "body": "\n        let top = state.bounds.top - state.offset.y\n        for (i, bounds) in state.childBounds.enumerated() {\n            if bounds.bottom >= top {\n                return i\n            }\n        }\n        return max(0, state.childBounds.count - 1)\n    ",
+        "body_line": 2231
+      }
+    },
+    {
+      "line": 3425,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "bottom_item",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::bottom_item",
+      "swift_name": "bottomItem",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "bottomItem",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2241,
+        "body": "\n        let bottom = state.bounds.bottom - state.offset.y\n        for (i, bounds) in state.childBounds.enumerated().reversed() {\n            if bounds.top <= bottom {\n                return i\n            }\n        }\n        return 0\n    ",
+        "body_line": 2241
+      }
+    },
+    {
+      "line": 3444,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "bounds",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::bounds",
+      "swift_name": "bounds",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "bounds",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2251,
+        "body": "\n        state.bounds\n    ",
+        "body_line": 2251
+      }
+    },
+    {
+      "line": 3449,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "bounds_for_item",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::bounds_for_item",
+      "swift_name": "boundsForItem",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "boundsForItem",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2255,
+        "body": "\n        guard ix >= 0 && ix < state.childBounds.count else { return nil }\n        return state.childBounds[ix]\n    ",
+        "body_line": 2255
+      }
+    },
+    {
+      "line": 3454,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "scroll_to_item",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::scroll_to_item",
+      "swift_name": "scrollToItem",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "scrollToItem",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2260,
+        "body": "\n        state.activeItem = ScrollActiveItem(index: ix, strategy: .firstVisible)\n    ",
+        "body_line": 2260
+      }
+    },
+    {
+      "line": 3464,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "scroll_to_top_of_item",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::scroll_to_top_of_item",
+      "swift_name": "scrollToTopOfItem",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "scrollToTopOfItem",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2264,
+        "body": "\n        state.activeItem = ScrollActiveItem(index: ix, strategy: .top)\n    ",
+        "body_line": 2264
+      }
+    },
+    {
+      "line": 3524,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "scroll_to_bottom",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::scroll_to_bottom",
+      "swift_name": "scrollToBottom",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "scrollToBottom",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2305,
+        "body": "\n        state.scrollToBottom = true\n    ",
+        "body_line": 2305
+      }
+    },
+    {
+      "line": 3532,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "set_offset",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::set_offset",
+      "swift_name": "setOffset",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "setOffset",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2309,
+        "body": "\n        state.offset = position\n    ",
+        "body_line": 2309
+      }
+    },
+    {
+      "line": 3538,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "logical_scroll_top",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::logical_scroll_top",
+      "swift_name": "logicalScrollTop",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "logicalScrollTop",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2313,
+        "body": "\n        let ix = topItem()\n        if ix < state.childBounds.count {\n            return (ix, state.childBounds[ix].top + state.offset.y - state.bounds.top)\n        }\n        return (ix, px(0))\n    ",
+        "body_line": 2313
+      }
+    },
+    {
+      "line": 3553,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "logical_scroll_bottom",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::logical_scroll_bottom",
+      "swift_name": "logicalScrollBottom",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "logicalScrollBottom",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2321,
+        "body": "\n        let ix = bottomItem()\n        if ix < state.childBounds.count {\n            return (ix, state.childBounds[ix].bottom + state.offset.y - state.bounds.bottom)\n        }\n        return (ix, px(0))\n    ",
+        "body_line": 2321
+      }
+    },
+    {
+      "line": 3568,
+      "vis": "pub",
+      "kind": "fn",
+      "rust_name": "children_count",
+      "enclosing": "ScrollHandle",
+      "item": "ScrollHandle::children_count",
+      "swift_name": "childrenCount",
+      "status": "genuine",
+      "swift_decl": {
+        "kind": "func",
+        "name": "childrenCount",
+        "enclosing": "ScrollHandle",
+        "file": "/Users/mweinbach/Projects/GPUA/Sources/GPUI/elements/div.swift",
+        "line": 2329,
+        "body": "\n        state.childBounds.count\n    ",
+        "body_line": 2329
+      }
+    }
+  ]
+}

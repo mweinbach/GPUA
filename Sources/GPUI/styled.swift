@@ -521,8 +521,16 @@ extension Styled {
         withStyle { $0.size.width = length }
     }
 
+    public func w(_ px: Pixels) -> Self {
+        w(Length(px))
+    }
+
     public func h(_ length: Length) -> Self {
         withStyle { $0.size.height = length }
+    }
+
+    public func h(_ px: Pixels) -> Self {
+        h(Length(px))
     }
 
     public func size(_ length: Length) -> Self {
@@ -530,6 +538,10 @@ extension Styled {
             $0.size.width = length
             $0.size.height = length
         }
+    }
+
+    public func size(_ px: Pixels) -> Self {
+        size(Length(px))
     }
 
     public func minW(_ length: Length) -> Self {
@@ -603,6 +615,10 @@ extension Styled {
             $0.padding.left = length
             $0.padding.right = length
         }
+    }
+
+    public func p(_ px: Pixels) -> Self {
+        p(DefiniteLength(px))
     }
 
     public func pt(_ length: DefiniteLength) -> Self { withStyle { $0.padding.top = length } }

@@ -233,7 +233,7 @@ public final class LineWrapper {
                 let charWidth = widthForChar(c)
                 width += charWidth
 
-                if floor(width.value) > truncateWidth.value {
+                if width.value.rounded(.down) > truncateWidth.value {
                     return truncateIx
                 }
             }
@@ -246,7 +246,7 @@ public final class LineWrapper {
                 let charWidth = widthForChar(c)
                 width += charWidth
 
-                if floor(width.value) > truncateWidth.value {
+                if width.value.rounded(.down) > truncateWidth.value {
                     return truncateIx
                 }
             }

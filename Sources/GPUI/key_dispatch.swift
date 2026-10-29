@@ -53,7 +53,6 @@ public struct DispatchResult: Sendable, Equatable {
 }
 
 public typealias KeyListener = @Sendable (Any, DispatchPhase, inout Window, inout App) -> Void
-public typealias ModifiersChangedListener = @Sendable (ModifiersChangedEvent, inout Window, inout App) -> Void
 
 public struct DispatchActionListener {
     public var actionType: ObjectIdentifier

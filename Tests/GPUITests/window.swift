@@ -96,7 +96,7 @@ struct WindowTests {
 
         // Swapped: renderedFrame now has the hitbox and quad, nextFrame is cleared
         #expect(window.renderedFrame.hitboxes.count == 1)
-        #expect(window.renderedFrame.hitboxes[0].id == hitboxId)
+        #expect(window.renderedFrame.hitboxes[0].id == hitboxId.id)
         #expect(window.nextFrame.hitboxes.isEmpty)
         #expect(mockPlatform.lastDrawnScene != nil)
     }
@@ -129,15 +129,15 @@ struct WindowTests {
 
         // Hit test inside id2: id2 is on top and blocks mouse, so id1 is not reached
         let hitAt75 = window.renderedFrame.hitTest(point(px(75), px(75)))
-        #expect(hitAt75.ids == [id2])
+        #expect(hitAt75.ids == [id2.id])
 
         // Hit test at (180, 180): inside id1, outside id2
         let hitAt180 = window.renderedFrame.hitTest(point(px(180), px(180)))
-        #expect(hitAt180.ids == [id1])
+        #expect(hitAt180.ids == [id1.id])
 
         // Hit test at (275, 275): inside id3 (blockMouseExceptScroll)
         let hitAt275 = window.renderedFrame.hitTest(point(px(275), px(275)))
-        #expect(hitAt275.ids == [id3])
+        #expect(hitAt275.ids == [id3.id])
         #expect(hitAt275.hoverHitboxCount == 1)
 
         // Hit test outside all hitboxes
@@ -381,7 +381,7 @@ struct WindowTests {
             window: &window,
             cx: &app
         )
-        #expect(renderable.view.entityId.rawValue > 0)
+        #expect(renderable.view.entityId().rawValue > 0)
 
         handle.send(1)
         #expect(respondedIndex.value == 1)

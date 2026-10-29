@@ -47,35 +47,5 @@
     "swift_name": "init",
     "target_batch": "Batch 3.2 (Window)",
     "reason": "Idiomatic Swift initializer WindowHandle.init(anyHandle:)"
-  },
-  {
-    "item": "Window::prepaint_index",
-    "status": "deferred",
-    "target_batch": "Batch 3.4 (Element Tree)",
-    "reason": "Requires ElementArena and AnyElement lifecycle from Batch 3.4"
-  },
-  {
-    "item": "Window::reuse_prepaint",
-    "status": "deferred",
-    "target_batch": "Batch 3.4 (Element Tree)",
-    "reason": "Requires ElementArena and AnyElement lifecycle from Batch 3.4"
-  },
-  {
-    "item": "Window::paint_index",
-    "status": "deferred",
-    "target_batch": "Batch 3.4 (Element Tree)",
-    "reason": "Requires ElementArena and AnyElement lifecycle from Batch 3.4"
-  },
-  {
-    "item": "Window::reuse_paint",
-    "status": "deferred",
-    "target_batch": "Batch 3.4 (Element Tree)",
-    "reason": "Requires ElementArena and AnyElement lifecycle from Batch 3.4"
-  },
-  {
-    "item": "ELEMENT_ARENA",
-    "status": "deferred",
-    "target_batch": "Batch 3.4 (Element Tree)",
-    "reason": "Requires ElementArena from Batch 3.4"
   }
 ]
