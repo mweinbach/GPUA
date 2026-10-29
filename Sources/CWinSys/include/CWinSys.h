@@ -34,6 +34,7 @@ int cwin_d3d11_update_subresource(void* context, void* texture, uint32_t dst_x, 
 int cwin_d3d11_readback_texture_pixels(void* device, void* context, void* texture, uint32_t width, uint32_t height, uint32_t* out_row_pitch, int swizzle_bgra, uint8_t** out_pixels);
 void cwin_d3d11_free_pixel_buffer(uint8_t* pixels);
 void cwin_release_com_object(void* obj);
+void cwin_addref_com_object(void* obj);
 
 // D3D11 Pipeline State and Draw Wrappers
 void cwin_d3d11_clear_render_target_view(void* context, void* rtv, const float color[4]);
@@ -76,7 +77,73 @@ void cwin_d3d11_clear_state(void* context);
 void cwin_d3d11_flush(void* context);
 
 // DirectWrite
+struct CWinFontMetrics {
+    float ascent;
+    float descent;
+    float line_gap;
+    float cap_height;
+    float x_height;
+    float underline_position;
+    float underline_thickness;
+    uint16_t units_per_em;
+    int is_color;
+    float glyph_box_left;
+    float glyph_box_bottom;
+    float glyph_box_right;
+    float glyph_box_top;
+};
+
+struct CWinGlyphDesignMetrics {
+    float advance_width;
+    float left_side_bearing;
+    float right_side_bearing;
+    float top_side_bearing;
+    float advance_height;
+    float bottom_side_bearing;
+    float vertical_origin_y;
+};
+
+struct CWinShapedRunView {
+    void* font_face;
+    float font_size;
+    uint32_t text_position;
+    uint32_t string_length;
+    uint32_t glyph_count;
+    const uint16_t* glyph_indices;
+    const float* glyph_advances;
+    const float* glyph_offsets_x;
+    const float* glyph_offsets_y;
+    uint32_t cluster_count;
+    const uint16_t* cluster_map;
+    int is_color;
+};
+
+struct CWinGlyphRasterParams {
+    void* font_face;
+    uint16_t glyph_id;
+    float font_size;
+    float scale_factor;
+    float subpixel_bias_x;
+    float subpixel_bias_y;
+    int subpixel_rendering;
+    int is_emoji;
+};
+
+struct CWinGlyphRasterResult {
+    int32_t left;
+    int32_t top;
+    int32_t width;
+    int32_t height;
+    uint8_t* pixels;
+    uint32_t pixel_bytes;
+};
+
 int cwin_dwrite_create_factory(void** out_factory);
+int cwin_dwrite_get_system_font_collection(void* factory, void** out_collection);
+uint32_t cwin_dwrite_collection_get_family_count(void* collection);
+int cwin_dwrite_collection_get_family_name(void* collection, uint32_t index, uint16_t* out_name, uint32_t max_chars);
+int cwin_dwrite_collection_find_family(void* collection, const uint16_t* family_name, uint32_t* out_index, int* out_exists);
+int cwin_dwrite_collection_get_font_face(void* collection, uint32_t family_index, uint32_t weight, uint32_t style, void** out_font_face);
 int cwin_dwrite_register_in_memory_font_loader(void* factory, void** out_loader);
 int cwin_dwrite_create_font_file_reference(void* loader, const void* data, size_t size, void** out_font_file);
 int cwin_dwrite_create_font_set_builder(void* factory, void** out_builder);
@@ -85,6 +152,22 @@ int cwin_dwrite_font_set_builder_create_collection(void* builder, void* factory,
 int cwin_dwrite_create_text_format(void* factory, const uint16_t* family_name, void* collection, uint32_t weight, uint32_t style, float font_size, void** out_format);
 int cwin_dwrite_create_text_layout(void* factory, const uint16_t* text, uint32_t text_len, void* format, float max_width, float max_height, void** out_layout);
 int cwin_dwrite_layout_get_metrics(void* layout, float* out_width, float* out_height, float* out_baseline);
+int cwin_dwrite_create_typography(void* factory, void** out_typography);
+int cwin_dwrite_typography_add_feature(void* typography, uint32_t tag, uint32_t parameter);
+int cwin_dwrite_layout_set_typography(void* layout, void* typography, uint32_t start_position, uint32_t length);
+int cwin_dwrite_layout_set_font_collection(void* layout, void* collection, uint32_t start_position, uint32_t length);
+int cwin_dwrite_layout_set_font_family_name(void* layout, const uint16_t* family_name, uint32_t start_position, uint32_t length);
+int cwin_dwrite_layout_set_font_size(void* layout, float font_size, uint32_t start_position, uint32_t length);
+int cwin_dwrite_layout_set_font_weight(void* layout, uint32_t weight, uint32_t start_position, uint32_t length);
+int cwin_dwrite_layout_set_font_style(void* layout, uint32_t style, uint32_t start_position, uint32_t length);
+int cwin_dwrite_font_face_get_metrics(void* font_face, struct CWinFontMetrics* out_metrics);
+int cwin_dwrite_font_face_get_glyph_indices(void* font_face, const uint32_t* codepoints, uint32_t count, uint16_t* out_glyph_indices);
+int cwin_dwrite_font_face_get_design_glyph_metrics(void* font_face, const uint16_t* glyph_indices, uint32_t count, struct CWinGlyphDesignMetrics* out_metrics);
+int cwin_dwrite_layout_extract_runs(void* layout, void** out_runs_handle, uint32_t* out_count);
+int cwin_dwrite_get_extracted_run(void* runs_handle, uint32_t index, struct CWinShapedRunView* out_run);
+void cwin_dwrite_free_extracted_runs(void* runs_handle);
+int cwin_dwrite_rasterize_glyph(void* factory, const struct CWinGlyphRasterParams* params, struct CWinGlyphRasterResult* out_result);
+void cwin_dwrite_free_raster_result(struct CWinGlyphRasterResult* result);
 
 // Win32 Windowing, Dispatcher, Keyboard, Clipboard
 int cwin_win32_register_window_class(const uint16_t* class_name, void* wndproc, void** out_atom);

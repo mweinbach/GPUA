@@ -104,8 +104,8 @@ final class DirectXAtlasTexture: @unchecked Sendable {
     }
 
     deinit {
-        cwin_com_release(view)
-        cwin_com_release(texture)
+        cwin_release_com_object(view)
+        cwin_release_com_object(texture)
     }
 
     func allocate(size: Size<DevicePixels>) -> AtlasTile? {
@@ -116,8 +116,8 @@ final class DirectXAtlasTexture: @unchecked Sendable {
         return AtlasTile(
             textureId: id,
             tileId: tileId,
-            bounds: bounds,
-            padding: 0
+            padding: 0,
+            bounds: bounds
         )
     }
 

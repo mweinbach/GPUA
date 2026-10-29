@@ -236,6 +236,7 @@ final class PipelineState<T>: @unchecked Sendable {
         self.pixelShader = pixelShader
         self.bufferSize = max(4, initialCapacity)
         self.elementStride = MemoryLayout<T>.stride
+        cwin_addref_com_object(blendState)
         self.blendState = blendState
 
         var buf: UnsafeMutableRawPointer?
@@ -477,6 +478,17 @@ public final class DirectXRenderer: @unchecked Sendable {
         let swap = try directxDevices.createSwapchain(hwnd: hwnd, width: 1, height: 1)
         self.swapChain = swap
 
+        var backBuffer: UnsafeMutableRawPointer?
+        var rtv: UnsafeMutableRawPointer?
+        let hrBuf = cwin_d3d11_get_swapchain_backbuffer(swap, &backBuffer)
+        if hrBuf == 0, let backBuffer = backBuffer {
+            self.renderTarget = backBuffer
+            let hrRtv = cwin_d3d11_create_render_target_view(directxDevices.device, backBuffer, &rtv)
+            if hrRtv == 0, let rtv = rtv {
+                self.renderTargetView = rtv
+            }
+        }
+
         try setupPipelinesAndResources(width: 1, height: 1)
     }
 
@@ -571,6 +583,11 @@ public final class DirectXRenderer: @unchecked Sendable {
 
         guard let bsDefault = bsDefault, let bsSubpixel = bsSubpixel, let bsPath = bsPath else {
             throw DirectXError.bufferCreationFailure(-1)
+        }
+        defer {
+            cwin_release_com_object(bsDefault)
+            cwin_release_com_object(bsSubpixel)
+            cwin_release_com_object(bsPath)
         }
 
         func buildPipeline<T>(
@@ -700,8 +717,12 @@ public final class DirectXRenderer: @unchecked Sendable {
     }
 
     public func present() throws {
-        // Swapchain present when swapChain != nil
-        // Direct present is called via swapChain vtable or Windows platform present
+        if let sc = swapChain {
+            let hr = cwin_d3d11_present_swapchain(sc, 0, 0)
+            if hr != 0 {
+                throw DirectXError.swapchainCreationFailure(hr)
+            }
+        }
     }
 
     public func markDrawable() {
@@ -938,6 +959,10 @@ public final class DirectXRenderer: @unchecked Sendable {
             globalParams: globalParamsBuffer,
             instanceCount: UInt32(sprites.count)
         )
+
+        var nullSrv: [UnsafeMutableRawPointer?] = [nil]
+        cwin_d3d11_ps_set_shader_resources(ctx, 0, 1, &nullSrv)
+        cwin_d3d11_vs_set_shader_resources(ctx, 0, 1, &nullSrv)
     }
 
     public func resize(newSize: Size<DevicePixels>) throws {
@@ -951,6 +976,30 @@ public final class DirectXRenderer: @unchecked Sendable {
 
         let ctx = devices.deviceContext
         cwin_d3d11_om_set_render_targets(ctx, 0, nil, nil)
+
+        if let sc = swapChain {
+            if ownsRenderTargetView, let rtv = renderTargetView {
+                cwin_release_com_object(rtv)
+                self.renderTargetView = nil
+            }
+            if let rt = renderTarget {
+                cwin_release_com_object(rt)
+                self.renderTarget = nil
+            }
+            let hrResize = cwin_d3d11_resize_swapchain(sc, newWidth, newHeight)
+            if hrResize == 0 {
+                var backBuffer: UnsafeMutableRawPointer?
+                var rtv: UnsafeMutableRawPointer?
+                let hrBuf = cwin_d3d11_get_swapchain_backbuffer(sc, &backBuffer)
+                if hrBuf == 0, let backBuffer = backBuffer {
+                    self.renderTarget = backBuffer
+                    let hrRtv = cwin_d3d11_create_render_target_view(devices.device, backBuffer, &rtv)
+                    if hrRtv == 0, let rtv = rtv {
+                        self.renderTargetView = rtv
+                    }
+                }
+            }
+        }
 
         try createIntermediateTextures(width: newWidth, height: newHeight)
 

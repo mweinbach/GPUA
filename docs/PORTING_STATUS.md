@@ -14,7 +14,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `Taffy` | 47 | 3 | 0 | 44 | 0 | 0 | 18,695 | 98% |
 | `GPUILinux` | 24 | 0 | 0 | 24 | 0 | 0 | 12,710 | 100% |
 | `GPUIExamples` | 40 | 40 | 0 | 0 | 0 | 0 | 12,441 | 0% |
-| `GPUIWindows` | 18 | 8 | 0 | 10 | 0 | 0 | 11,223 | 42% |
+| `GPUIWindows` | 18 | 7 | 0 | 11 | 0 | 0 | 11,223 | 59% |
 | `GPUIMacOS` | 14 | 14 | 0 | 0 | 0 | 0 | 10,175 | 0% |
 | `ZedUtil` | 23 | 0 | 0 | 6 | 0 | 17 | 9,596 | 100% |
 | `GPUIiOS` | 20 | 20 | 0 | 0 | 0 | 0 | 6,168 | 0% |
@@ -32,7 +32,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **338** | 118 | 0 | 200 | 0 | 20 | 154,333 | 74% |
+| **Total** | **338** | 117 | 0 | 201 | 0 | 20 | 154,333 | 75% |
 
 ## Files
 
@@ -375,7 +375,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui_windows/src/clipboard.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/clipboard.rs) | [Sources/GPUIWindows/clipboard.swift](../Sources/GPUIWindows/clipboard.swift) | source | 455 | not-started |
 | [crates/gpui_windows/src/destination_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/destination_list.rs) | [Sources/GPUIWindows/destination_list.swift](../Sources/GPUIWindows/destination_list.swift) | source | 213 | not-started |
 | [crates/gpui_windows/src/direct_manipulation.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/direct_manipulation.rs) | [Sources/GPUIWindows/direct_manipulation.swift](../Sources/GPUIWindows/direct_manipulation.swift) | source | 359 | not-started |
-| [crates/gpui_windows/src/direct_write.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/direct_write.rs) | [Sources/GPUIWindows/direct_write.swift](../Sources/GPUIWindows/direct_write.swift) | source | 1920 | not-started |
+| [crates/gpui_windows/src/direct_write.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/direct_write.rs) | [Sources/GPUIWindows/direct_write.swift](../Sources/GPUIWindows/direct_write.swift) | source | 1920 | ported |
 | [crates/gpui_windows/src/directx_atlas.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/directx_atlas.rs) | [Sources/GPUIWindows/directx_atlas.swift](../Sources/GPUIWindows/directx_atlas.swift) | source | 320 | ported |
 | [crates/gpui_windows/src/directx_devices.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/directx_devices.rs) | [Sources/GPUIWindows/directx_devices.swift](../Sources/GPUIWindows/directx_devices.swift) | source | 194 | ported |
 | [crates/gpui_windows/src/directx_renderer.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/directx_renderer.rs) | [Sources/GPUIWindows/directx_renderer.swift](../Sources/GPUIWindows/directx_renderer.swift) | source | 1951 | ported |
@@ -392,7 +392,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui_windows/src/wrapper.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/wrapper.rs) | [Sources/GPUIWindows/wrapper.swift](../Sources/GPUIWindows/wrapper.swift) | source | 53 | not-started |
 | [crates/gpui_windows/src/alpha_correction.hlsl](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/alpha_correction.hlsl) | [Sources/GPUIWindows/alpha_correction.hlsl](../Sources/GPUIWindows/alpha_correction.hlsl) | asset |  | copied |
 | [crates/gpui_windows/src/color_text_raster.hlsl](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/color_text_raster.hlsl) | [Sources/GPUIWindows/color_text_raster.hlsl](../Sources/GPUIWindows/color_text_raster.hlsl) | asset |  | copied |
-| [crates/gpui_windows/src/direct_write.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/direct_write.rs) | [Tests/GPUIWindowsTests/direct_write.swift](../Tests/GPUIWindowsTests/direct_write.swift) | inline-test |  | not-started |
+| [crates/gpui_windows/src/direct_write.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/direct_write.rs) | [Tests/GPUIWindowsTests/direct_write.swift](../Tests/GPUIWindowsTests/direct_write.swift) | inline-test |  | ported |
 | [crates/gpui_windows/src/keyboard.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/keyboard.rs) | [Tests/GPUIWindowsTests/keyboard.swift](../Tests/GPUIWindowsTests/keyboard.swift) | inline-test |  | not-started |
 | [crates/gpui_windows/src/platform.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/platform.rs) | [Tests/GPUIWindowsTests/platform.swift](../Tests/GPUIWindowsTests/platform.swift) | inline-test |  | ported |
 | [crates/gpui_windows/src/shaders.hlsl](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/shaders.hlsl) | [Sources/GPUIWindows/shaders.hlsl](../Sources/GPUIWindows/shaders.hlsl) | asset |  | copied |

@@ -80,6 +80,8 @@ public final class DirectXDevices: @unchecked Sendable {
     }
 
     public init(device: WinHandle, deviceContext: WinHandle, featureLevel: UInt32 = 0xb000, isWarp: Bool = false) {
+        cwin_addref_com_object(device)
+        cwin_addref_com_object(deviceContext)
         self.device = device
         self.deviceContext = deviceContext
         self.featureLevel = featureLevel
@@ -87,8 +89,8 @@ public final class DirectXDevices: @unchecked Sendable {
     }
 
     deinit {
-        cwin_com_release(deviceContext)
-        cwin_com_release(device)
+        cwin_release_com_object(deviceContext)
+        cwin_release_com_object(device)
     }
 
     public func createSwapchain(hwnd: WinHandle, width: UInt32, height: UInt32) throws -> WinHandle {

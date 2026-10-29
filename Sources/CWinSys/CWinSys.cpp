@@ -43,6 +43,13 @@ void cwin_release_com_object(void* obj) {
     }
 }
 
+void cwin_addref_com_object(void* obj) {
+    if (obj) {
+        IUnknown* unk = static_cast<IUnknown*>(obj);
+        unk->AddRef();
+    }
+}
+
 int cwin_d3d11_create_device(int enable_debug, void** out_device, void** out_context, uint32_t* out_feature_level) {
     if (!out_device || !out_context) return (int)E_INVALIDARG;
 
@@ -894,12 +901,26 @@ struct FontMemoryPayload {
 
 class MemoryFontFileStream : public IDWriteFontFileStream {
     LONG ref_count_;
-    const void* data_;
+    void* data_;
     UINT32 size_;
 
 public:
     MemoryFontFileStream(const void* data, UINT32 size)
-        : ref_count_(1), data_(data), size_(size) {}
+        : ref_count_(1), data_(nullptr), size_(size) {
+        if (data && size > 0) {
+            data_ = malloc(size);
+            if (data_) {
+                memcpy(data_, data, size);
+            }
+        }
+    }
+
+    ~MemoryFontFileStream() {
+        if (data_) {
+            free(data_);
+            data_ = nullptr;
+        }
+    }
 
     ULONG STDMETHODCALLTYPE AddRef() noexcept override { return InterlockedIncrement(&ref_count_); }
     ULONG STDMETHODCALLTYPE Release() noexcept override {
@@ -919,7 +940,7 @@ public:
     }
 
     HRESULT STDMETHODCALLTYPE ReadFileFragment(const void** fragmentStart, UINT64 fileOffset, UINT64 fragmentSize, void** fragmentContext) noexcept override {
-        if (fileOffset + fragmentSize > size_) return E_INVALIDARG;
+        if (!data_ || fileOffset + fragmentSize > size_) return E_INVALIDARG;
         *fragmentStart = static_cast<const uint8_t*>(data_) + fileOffset;
         *fragmentContext = nullptr;
         return S_OK;
@@ -1220,6 +1241,495 @@ int cwin_dwrite_layout_get_metrics(void* layout, float* out_width, float* out_he
     }
 
     return 0;
+}
+
+int cwin_dwrite_get_system_font_collection(void* factory, void** out_collection) {
+    if (!factory || !out_collection) return (int)E_INVALIDARG;
+    IDWriteFactory* f = static_cast<IDWriteFactory*>(factory);
+    IDWriteFontCollection* col = nullptr;
+    HRESULT hr = f->GetSystemFontCollection(&col, FALSE);
+    if (FAILED(hr)) return (int)hr;
+    *out_collection = col;
+    return 0;
+}
+
+uint32_t cwin_dwrite_collection_get_family_count(void* collection) {
+    if (!collection) return 0;
+    return static_cast<IDWriteFontCollection*>(collection)->GetFontFamilyCount();
+}
+
+int cwin_dwrite_collection_get_family_name(void* collection, uint32_t index, uint16_t* out_name, uint32_t max_chars) {
+    if (!collection || !out_name || max_chars == 0) return (int)E_INVALIDARG;
+    IDWriteFontCollection* col = static_cast<IDWriteFontCollection*>(collection);
+    IDWriteFontFamily* family = nullptr;
+    HRESULT hr = col->GetFontFamily(index, &family);
+    if (FAILED(hr)) return (int)hr;
+
+    IDWriteLocalizedStrings* names = nullptr;
+    hr = family->GetFamilyNames(&names);
+    family->Release();
+    if (FAILED(hr)) return (int)hr;
+
+    UINT32 name_index = 0;
+    BOOL exists = FALSE;
+    names->FindLocaleName(L"en-us", &name_index, &exists);
+    if (!exists) name_index = 0;
+
+    hr = names->GetString(name_index, reinterpret_cast<wchar_t*>(out_name), max_chars);
+    out_name[max_chars - 1] = 0;
+    names->Release();
+    return (int)hr;
+}
+
+int cwin_dwrite_collection_find_family(void* collection, const uint16_t* family_name, uint32_t* out_index, int* out_exists) {
+    if (!collection || !family_name || !out_index || !out_exists) return (int)E_INVALIDARG;
+    IDWriteFontCollection* col = static_cast<IDWriteFontCollection*>(collection);
+    UINT32 idx = 0;
+    BOOL exists = FALSE;
+    HRESULT hr = col->FindFamilyName(reinterpret_cast<const wchar_t*>(family_name), &idx, &exists);
+    if (FAILED(hr)) return (int)hr;
+    *out_index = idx;
+    *out_exists = exists ? 1 : 0;
+    return 0;
+}
+
+int cwin_dwrite_collection_get_font_face(void* collection, uint32_t family_index, uint32_t weight, uint32_t style, void** out_font_face) {
+    if (!collection || !out_font_face) return (int)E_INVALIDARG;
+    IDWriteFontCollection* col = static_cast<IDWriteFontCollection*>(collection);
+    IDWriteFontFamily* family = nullptr;
+    HRESULT hr = col->GetFontFamily(family_index, &family);
+    if (FAILED(hr)) return (int)hr;
+
+    IDWriteFont* font = nullptr;
+    hr = family->GetFirstMatchingFont(
+        static_cast<DWRITE_FONT_WEIGHT>(weight),
+        DWRITE_FONT_STRETCH_NORMAL,
+        static_cast<DWRITE_FONT_STYLE>(style),
+        &font
+    );
+    family->Release();
+    if (FAILED(hr)) return (int)hr;
+
+    IDWriteFontFace* face = nullptr;
+    hr = font->CreateFontFace(&face);
+    font->Release();
+    if (FAILED(hr)) return (int)hr;
+
+    *out_font_face = face;
+    return 0;
+}
+
+int cwin_dwrite_create_typography(void* factory, void** out_typography) {
+    if (!factory || !out_typography) return (int)E_INVALIDARG;
+    IDWriteFactory* f = static_cast<IDWriteFactory*>(factory);
+    IDWriteTypography* typo = nullptr;
+    HRESULT hr = f->CreateTypography(&typo);
+    if (FAILED(hr)) return (int)hr;
+    *out_typography = typo;
+    return 0;
+}
+
+int cwin_dwrite_typography_add_feature(void* typography, uint32_t tag, uint32_t parameter) {
+    if (!typography) return (int)E_INVALIDARG;
+    IDWriteTypography* typo = static_cast<IDWriteTypography*>(typography);
+    DWRITE_FONT_FEATURE feat = { static_cast<DWRITE_FONT_FEATURE_TAG>(tag), parameter };
+    return (int)typo->AddFontFeature(feat);
+}
+
+int cwin_dwrite_layout_set_typography(void* layout, void* typography, uint32_t start_position, uint32_t length) {
+    if (!layout || !typography) return (int)E_INVALIDARG;
+    IDWriteTextLayout* tl = static_cast<IDWriteTextLayout*>(layout);
+    IDWriteTypography* typo = static_cast<IDWriteTypography*>(typography);
+    DWRITE_TEXT_RANGE range = { start_position, length };
+    return (int)tl->SetTypography(typo, range);
+}
+
+int cwin_dwrite_layout_set_font_collection(void* layout, void* collection, uint32_t start_position, uint32_t length) {
+    if (!layout || !collection) return (int)E_INVALIDARG;
+    IDWriteTextLayout* tl = static_cast<IDWriteTextLayout*>(layout);
+    IDWriteFontCollection* col = static_cast<IDWriteFontCollection*>(collection);
+    DWRITE_TEXT_RANGE range = { start_position, length };
+    return (int)tl->SetFontCollection(col, range);
+}
+
+int cwin_dwrite_layout_set_font_family_name(void* layout, const uint16_t* family_name, uint32_t start_position, uint32_t length) {
+    if (!layout || !family_name) return (int)E_INVALIDARG;
+    IDWriteTextLayout* tl = static_cast<IDWriteTextLayout*>(layout);
+    DWRITE_TEXT_RANGE range = { start_position, length };
+    return (int)tl->SetFontFamilyName(reinterpret_cast<const wchar_t*>(family_name), range);
+}
+
+int cwin_dwrite_layout_set_font_size(void* layout, float font_size, uint32_t start_position, uint32_t length) {
+    if (!layout) return (int)E_INVALIDARG;
+    IDWriteTextLayout* tl = static_cast<IDWriteTextLayout*>(layout);
+    DWRITE_TEXT_RANGE range = { start_position, length };
+    return (int)tl->SetFontSize(font_size, range);
+}
+
+int cwin_dwrite_layout_set_font_weight(void* layout, uint32_t weight, uint32_t start_position, uint32_t length) {
+    if (!layout) return (int)E_INVALIDARG;
+    IDWriteTextLayout* tl = static_cast<IDWriteTextLayout*>(layout);
+    DWRITE_TEXT_RANGE range = { start_position, length };
+    return (int)tl->SetFontWeight(static_cast<DWRITE_FONT_WEIGHT>(weight), range);
+}
+
+int cwin_dwrite_layout_set_font_style(void* layout, uint32_t style, uint32_t start_position, uint32_t length) {
+    if (!layout) return (int)E_INVALIDARG;
+    IDWriteTextLayout* tl = static_cast<IDWriteTextLayout*>(layout);
+    DWRITE_TEXT_RANGE range = { start_position, length };
+    return (int)tl->SetFontStyle(static_cast<DWRITE_FONT_STYLE>(style), range);
+}
+
+int cwin_dwrite_font_face_get_metrics(void* font_face, struct CWinFontMetrics* out_metrics) {
+    if (!font_face || !out_metrics) return (int)E_INVALIDARG;
+    IDWriteFontFace* face = static_cast<IDWriteFontFace*>(font_face);
+
+    DWRITE_FONT_METRICS fm = {};
+    face->GetMetrics(&fm);
+
+    out_metrics->ascent = static_cast<float>(fm.ascent);
+    out_metrics->descent = -static_cast<float>(fm.descent);
+    out_metrics->line_gap = static_cast<float>(fm.lineGap);
+    out_metrics->cap_height = static_cast<float>(fm.capHeight);
+    out_metrics->x_height = static_cast<float>(fm.xHeight);
+    out_metrics->underline_position = static_cast<float>(fm.underlinePosition);
+    out_metrics->underline_thickness = static_cast<float>(fm.underlineThickness);
+    out_metrics->units_per_em = fm.designUnitsPerEm;
+
+    out_metrics->glyph_box_left = 0.0f;
+    out_metrics->glyph_box_bottom = -static_cast<float>(fm.descent);
+    out_metrics->glyph_box_right = static_cast<float>(fm.designUnitsPerEm);
+    out_metrics->glyph_box_top = static_cast<float>(fm.ascent);
+
+    out_metrics->is_color = 0;
+    IDWriteFontFace2* face2 = nullptr;
+    if (SUCCEEDED(face->QueryInterface(__uuidof(IDWriteFontFace2), reinterpret_cast<void**>(&face2)))) {
+        out_metrics->is_color = face2->IsColorFont() ? 1 : 0;
+        face2->Release();
+    }
+    return 0;
+}
+
+int cwin_dwrite_font_face_get_glyph_indices(void* font_face, const uint32_t* codepoints, uint32_t count, uint16_t* out_glyph_indices) {
+    if (!font_face || !codepoints || !out_glyph_indices) return (int)E_INVALIDARG;
+    IDWriteFontFace* face = static_cast<IDWriteFontFace*>(font_face);
+    return (int)face->GetGlyphIndices(codepoints, count, out_glyph_indices);
+}
+
+int cwin_dwrite_font_face_get_design_glyph_metrics(void* font_face, const uint16_t* glyph_indices, uint32_t count, struct CWinGlyphDesignMetrics* out_metrics) {
+    if (!font_face || !glyph_indices || !out_metrics) return (int)E_INVALIDARG;
+    IDWriteFontFace* face = static_cast<IDWriteFontFace*>(font_face);
+    std::vector<DWRITE_GLYPH_METRICS> gm(count);
+    HRESULT hr = face->GetDesignGlyphMetrics(glyph_indices, count, gm.data(), FALSE);
+    if (FAILED(hr)) return (int)hr;
+
+    for (uint32_t i = 0; i < count; ++i) {
+        out_metrics[i].advance_width = static_cast<float>(gm[i].advanceWidth);
+        out_metrics[i].left_side_bearing = static_cast<float>(gm[i].leftSideBearing);
+        out_metrics[i].right_side_bearing = static_cast<float>(gm[i].rightSideBearing);
+        out_metrics[i].top_side_bearing = static_cast<float>(gm[i].topSideBearing);
+        out_metrics[i].advance_height = static_cast<float>(gm[i].advanceHeight);
+        out_metrics[i].bottom_side_bearing = static_cast<float>(gm[i].bottomSideBearing);
+        out_metrics[i].vertical_origin_y = static_cast<float>(gm[i].verticalOriginY);
+    }
+    return 0;
+}
+
+// Run extraction helpers
+struct CWinInternalRunData {
+    IDWriteFontFace* font_face;
+    float font_size;
+    uint32_t text_position;
+    uint32_t string_length;
+    std::vector<uint16_t> glyph_indices;
+    std::vector<float> glyph_advances;
+    std::vector<float> glyph_offsets_x;
+    std::vector<float> glyph_offsets_y;
+    std::vector<uint16_t> cluster_map;
+    int is_color;
+
+    CWinInternalRunData()
+        : font_face(nullptr), font_size(0), text_position(0), string_length(0), is_color(0) {}
+
+    ~CWinInternalRunData() {
+        if (font_face) {
+            font_face->Release();
+            font_face = nullptr;
+        }
+    }
+};
+
+struct CWinExtractedRunCollection {
+    std::vector<CWinInternalRunData*> runs;
+
+    ~CWinExtractedRunCollection() {
+        for (auto* r : runs) {
+            delete r;
+        }
+        runs.clear();
+    }
+};
+
+class CWinRunExtractRenderer : public IDWriteTextRenderer {
+    LONG ref_count_;
+    CWinExtractedRunCollection* collection_;
+
+public:
+    CWinRunExtractRenderer(CWinExtractedRunCollection* col)
+        : ref_count_(1), collection_(col) {}
+
+    ULONG STDMETHODCALLTYPE AddRef() noexcept override { return InterlockedIncrement(&ref_count_); }
+    ULONG STDMETHODCALLTYPE Release() noexcept override {
+        ULONG count = InterlockedDecrement(&ref_count_);
+        if (count == 0) delete this;
+        return count;
+    }
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) noexcept override {
+        if (!ppv) return E_POINTER;
+        if (riid == __uuidof(IUnknown) || riid == __uuidof(IDWritePixelSnapping) || riid == __uuidof(IDWriteTextRenderer)) {
+            *ppv = static_cast<IDWriteTextRenderer*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+
+    HRESULT STDMETHODCALLTYPE IsPixelSnappingDisabled(void*, BOOL* disabled) noexcept override {
+        if (!disabled) return E_POINTER;
+        *disabled = FALSE;
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE GetCurrentTransform(void*, DWRITE_MATRIX* transform) noexcept override {
+        if (!transform) return E_POINTER;
+        transform->m11 = 1.0f; transform->m12 = 0.0f;
+        transform->m21 = 0.0f; transform->m22 = 1.0f;
+        transform->dx = 0.0f;  transform->dy = 0.0f;
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE GetPixelsPerDip(void*, FLOAT* pixelsPerDip) noexcept override {
+        if (!pixelsPerDip) return E_POINTER;
+        *pixelsPerDip = 1.0f;
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE DrawGlyphRun(
+        void* clientDrawingContext,
+        FLOAT baselineOriginX,
+        FLOAT baselineOriginY,
+        DWRITE_MEASURING_MODE measuringMode,
+        const DWRITE_GLYPH_RUN* glyphRun,
+        const DWRITE_GLYPH_RUN_DESCRIPTION* glyphRunDescription,
+        IUnknown* clientDrawingEffect
+    ) noexcept override {
+        if (!glyphRun || glyphRun->glyphCount == 0 || !collection_) return S_OK;
+
+        auto* run = new CWinInternalRunData();
+        run->font_face = glyphRun->fontFace;
+        if (run->font_face) {
+            run->font_face->AddRef();
+            IDWriteFontFace2* face2 = nullptr;
+            if (SUCCEEDED(run->font_face->QueryInterface(__uuidof(IDWriteFontFace2), reinterpret_cast<void**>(&face2)))) {
+                run->is_color = face2->IsColorFont() ? 1 : 0;
+                face2->Release();
+            } else {
+                run->is_color = 0;
+            }
+        } else {
+            run->is_color = 0;
+        }
+        run->font_size = glyphRun->fontEmSize;
+        run->text_position = glyphRunDescription ? glyphRunDescription->textPosition : 0;
+        run->string_length = glyphRunDescription ? glyphRunDescription->stringLength : 0;
+
+        uint32_t count = glyphRun->glyphCount;
+        run->glyph_indices.assign(glyphRun->glyphIndices, glyphRun->glyphIndices + count);
+        if (glyphRun->glyphAdvances) {
+            run->glyph_advances.assign(glyphRun->glyphAdvances, glyphRun->glyphAdvances + count);
+        } else {
+            run->glyph_advances.resize(count, 0.0f);
+        }
+        run->glyph_offsets_x.resize(count, 0.0f);
+        run->glyph_offsets_y.resize(count, 0.0f);
+        if (glyphRun->glyphOffsets) {
+            for (uint32_t i = 0; i < count; ++i) {
+                run->glyph_offsets_x[i] = glyphRun->glyphOffsets[i].advanceOffset;
+                run->glyph_offsets_y[i] = glyphRun->glyphOffsets[i].ascenderOffset;
+            }
+        }
+        if (glyphRunDescription && glyphRunDescription->clusterMap && glyphRunDescription->stringLength > 0) {
+            run->cluster_map.assign(glyphRunDescription->clusterMap, glyphRunDescription->clusterMap + glyphRunDescription->stringLength);
+        }
+
+        collection_->runs.push_back(run);
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE DrawUnderline(void*, FLOAT, FLOAT, const DWRITE_UNDERLINE*, IUnknown*) noexcept override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE DrawStrikethrough(void*, FLOAT, FLOAT, const DWRITE_STRIKETHROUGH*, IUnknown*) noexcept override { return S_OK; }
+    HRESULT STDMETHODCALLTYPE DrawInlineObject(void*, FLOAT, FLOAT, IDWriteInlineObject*, BOOL, BOOL, IUnknown*) noexcept override { return S_OK; }
+};
+
+int cwin_dwrite_layout_extract_runs(void* layout, void** out_runs_handle, uint32_t* out_count) {
+    if (!layout || !out_runs_handle || !out_count) return (int)E_INVALIDARG;
+    IDWriteTextLayout* tl = static_cast<IDWriteTextLayout*>(layout);
+
+    auto* coll = new CWinExtractedRunCollection();
+    auto* renderer = new CWinRunExtractRenderer(coll);
+    HRESULT hr = tl->Draw(nullptr, renderer, 0.0f, 0.0f);
+    renderer->Release();
+    if (FAILED(hr)) {
+        delete coll;
+        return (int)hr;
+    }
+    *out_runs_handle = coll;
+    *out_count = static_cast<uint32_t>(coll->runs.size());
+    return 0;
+}
+
+int cwin_dwrite_get_extracted_run(void* runs_handle, uint32_t index, struct CWinShapedRunView* out_run) {
+    if (!runs_handle || !out_run) return (int)E_INVALIDARG;
+    auto* coll = static_cast<CWinExtractedRunCollection*>(runs_handle);
+    if (index >= coll->runs.size()) return (int)E_INVALIDARG;
+
+    auto* r = coll->runs[index];
+    out_run->font_face = r->font_face;
+    out_run->font_size = r->font_size;
+    out_run->text_position = r->text_position;
+    out_run->string_length = r->string_length;
+    out_run->glyph_count = static_cast<uint32_t>(r->glyph_indices.size());
+    out_run->glyph_indices = r->glyph_indices.data();
+    out_run->glyph_advances = r->glyph_advances.data();
+    out_run->glyph_offsets_x = r->glyph_offsets_x.data();
+    out_run->glyph_offsets_y = r->glyph_offsets_y.data();
+    out_run->cluster_count = static_cast<uint32_t>(r->cluster_map.size());
+    out_run->cluster_map = r->cluster_map.empty() ? nullptr : r->cluster_map.data();
+    out_run->is_color = r->is_color;
+    return 0;
+}
+
+void cwin_dwrite_free_extracted_runs(void* runs_handle) {
+    if (runs_handle) {
+        delete static_cast<CWinExtractedRunCollection*>(runs_handle);
+    }
+}
+
+int cwin_dwrite_rasterize_glyph(void* factory, const struct CWinGlyphRasterParams* params, struct CWinGlyphRasterResult* out_result) {
+    if (!factory || !params || !params->font_face || !out_result) return (int)E_INVALIDARG;
+    IDWriteFactory* f = static_cast<IDWriteFactory*>(factory);
+    IDWriteFontFace* face = static_cast<IDWriteFontFace*>(params->font_face);
+
+    UINT16 glyph_id = params->glyph_id;
+    FLOAT advance = 0.0f;
+    DWRITE_GLYPH_OFFSET offset = { 0.0f, 0.0f };
+    DWRITE_GLYPH_RUN glyph_run = {};
+    glyph_run.fontFace = face;
+    glyph_run.fontEmSize = params->font_size;
+    glyph_run.glyphCount = 1;
+    glyph_run.glyphIndices = &glyph_id;
+    glyph_run.glyphAdvances = &advance;
+    glyph_run.glyphOffsets = &offset;
+
+    FLOAT scale = (params->scale_factor > 0.0f) ? params->scale_factor : 1.0f;
+    DWRITE_MATRIX transform = {};
+    transform.m11 = scale;
+    transform.m12 = 0.0f;
+    transform.m21 = 0.0f;
+    transform.m22 = scale;
+    transform.dx = 0.0f;
+    transform.dy = 0.0f;
+
+    FLOAT baseline_origin_x = params->subpixel_bias_x / scale;
+    FLOAT baseline_origin_y = params->subpixel_bias_y / scale;
+
+    IDWriteGlyphRunAnalysis* analysis = nullptr;
+    HRESULT hr = f->CreateGlyphRunAnalysis(
+        &glyph_run,
+        1.0f,
+        &transform,
+        DWRITE_RENDERING_MODE_NATURAL_SYMMETRIC,
+        DWRITE_MEASURING_MODE_NATURAL,
+        baseline_origin_x,
+        baseline_origin_y,
+        &analysis
+    );
+    if (FAILED(hr)) return (int)hr;
+
+    RECT bounds = {};
+    // MANDATORY GOTCHA FIX: Always request DWRITE_TEXTURE_CLEARTYPE_3x1 to prevent E_INVALIDARG!
+    hr = analysis->GetAlphaTextureBounds(DWRITE_TEXTURE_CLEARTYPE_3x1, &bounds);
+    if (FAILED(hr)) {
+        analysis->Release();
+        return (int)hr;
+    }
+
+    if (bounds.right <= bounds.left || bounds.bottom <= bounds.top) {
+        analysis->Release();
+        out_result->left = bounds.left;
+        out_result->top = bounds.top;
+        out_result->width = 0;
+        out_result->height = 0;
+        out_result->pixels = nullptr;
+        out_result->pixel_bytes = 0;
+        return 0;
+    }
+
+    uint32_t width = static_cast<uint32_t>(bounds.right - bounds.left);
+    uint32_t height = static_cast<uint32_t>(bounds.bottom - bounds.top);
+    uint32_t pixel_count = width * height;
+
+    std::vector<uint8_t> rgb_buffer(static_cast<size_t>(pixel_count) * 3, 0);
+    hr = analysis->CreateAlphaTexture(
+        DWRITE_TEXTURE_CLEARTYPE_3x1,
+        &bounds,
+        rgb_buffer.data(),
+        static_cast<UINT32>(rgb_buffer.size())
+    );
+    analysis->Release();
+    if (FAILED(hr)) return (int)hr;
+
+    if (params->subpixel_rendering) {
+        uint32_t byte_size = pixel_count * 4;
+        uint8_t* out_buf = static_cast<uint8_t*>(malloc(byte_size));
+        if (!out_buf) return (int)E_OUTOFMEMORY;
+        for (uint32_t i = 0; i < pixel_count; ++i) {
+            out_buf[i * 4 + 0] = rgb_buffer[i * 3 + 0]; // R
+            out_buf[i * 4 + 1] = rgb_buffer[i * 3 + 1]; // G
+            out_buf[i * 4 + 2] = rgb_buffer[i * 3 + 2]; // B
+            out_buf[i * 4 + 3] = 0;                      // A
+        }
+        out_result->left = bounds.left;
+        out_result->top = bounds.top;
+        out_result->width = static_cast<int32_t>(width);
+        out_result->height = static_cast<int32_t>(height);
+        out_result->pixels = out_buf;
+        out_result->pixel_bytes = byte_size;
+    } else {
+        uint32_t byte_size = pixel_count;
+        uint8_t* out_buf = static_cast<uint8_t*>(malloc(byte_size));
+        if (!out_buf) return (int)E_OUTOFMEMORY;
+        for (uint32_t i = 0; i < pixel_count; ++i) {
+            uint32_t r = rgb_buffer[i * 3 + 0];
+            uint32_t g = rgb_buffer[i * 3 + 1];
+            uint32_t b = rgb_buffer[i * 3 + 2];
+            out_buf[i] = static_cast<uint8_t>((r + g + b) / 3);
+        }
+        out_result->left = bounds.left;
+        out_result->top = bounds.top;
+        out_result->width = static_cast<int32_t>(width);
+        out_result->height = static_cast<int32_t>(height);
+        out_result->pixels = out_buf;
+        out_result->pixel_bytes = byte_size;
+    }
+    return 0;
+}
+
+void cwin_dwrite_free_raster_result(struct CWinGlyphRasterResult* result) {
+    if (result && result->pixels) {
+        free(result->pixels);
+        result->pixels = nullptr;
+        result->pixel_bytes = 0;
+    }
 }
 
 // MARK: - Win32 Windowing, Dispatcher, Keyboard, Clipboard
@@ -1563,8 +2073,8 @@ int cwin_win32_get_monitor_info(void* hmonitor, struct CWinMonitorInfo* out_info
     out_info->work_top = mi.rcWork.top;
     out_info->work_right = mi.rcWork.right;
     out_info->work_bottom = mi.rcWork.bottom;
-    wcsncpy(out_info->device_name, mi.szDevice, 31);
-    out_info->device_name[31] = L'\0';
+    wcsncpy(reinterpret_cast<wchar_t*>(out_info->device_name), mi.szDevice, 31);
+    out_info->device_name[31] = 0;
 
     typedef HRESULT(WINAPI* PFN_GetDpiForMonitor)(HMONITOR, int, UINT*, UINT*);
     static PFN_GetDpiForMonitor pfnGetDpiForMonitor =
