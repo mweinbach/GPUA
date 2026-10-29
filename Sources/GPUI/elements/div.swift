@@ -1218,35 +1218,42 @@ public struct Interactivity: @unchecked Sendable {
         _ cx: inout App,
         _ f: (Style, inout Window, inout App) -> LayoutId
     ) -> LayoutId {
-        let (layoutId, _) = window.withOptionalElementState(globalId) { (elementState: inout InteractiveElementState?, window: inout Window) -> LayoutId in
-            let state = elementState ?? InteractiveElementState()
-
-            if cx.hasActiveDrag() {
-                state.pendingMouseDown = nil
-                state.clickedState = ElementClickedState()
-            }
-
-            if self.focusable && self.trackedFocusHandle == nil {
-                var handle = state.focusHandle ?? cx.focusHandle()
-                handle = handle.tabStop(self.tabStop)
-                if let index = self.tabIndex {
-                    handle = handle.tabIndex(index)
-                }
-                state.focusHandle = handle
-                self.trackedFocusHandle = handle
-            }
-
-            if let scrollHandle = self.trackedScrollHandle {
-                self.scrollOffset = scrollHandle.offset()
-            } else if self.baseStyle.overflow.x == .scroll || self.baseStyle.overflow.y == .scroll {
-                self.scrollOffset = state.scrollOffset
-            }
-
-            let style = self.computeStyleInternal(hitbox: nil, elementState: state, window: &window, cx: &cx)
-            let id = f(style, &window, &cx)
-            elementState = state
-            return id
+        var state: InteractiveElementState? = nil
+        if let id = globalId {
+            state = window.elementStates[id] as? InteractiveElementState
+            window.accessedElementStates.append((id, ObjectIdentifier(InteractiveElementState.self)))
         }
+
+        let actualState = state ?? InteractiveElementState()
+
+        if cx.hasActiveDrag() {
+            actualState.pendingMouseDown = nil
+            actualState.clickedState = ElementClickedState()
+        }
+
+        if self.focusable && self.trackedFocusHandle == nil {
+            var handle = actualState.focusHandle ?? cx.focusHandle()
+            handle = handle.tabStop(self.tabStop)
+            if let index = self.tabIndex {
+                handle = handle.tabIndex(index)
+            }
+            actualState.focusHandle = handle
+            self.trackedFocusHandle = handle
+        }
+
+        if let scrollHandle = self.trackedScrollHandle {
+            self.scrollOffset = scrollHandle.offset()
+        } else if self.baseStyle.overflow.x == .scroll || self.baseStyle.overflow.y == .scroll {
+            self.scrollOffset = actualState.scrollOffset
+        }
+
+        let style = self.computeStyleInternal(hitbox: nil, elementState: actualState, window: &window, cx: &cx)
+        let layoutId = f(style, &window, &cx)
+
+        if let id = globalId {
+            window.elementStates[id] = actualState
+        }
+
         return layoutId
     }
 
@@ -1266,51 +1273,47 @@ public struct Interactivity: @unchecked Sendable {
             window.setFocusHandle(focusHandle)
         }
 
-        let (result, _) = window.withOptionalElementState(globalId) { (elementState: inout InteractiveElementState?, window: inout Window) -> R in
-            let state = elementState ?? InteractiveElementState()
-            let style = self.computeStyleInternal(hitbox: nil, elementState: state, window: &window, cx: &cx)
+        var state: InteractiveElementState? = nil
+        if let id = globalId {
+            state = window.elementStates[id] as? InteractiveElementState
+            window.accessedElementStates.append((id, ObjectIdentifier(InteractiveElementState.self)))
+        }
 
-            self.active = state.clickedState.element
+        let actualState = state ?? InteractiveElementState()
+        let style = self.computeStyleInternal(hitbox: nil, elementState: actualState, window: &window, cx: &cx)
 
-            if self.hoverStyle != nil || self.groupHoverStyle != nil {
-                // Ensure hover state is tracked
-            }
+        self.active = actualState.clickedState.element
 
-            if let activeTooltip = state.activeTooltip {
-                if self.tooltipBuilder != nil {
-                    self.tooltipId = setTooltipOnWindow(activeTooltip, &window)
-                } else {
-                    state.activeTooltip = nil
-                }
-            }
-
-            let overflowMask = style.overflowMask(bounds: bounds, remSize: window.remSize)
-            let res: R
-            if let mask = overflowMask {
-                res = window.withContentMask(mask) { window in
-                    let hitbox: Hitbox?
-                    if self.shouldInsertHitbox(style: style, window: window, cx: cx) {
-                        hitbox = window.insertHitbox(bounds, self.hitboxBehavior)
-                    } else {
-                        hitbox = nil
-                    }
-
-                    let scrollOffset = self.clampScrollPosition(bounds: bounds, style: style, window: &window)
-                    return f(style, scrollOffset, hitbox, &window, &cx)
-                }
+        if let activeTooltip = actualState.activeTooltip {
+            if self.tooltipBuilder != nil {
+                self.tooltipId = setTooltipOnWindow(activeTooltip, &window)
             } else {
-                let hitbox: Hitbox?
-                if self.shouldInsertHitbox(style: style, window: window, cx: cx) {
-                    hitbox = window.insertHitbox(bounds, self.hitboxBehavior)
-                } else {
-                    hitbox = nil
-                }
-
-                let scrollOffset = self.clampScrollPosition(bounds: bounds, style: style, window: &window)
-                res = f(style, scrollOffset, hitbox, &window, &cx)
+                actualState.activeTooltip = nil
             }
-            elementState = state
-            return res
+        }
+
+        let overflowMask = style.overflowMask(bounds: bounds, remSize: window.remSize)
+        if let mask = overflowMask {
+            window.pushContentMask(mask)
+        }
+        defer {
+            if overflowMask != nil {
+                window.popContentMask()
+            }
+        }
+
+        let hitbox: Hitbox?
+        if self.shouldInsertHitbox(style: style, window: window, cx: cx) {
+            hitbox = window.insertHitbox(bounds, self.hitboxBehavior)
+        } else {
+            hitbox = nil
+        }
+
+        let scrollOffset = self.clampScrollPosition(bounds: bounds, style: style, window: &window)
+        let result = f(style, scrollOffset, hitbox, &window, &cx)
+
+        if let id = globalId {
+            window.elementStates[id] = actualState
         }
 
         return result
@@ -1328,66 +1331,100 @@ public struct Interactivity: @unchecked Sendable {
     ) {
         self.hovered = hitbox?.isHovered(window)
 
-        let (_, _) = window.withOptionalElementState(globalId) { (elementState: inout InteractiveElementState?, window: inout Window) -> Void in
-            let state = elementState ?? InteractiveElementState()
-            let style = self.computeStyleInternal(hitbox: hitbox, elementState: state, window: &window, cx: &cx)
+        var state: InteractiveElementState? = nil
+        if let id = globalId {
+            state = window.elementStates[id] as? InteractiveElementState
+            window.accessedElementStates.append((id, ObjectIdentifier(InteractiveElementState.self)))
+        }
 
-            self.paintHoverGroupHandler(&window, &cx)
+        let actualState = state ?? InteractiveElementState()
+        let style = self.computeStyleInternal(hitbox: hitbox, elementState: actualState, window: &window, cx: &cx)
 
-            if style.visibility == .hidden {
-                elementState = state
-                return
+        self.paintHoverGroupHandler(&window, &cx)
+
+        if style.visibility == .hidden {
+            if let id = globalId {
+                window.elementStates[id] = actualState
             }
+            return
+        }
 
-            var tabGroupIndex: Int? = nil
-            if self.tabGroup {
-                tabGroupIndex = self.tabIndex
+        if let focusHandle = self.trackedFocusHandle {
+            window.nextFrame.tabStops.insert(focusHandle)
+        }
+
+        let prevOpacity = window.elementOpacity
+        if let opacity = style.opacity {
+            window.elementOpacity *= opacity
+        }
+        defer {
+            if style.opacity != nil {
+                window.elementOpacity = prevOpacity
             }
-            if let focusHandle = self.trackedFocusHandle {
-                window.nextFrame.tabStops.insert(focusHandle)
+        }
+
+        let remSize = window.remSize
+        let cornerRadii = style.cornerRadii
+            .toPixels(remSize: remSize)
+            .clampRadiiForQuadSize(bounds.size)
+
+        style.paintBackground(bounds, cornerRadii: cornerRadii, &window)
+
+        let textStyle = style.textStyle()
+        if let textStyle {
+            window.textStyleStack.append(textStyle)
+        }
+        defer {
+            if textStyle != nil {
+                _ = window.textStyleStack.removeLast()
             }
+        }
 
-            window.withElementOpacity(style.opacity) { window in
-                style.paint(bounds, &window, &cx) { window, cx in
-                    window.withTextStyle(style.textStyle()) { window in
-                        window.withContentMask(style.overflowMask(bounds: bounds, remSize: window.remSize)) { window in
-                            window.withTabGroup(tabGroupIndex) { window in
-                                if let hb = hitbox {
-                                    if let drag = cx.activeDrag {
-                                        if let cursorStyle = drag.cursorStyle {
-                                            window.setWindowCursorStyle(cursorStyle)
-                                        }
-                                    } else if let mouseCursor = style.mouseCursor {
-                                        window.setCursorStyle(mouseCursor, hitbox: hb)
-                                    }
+        let overflowMask = style.overflowMask(bounds: bounds, remSize: remSize)
+        if let mask = overflowMask {
+            window.pushContentMask(mask)
+        }
+        defer {
+            if overflowMask != nil {
+                window.popContentMask()
+            }
+        }
 
-                                    if let groupName = self.group {
-                                        GroupHitboxes.push(groupName, hb.id, &cx)
-                                    }
-
-                                    if let area = self.windowControl {
-                                        window.insertWindowControlHitbox(area, hb)
-                                    }
-
-                                    self.paintMouseListeners(hitbox: hb, elementState: state, window: &window, cx: &cx)
-                                    self.paintScrollListener(hitbox: hb, style: style, window: &window, cx: &cx)
-                                }
-
-                                self.paintKeyboardListeners(&window, &cx)
-                                f(style, &window, &cx)
-
-                                if hitbox != nil {
-                                    if let groupName = self.group {
-                                        GroupHitboxes.pop(groupName, &cx)
-                                    }
-                                }
-                            }
-                        }
-                    }
+        if let hb = hitbox {
+            if let drag = cx.activeDrag {
+                if let cursorStyle = drag.cursorStyle {
+                    window.setWindowCursorStyle(cursorStyle)
                 }
+            } else if let mouseCursor = style.mouseCursor {
+                window.setCursorStyle(mouseCursor, hitbox: hb)
             }
 
-            elementState = state
+            if let groupName = self.group {
+                GroupHitboxes.push(groupName, hb.id, &cx)
+            }
+
+            if let area = self.windowControl {
+                window.insertWindowControlHitbox(area, hb)
+            }
+
+            self.paintMouseListeners(hitbox: hb, elementState: actualState, window: &window, cx: &cx)
+            self.paintScrollListener(hitbox: hb, style: style, window: &window, cx: &cx)
+        }
+
+        self.paintKeyboardListeners(&window, &cx)
+
+        f(style, &window, &cx)
+
+        if hitbox != nil {
+            if let groupName = self.group {
+                GroupHitboxes.pop(groupName, &cx)
+            }
+        }
+
+        style.paintBorder(bounds, cornerRadii: cornerRadii, &window)
+
+        if let id = globalId {
+            window.elementStates[id] = actualState
         }
     }
 
@@ -1398,11 +1435,12 @@ public struct Interactivity: @unchecked Sendable {
         _ window: inout Window,
         _ cx: inout App
     ) -> Style {
-        let (style, _) = window.withOptionalElementState(globalId) { (elementState: inout InteractiveElementState?, window: inout Window) -> Style in
-            let state = elementState ?? InteractiveElementState()
-            return self.computeStyleInternal(hitbox: hitbox, elementState: state, window: &window, cx: &cx)
+        var state: InteractiveElementState? = nil
+        if let id = globalId {
+            state = window.elementStates[id] as? InteractiveElementState
         }
-        return style
+        let actualState = state ?? InteractiveElementState()
+        return self.computeStyleInternal(hitbox: hitbox, elementState: actualState, window: &window, cx: &cx)
     }
 
     @MainActor
@@ -2420,6 +2458,18 @@ public struct Div: Styled, InteractiveElement, ParentElement, Element, IntoEleme
         self.children.append(contentsOf: children)
     }
 
+    public func child(_ child: AnyElement) -> Self {
+        var copy = self
+        copy.children.append(child)
+        return copy
+    }
+
+    public func children(_ children: [AnyElement]) -> Self {
+        var copy = self
+        copy.children.append(contentsOf: children)
+        return copy
+    }
+
     public func child(_ child: some IntoElement) -> Self {
         var copy = self
         copy.children.append(child.intoAnyElement())
@@ -2448,22 +2498,26 @@ public struct Div: Styled, InteractiveElement, ParentElement, Element, IntoEleme
         _ cx: inout App
     ) -> (LayoutId, DivFrameState) {
         var childLayoutIds: [LayoutId] = []
-        let imageCacheObj = self.imageCacheProvider?.provide(&window, &cx)
 
-        let layoutId = window.withImageCache(imageCacheObj as Any) { window in
-            self.interactivity.requestLayout(
-                id,
-                inspectorId,
-                &window,
-                &cx
-            ) { style, window, cx in
-                window.withTextStyle(style.textStyle()) { window in
-                    childLayoutIds = self.children.indices.map { i in
-                        self.children[i].requestLayout(&window, &cx)
-                    }
-                    return window.requestLayout(style: style, children: childLayoutIds)
+        let layoutId = self.interactivity.requestLayout(
+            id,
+            inspectorId,
+            &window,
+            &cx
+        ) { style, window, cx in
+            let textStyle = style.textStyle()
+            if let textStyle {
+                window.textStyleStack.append(textStyle)
+            }
+            defer {
+                if textStyle != nil {
+                    _ = window.textStyleStack.removeLast()
                 }
             }
+            childLayoutIds = self.children.indices.map { i in
+                self.children[i].requestLayout(&window, &cx)
+            }
+            return window.requestLayout(style: style, children: childLayoutIds)
         }
 
         return (layoutId, DivFrameState(childLayoutIds: childLayoutIds))
@@ -2478,7 +2532,6 @@ public struct Div: Styled, InteractiveElement, ParentElement, Element, IntoEleme
         _ window: inout Window,
         _ cx: inout App
     ) -> Hitbox? {
-        let imageCacheObj = self.imageCacheProvider?.provide(&window, &cx)
         let hasPrepaintListener = self.prepaintListener != nil
         var childrenBounds: [Bounds<Pixels>] = []
         if hasPrepaintListener {
@@ -2532,25 +2585,30 @@ public struct Div: Styled, InteractiveElement, ParentElement, Element, IntoEleme
                 return hitbox
             }
 
-            window.withImageCache(imageCacheObj as Any) { window in
-                window.withElementOffset(scrollOffset) { window in
-                    if let orderFn = self.prepaintOrderFn {
-                        let order = orderFn(&window, &cx)
-                        for idx in order {
-                            if idx >= 0 && idx < self.children.count {
-                                _ = self.children[idx].prepaint(&window, &cx)
-                            }
-                        }
-                    } else {
-                        for idx in self.children.indices {
-                            _ = self.children[idx].prepaint(&window, &cx)
-                        }
+            if scrollOffset != .zero {
+                window.pushElementOffset(scrollOffset)
+            }
+            defer {
+                if scrollOffset != .zero {
+                    window.popElementOffset()
+                }
+            }
+
+            if let orderFn = self.prepaintOrderFn {
+                let order = orderFn(&window, &cx)
+                for idx in order {
+                    if idx >= 0 && idx < self.children.count {
+                        _ = self.children[idx].prepaint(&window, &cx)
                     }
                 }
-
-                if let listener = self.prepaintListener {
-                    listener(childrenBounds, &window, &cx)
+            } else {
+                for idx in self.children.indices {
+                    _ = self.children[idx].prepaint(&window, &cx)
                 }
+            }
+
+            if let listener = self.prepaintListener {
+                listener(childrenBounds, &window, &cx)
             }
 
             return hitbox
@@ -2567,24 +2625,20 @@ public struct Div: Styled, InteractiveElement, ParentElement, Element, IntoEleme
         _ window: inout Window,
         _ cx: inout App
     ) {
-        let imageCacheObj = self.imageCacheProvider?.provide(&window, &cx)
+        self.interactivity.paint(
+            id,
+            inspectorId,
+            bounds,
+            prepaint,
+            &window,
+            &cx
+        ) { style, window, cx in
+            if style.display == .none {
+                return
+            }
 
-        window.withImageCache(imageCacheObj as Any) { window in
-            self.interactivity.paint(
-                id,
-                inspectorId,
-                bounds,
-                prepaint,
-                &window,
-                &cx
-            ) { style, window, cx in
-                if style.display == .none {
-                    return
-                }
-
-                for idx in self.children.indices {
-                    self.children[idx].paint(&window, &cx)
-                }
+            for idx in self.children.indices {
+                self.children[idx].paint(&window, &cx)
             }
         }
     }

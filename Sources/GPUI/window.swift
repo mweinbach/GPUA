@@ -1974,6 +1974,18 @@ public struct Window: @unchecked Sendable {
     // MARK: - Stacks & Scoping
 
     @inline(__always)
+    public mutating func pushContentMask(_ mask: ContentMask<Pixels>) {
+        let parentMask = contentMaskStack.last ?? ContentMask(bounds: .zero)
+        let combined = parentMask.intersect(mask)
+        contentMaskStack.append(combined)
+    }
+
+    @inline(__always)
+    public mutating func popContentMask() {
+        _ = contentMaskStack.removeLast()
+    }
+
+    @inline(__always)
     public mutating func withContentMask<R>(
         _ mask: ContentMask<Pixels>?,
         _ f: (inout Window) -> R
@@ -1981,10 +1993,8 @@ public struct Window: @unchecked Sendable {
         guard let mask = mask else {
             return f(&self)
         }
-        let parentMask = contentMaskStack.last ?? ContentMask(bounds: .zero)
-        let combined = parentMask.intersect(mask)
-        contentMaskStack.append(combined)
-        defer { contentMaskStack.removeLast() }
+        pushContentMask(mask)
+        defer { popContentMask() }
         return f(&self)
     }
 
@@ -2000,14 +2010,24 @@ public struct Window: @unchecked Sendable {
         contentMaskStack.last ?? ContentMask(bounds: .zero)
     }
 
+    @inline(__always)
+    public mutating func pushElementOffset(_ offset: Point<Pixels>) {
+        let current = elementOffsetStack.last ?? .zero
+        let accumulated = current + offset
+        elementOffsetStack.append(accumulated)
+    }
+
+    @inline(__always)
+    public mutating func popElementOffset() {
+        _ = elementOffsetStack.removeLast()
+    }
+
     public mutating func withElementOffset<R>(
         _ offset: Point<Pixels>,
         _ f: (inout Window) -> R
     ) -> R {
-        let current = elementOffsetStack.last ?? .zero
-        let accumulated = current + offset
-        elementOffsetStack.append(accumulated)
-        defer { elementOffsetStack.removeLast() }
+        pushElementOffset(offset)
+        defer { popElementOffset() }
         return f(&self)
     }
 

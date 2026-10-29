@@ -68,5 +68,9 @@ struct DivTests {
         #expect(MemoryLayout<Interactivity>.stride <= 256)
         #expect(MemoryLayout<GroupStyle>.size <= 256)
         #expect(MemoryLayout<DivInspectorState>.size <= 256)
+        #expect(MemoryLayout<Style>.size <= 16)
+        #expect(MemoryLayout<Style>.stride <= 16)
+        #expect(MemoryLayout<TextStyle>.size <= 16)
+        #expect(MemoryLayout<TextStyle>.stride <= 16)
     }
 }

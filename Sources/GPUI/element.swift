@@ -452,11 +452,27 @@ public struct AnyElement: Element, @unchecked Sendable {
     private var object: any AnyElementObject
 
     public init<E: Element>(_ element: E) {
-        self.object = Drawable(element)
+        if let alreadyAny = element as? AnyElement {
+            self = alreadyAny
+        } else {
+            self.object = Drawable(element)
+        }
     }
 
     public static func new<E: Element>(_ element: E) -> AnyElement {
         AnyElement(element)
+    }
+
+    public func intoAny() -> AnyElement {
+        self
+    }
+
+    public func intoElement() -> AnyElement {
+        self
+    }
+
+    public func intoAnyElement() -> AnyElement {
+        self
     }
 
     public func downcastMut<T>() -> T? {

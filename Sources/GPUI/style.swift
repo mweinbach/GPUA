@@ -5,6 +5,13 @@
 import Foundation
 import Refineable
 
+// MARK: - DebugBelow
+
+/// Use this struct for interfacing with the 'debug_below' styling from your own elements.
+public struct DebugBelow: Global, Sendable, Equatable {
+    public init() {}
+}
+
 // MARK: - ObjectFit
 
 /// How to fit an image into the bounds of an element.
@@ -951,27 +958,27 @@ public struct TextStyleRefinement: Sendable, Equatable, Refineable, IsEmpty, Def
     }
 }
 
-/// The properties that can be used to style text in GPUI.
-public struct TextStyle: Sendable, Equatable, Refineable, DefaultInitializable {
-    public typealias Refinement = TextStyleRefinement
+// MARK: - TextStyleStorage
 
-    public var color: Hsla
-    public var fontFamily: SharedString
-    public var fontFeatures: FontFeatures
-    public var fontFallbacks: FontFallbacks?
-    public var fontSize: AbsoluteLength
-    public var lineHeight: DefiniteLength
-    public var fontWeight: FontWeight
-    public var fontStyle: FontStyle
-    public var backgroundColor: Hsla?
-    public var underline: UnderlineStyle?
-    public var strikethrough: StrikethroughStyle?
-    public var whiteSpace: WhiteSpace
-    public var textOverflow: TextOverflow?
-    public var textAlign: TextAlign
-    public var lineClamp: Int?
+// PORT NOTE: TextStyleStorage is an internal COW storage class guarded by value semantics.
+final class TextStyleStorage: @unchecked Sendable, Equatable {
+    var color: Hsla
+    var fontFamily: SharedString
+    var fontFeatures: FontFeatures
+    var fontFallbacks: FontFallbacks?
+    var fontSize: AbsoluteLength
+    var lineHeight: DefiniteLength
+    var fontWeight: FontWeight
+    var fontStyle: FontStyle
+    var backgroundColor: Hsla?
+    var underline: UnderlineStyle?
+    var strikethrough: StrikethroughStyle?
+    var whiteSpace: WhiteSpace
+    var textOverflow: TextOverflow?
+    var textAlign: TextAlign
+    var lineClamp: Int?
 
-    public init(
+    init(
         color: Hsla = black(),
         fontFamily: SharedString = ".SystemUIFont",
         fontFeatures: FontFeatures = FontFeatures(),
@@ -1005,8 +1012,194 @@ public struct TextStyle: Sendable, Equatable, Refineable, DefaultInitializable {
         self.lineClamp = lineClamp
     }
 
+    func copy() -> TextStyleStorage {
+        TextStyleStorage(
+            color: color,
+            fontFamily: fontFamily,
+            fontFeatures: fontFeatures,
+            fontFallbacks: fontFallbacks,
+            fontSize: fontSize,
+            lineHeight: lineHeight,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            backgroundColor: backgroundColor,
+            underline: underline,
+            strikethrough: strikethrough,
+            whiteSpace: whiteSpace,
+            textOverflow: textOverflow,
+            textAlign: textAlign,
+            lineClamp: lineClamp
+        )
+    }
+
+    static func == (lhs: TextStyleStorage, rhs: TextStyleStorage) -> Bool {
+        lhs.color == rhs.color &&
+        lhs.fontFamily == rhs.fontFamily &&
+        lhs.fontFeatures == rhs.fontFeatures &&
+        lhs.fontFallbacks == rhs.fontFallbacks &&
+        lhs.fontSize == rhs.fontSize &&
+        lhs.lineHeight == rhs.lineHeight &&
+        lhs.fontWeight == rhs.fontWeight &&
+        lhs.fontStyle == rhs.fontStyle &&
+        lhs.backgroundColor == rhs.backgroundColor &&
+        lhs.underline == rhs.underline &&
+        lhs.strikethrough == rhs.strikethrough &&
+        lhs.whiteSpace == rhs.whiteSpace &&
+        lhs.textOverflow == rhs.textOverflow &&
+        lhs.textAlign == rhs.textAlign &&
+        lhs.lineClamp == rhs.lineClamp
+    }
+
+    func refine(with refinement: TextStyleRefinement) {
+        if let c = refinement.color { self.color = c }
+        if let ff = refinement.fontFamily { self.fontFamily = ff }
+        if let ffeat = refinement.fontFeatures { self.fontFeatures = ffeat }
+        if let ffall = refinement.fontFallbacks { self.fontFallbacks = ffall }
+        if let fs = refinement.fontSize { self.fontSize = fs }
+        if let lh = refinement.lineHeight { self.lineHeight = lh }
+        if let fw = refinement.fontWeight { self.fontWeight = fw }
+        if let fst = refinement.fontStyle { self.fontStyle = fst }
+        if let bg = refinement.backgroundColor { self.backgroundColor = bg }
+        if let u = refinement.underline { self.underline = u }
+        if let s = refinement.strikethrough { self.strikethrough = s }
+        if let ws = refinement.whiteSpace { self.whiteSpace = ws }
+        if let to = refinement.textOverflow { self.textOverflow = to }
+        if let ta = refinement.textAlign { self.textAlign = ta }
+        if let lc = refinement.lineClamp { self.lineClamp = lc }
+    }
+}
+
+/// The properties that can be used to style text in GPUI.
+public struct TextStyle: Sendable, Equatable, Refineable, DefaultInitializable {
+    public typealias Refinement = TextStyleRefinement
+
+    private var storage: TextStyleStorage
+
+    private mutating func ensureUnique() {
+        if !isKnownUniquelyReferenced(&storage) {
+            storage = storage.copy()
+        }
+    }
+
+    public var color: Hsla {
+        get { storage.color }
+        set { ensureUnique(); storage.color = newValue }
+        _modify { ensureUnique(); yield &storage.color }
+    }
+    public var fontFamily: SharedString {
+        get { storage.fontFamily }
+        set { ensureUnique(); storage.fontFamily = newValue }
+        _modify { ensureUnique(); yield &storage.fontFamily }
+    }
+    public var fontFeatures: FontFeatures {
+        get { storage.fontFeatures }
+        set { ensureUnique(); storage.fontFeatures = newValue }
+        _modify { ensureUnique(); yield &storage.fontFeatures }
+    }
+    public var fontFallbacks: FontFallbacks? {
+        get { storage.fontFallbacks }
+        set { ensureUnique(); storage.fontFallbacks = newValue }
+        _modify { ensureUnique(); yield &storage.fontFallbacks }
+    }
+    public var fontSize: AbsoluteLength {
+        get { storage.fontSize }
+        set { ensureUnique(); storage.fontSize = newValue }
+        _modify { ensureUnique(); yield &storage.fontSize }
+    }
+    public var lineHeight: DefiniteLength {
+        get { storage.lineHeight }
+        set { ensureUnique(); storage.lineHeight = newValue }
+        _modify { ensureUnique(); yield &storage.lineHeight }
+    }
+    public var fontWeight: FontWeight {
+        get { storage.fontWeight }
+        set { ensureUnique(); storage.fontWeight = newValue }
+        _modify { ensureUnique(); yield &storage.fontWeight }
+    }
+    public var fontStyle: FontStyle {
+        get { storage.fontStyle }
+        set { ensureUnique(); storage.fontStyle = newValue }
+        _modify { ensureUnique(); yield &storage.fontStyle }
+    }
+    public var backgroundColor: Hsla? {
+        get { storage.backgroundColor }
+        set { ensureUnique(); storage.backgroundColor = newValue }
+        _modify { ensureUnique(); yield &storage.backgroundColor }
+    }
+    public var underline: UnderlineStyle? {
+        get { storage.underline }
+        set { ensureUnique(); storage.underline = newValue }
+        _modify { ensureUnique(); yield &storage.underline }
+    }
+    public var strikethrough: StrikethroughStyle? {
+        get { storage.strikethrough }
+        set { ensureUnique(); storage.strikethrough = newValue }
+        _modify { ensureUnique(); yield &storage.strikethrough }
+    }
+    public var whiteSpace: WhiteSpace {
+        get { storage.whiteSpace }
+        set { ensureUnique(); storage.whiteSpace = newValue }
+        _modify { ensureUnique(); yield &storage.whiteSpace }
+    }
+    public var textOverflow: TextOverflow? {
+        get { storage.textOverflow }
+        set { ensureUnique(); storage.textOverflow = newValue }
+        _modify { ensureUnique(); yield &storage.textOverflow }
+    }
+    public var textAlign: TextAlign {
+        get { storage.textAlign }
+        set { ensureUnique(); storage.textAlign = newValue }
+        _modify { ensureUnique(); yield &storage.textAlign }
+    }
+    public var lineClamp: Int? {
+        get { storage.lineClamp }
+        set { ensureUnique(); storage.lineClamp = newValue }
+        _modify { ensureUnique(); yield &storage.lineClamp }
+    }
+
+    public init(
+        color: Hsla = black(),
+        fontFamily: SharedString = ".SystemUIFont",
+        fontFeatures: FontFeatures = FontFeatures(),
+        fontFallbacks: FontFallbacks? = nil,
+        fontSize: AbsoluteLength = .rems(Rems(1.0)),
+        lineHeight: DefiniteLength = phi(),
+        fontWeight: FontWeight = .normal,
+        fontStyle: FontStyle = .normal,
+        backgroundColor: Hsla? = nil,
+        underline: UnderlineStyle? = nil,
+        strikethrough: StrikethroughStyle? = nil,
+        whiteSpace: WhiteSpace = .normal,
+        textOverflow: TextOverflow? = nil,
+        textAlign: TextAlign = .left,
+        lineClamp: Int? = nil
+    ) {
+        self.storage = TextStyleStorage(
+            color: color,
+            fontFamily: fontFamily,
+            fontFeatures: fontFeatures,
+            fontFallbacks: fontFallbacks,
+            fontSize: fontSize,
+            lineHeight: lineHeight,
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            backgroundColor: backgroundColor,
+            underline: underline,
+            strikethrough: strikethrough,
+            whiteSpace: whiteSpace,
+            textOverflow: textOverflow,
+            textAlign: textAlign,
+            lineClamp: lineClamp
+        )
+    }
+
     public init() {
         self.init(color: black())
+    }
+
+    public static func == (lhs: TextStyle, rhs: TextStyle) -> Bool {
+        if lhs.storage === rhs.storage { return true }
+        return lhs.storage == rhs.storage
     }
 
     /// Create a new text style with the given highlighting applied.
@@ -1065,21 +1258,8 @@ public struct TextStyle: Sendable, Equatable, Refineable, DefaultInitializable {
     }
 
     public mutating func refine(with refinement: TextStyleRefinement) {
-        if let c = refinement.color { self.color = c }
-        if let ff = refinement.fontFamily { self.fontFamily = ff }
-        if let ffeat = refinement.fontFeatures { self.fontFeatures = ffeat }
-        if let ffall = refinement.fontFallbacks { self.fontFallbacks = ffall }
-        if let fs = refinement.fontSize { self.fontSize = fs }
-        if let lh = refinement.lineHeight { self.lineHeight = lh }
-        if let fw = refinement.fontWeight { self.fontWeight = fw }
-        if let fst = refinement.fontStyle { self.fontStyle = fst }
-        if let bg = refinement.backgroundColor { self.backgroundColor = bg }
-        if let u = refinement.underline { self.underline = u }
-        if let s = refinement.strikethrough { self.strikethrough = s }
-        if let ws = refinement.whiteSpace { self.whiteSpace = ws }
-        if let to = refinement.textOverflow { self.textOverflow = to }
-        if let ta = refinement.textAlign { self.textAlign = ta }
-        if let lc = refinement.lineClamp { self.lineClamp = lc }
+        ensureUnique()
+        storage.refine(with: refinement)
     }
 
     public func isSuperset(of refinement: TextStyleRefinement) -> Bool {
@@ -1489,88 +1669,50 @@ public struct StyleRefinement: Sendable, Equatable, Refineable, IsEmpty, Default
     }
 }
 
-/// The concrete CSS-like styling applied to an element via the `Styled` protocol.
-public struct Style: Sendable, Equatable, Refineable, DefaultInitializable {
-    public typealias Refinement = StyleRefinement
+// MARK: - StyleStorage
 
-    /// What layout strategy should be used?
-    public var display: Display
-    /// Should the element be painted on screen?
-    public var visibility: Visibility
-    /// How children overflowing their container should affect layout.
-    public var overflow: Point<Overflow>
-    /// Space reserved for scrollbars.
-    public var scrollbarWidth: AbsoluteLength
-    /// Whether both x and y axes can scroll concurrently.
-    public var allowConcurrentScroll: Bool
-    /// Restrict scroll to axis indicated by mouse wheel.
-    public var restrictScrollToAxis: Bool
-    /// Positioning strategy (relative vs. absolute).
-    public var position: Position
-    /// Inset tweaking position relative to layout.
-    public var inset: Edges<Length>
-    /// Initial size.
-    public var size: Size<Length>
-    /// Minimum size.
-    public var minSize: Size<Length>
-    /// Maximum size.
-    public var maxSize: Size<Length>
-    /// Preferred aspect ratio (width / height).
-    public var aspectRatio: Float?
-    /// Outer margins.
-    public var margin: Edges<Length>
-    /// Inner padding.
-    public var padding: Edges<DefiniteLength>
-    /// Border stroke widths.
-    public var borderWidths: Edges<AbsoluteLength>
-    /// Cross-axis item alignment.
-    public var alignItems: AlignItems?
-    /// Self cross-axis override.
-    public var alignSelf: AlignSelf?
-    /// Cross-axis space distribution.
-    public var alignContent: AlignContent?
-    /// Main-axis space distribution.
-    public var justifyContent: JustifyContent?
-    /// Gaps between items in flex/grid.
-    public var gap: Size<DefiniteLength>
-    /// Main axis flow direction.
-    public var flexDirection: FlexDirection
-    /// Whether items wrap.
-    public var flexWrap: FlexWrap
-    /// Initial main axis size.
-    public var flexBasis: Length
-    /// Expansion growth rate.
-    public var flexGrow: Float
-    /// Contraction shrink rate.
-    public var flexShrink: Float
-    /// Fill/background of element.
-    public var background: Fill?
-    /// Border stroke color.
-    public var borderColor: Hsla?
-    /// Border style.
-    public var borderStyle: BorderStyle
-    /// Corner radii.
-    public var cornerRadii: Corners<AbsoluteLength>
-    /// Drop shadows.
-    public var boxShadow: [BoxShadow]
-    /// Text styling overrides.
-    public var text: TextStyleRefinement
-    /// Mouse pointer hover cursor.
-    public var mouseCursor: CursorStyle?
-    /// Opacity factor.
-    public var opacity: Float?
-    /// Grid columns template.
-    public var gridCols: GridTemplate?
-    /// Grid rows template.
-    public var gridRows: GridTemplate?
-    /// Grid location placement.
-    public var gridLocation: GridLocation?
-    /// Red debugging outline.
-    public var debug: Bool
-    /// Red debugging outline on descendants.
-    public var debugBelow: Bool
+// PORT NOTE: StyleStorage is an internal COW storage class guarded by value semantics.
+final class StyleStorage: @unchecked Sendable, Equatable {
+    var display: Display
+    var visibility: Visibility
+    var overflow: Point<Overflow>
+    var scrollbarWidth: AbsoluteLength
+    var allowConcurrentScroll: Bool
+    var restrictScrollToAxis: Bool
+    var position: Position
+    var inset: Edges<Length>
+    var size: Size<Length>
+    var minSize: Size<Length>
+    var maxSize: Size<Length>
+    var aspectRatio: Float?
+    var margin: Edges<Length>
+    var padding: Edges<DefiniteLength>
+    var borderWidths: Edges<AbsoluteLength>
+    var alignItems: AlignItems?
+    var alignSelf: AlignSelf?
+    var alignContent: AlignContent?
+    var justifyContent: JustifyContent?
+    var gap: Size<DefiniteLength>
+    var flexDirection: FlexDirection
+    var flexWrap: FlexWrap
+    var flexBasis: Length
+    var flexGrow: Float
+    var flexShrink: Float
+    var background: Fill?
+    var borderColor: Hsla?
+    var borderStyle: BorderStyle
+    var cornerRadii: Corners<AbsoluteLength>
+    var boxShadow: [BoxShadow]
+    var text: TextStyleRefinement
+    var mouseCursor: CursorStyle?
+    var opacity: Float?
+    var gridCols: GridTemplate?
+    var gridRows: GridTemplate?
+    var gridLocation: GridLocation?
+    var debug: Bool
+    var debugBelow: Bool
 
-    public init(
+    init(
         display: Display = .block,
         visibility: Visibility = .visible,
         overflow: Point<Overflow> = Point(x: .visible, y: .visible),
@@ -1650,8 +1792,462 @@ public struct Style: Sendable, Equatable, Refineable, DefaultInitializable {
         self.debugBelow = debugBelow
     }
 
+    func copy() -> StyleStorage {
+        StyleStorage(
+            display: display,
+            visibility: visibility,
+            overflow: overflow,
+            scrollbarWidth: scrollbarWidth,
+            allowConcurrentScroll: allowConcurrentScroll,
+            restrictScrollToAxis: restrictScrollToAxis,
+            position: position,
+            inset: inset,
+            size: size,
+            minSize: minSize,
+            maxSize: maxSize,
+            aspectRatio: aspectRatio,
+            margin: margin,
+            padding: padding,
+            borderWidths: borderWidths,
+            alignItems: alignItems,
+            alignSelf: alignSelf,
+            alignContent: alignContent,
+            justifyContent: justifyContent,
+            gap: gap,
+            flexDirection: flexDirection,
+            flexWrap: flexWrap,
+            flexBasis: flexBasis,
+            flexGrow: flexGrow,
+            flexShrink: flexShrink,
+            background: background,
+            borderColor: borderColor,
+            borderStyle: borderStyle,
+            cornerRadii: cornerRadii,
+            boxShadow: boxShadow,
+            text: text,
+            mouseCursor: mouseCursor,
+            opacity: opacity,
+            gridCols: gridCols,
+            gridRows: gridRows,
+            gridLocation: gridLocation,
+            debug: debug,
+            debugBelow: debugBelow
+        )
+    }
+
+    static func == (lhs: StyleStorage, rhs: StyleStorage) -> Bool {
+        lhs.display == rhs.display &&
+        lhs.visibility == rhs.visibility &&
+        lhs.overflow == rhs.overflow &&
+        lhs.scrollbarWidth == rhs.scrollbarWidth &&
+        lhs.allowConcurrentScroll == rhs.allowConcurrentScroll &&
+        lhs.restrictScrollToAxis == rhs.restrictScrollToAxis &&
+        lhs.position == rhs.position &&
+        lhs.inset == rhs.inset &&
+        lhs.size == rhs.size &&
+        lhs.minSize == rhs.minSize &&
+        lhs.maxSize == rhs.maxSize &&
+        lhs.aspectRatio == rhs.aspectRatio &&
+        lhs.margin == rhs.margin &&
+        lhs.padding == rhs.padding &&
+        lhs.borderWidths == rhs.borderWidths &&
+        lhs.alignItems == rhs.alignItems &&
+        lhs.alignSelf == rhs.alignSelf &&
+        lhs.alignContent == rhs.alignContent &&
+        lhs.justifyContent == rhs.justifyContent &&
+        lhs.gap == rhs.gap &&
+        lhs.flexDirection == rhs.flexDirection &&
+        lhs.flexWrap == rhs.flexWrap &&
+        lhs.flexBasis == rhs.flexBasis &&
+        lhs.flexGrow == rhs.flexGrow &&
+        lhs.flexShrink == rhs.flexShrink &&
+        lhs.background == rhs.background &&
+        lhs.borderColor == rhs.borderColor &&
+        lhs.borderStyle == rhs.borderStyle &&
+        lhs.cornerRadii == rhs.cornerRadii &&
+        lhs.boxShadow == rhs.boxShadow &&
+        lhs.text == rhs.text &&
+        lhs.mouseCursor == rhs.mouseCursor &&
+        lhs.opacity == rhs.opacity &&
+        lhs.gridCols == rhs.gridCols &&
+        lhs.gridRows == rhs.gridRows &&
+        lhs.gridLocation == rhs.gridLocation &&
+        lhs.debug == rhs.debug &&
+        lhs.debugBelow == rhs.debugBelow
+    }
+
+    func refine(with refinement: StyleRefinement) {
+        if let d = refinement.display { self.display = d }
+        if let v = refinement.visibility { self.visibility = v }
+        self.overflow.refine(with: refinement.overflow)
+        if let sw = refinement.scrollbarWidth { self.scrollbarWidth = sw }
+        if let ac = refinement.allowConcurrentScroll { self.allowConcurrentScroll = ac }
+        if let rs = refinement.restrictScrollToAxis { self.restrictScrollToAxis = rs }
+        if let p = refinement.position { self.position = p }
+        self.inset.refine(with: refinement.inset)
+        self.size.refine(with: refinement.size)
+        self.minSize.refine(with: refinement.minSize)
+        self.maxSize.refine(with: refinement.maxSize)
+        if let ar = refinement.aspectRatio { self.aspectRatio = ar }
+        self.margin.refine(with: refinement.margin)
+        self.padding.refine(with: refinement.padding)
+        self.borderWidths.refine(with: refinement.borderWidths)
+        if let ai = refinement.alignItems { self.alignItems = ai }
+        if let aself = refinement.alignSelf { self.alignSelf = aself }
+        if let ac = refinement.alignContent { self.alignContent = ac }
+        if let jc = refinement.justifyContent { self.justifyContent = jc }
+        self.gap.refine(with: refinement.gap)
+        if let fd = refinement.flexDirection { self.flexDirection = fd }
+        if let fw = refinement.flexWrap { self.flexWrap = fw }
+        if let fb = refinement.flexBasis { self.flexBasis = fb }
+        if let fg = refinement.flexGrow { self.flexGrow = fg }
+        if let fs = refinement.flexShrink { self.flexShrink = fs }
+        if let b = refinement.background { self.background = b }
+        if let bc = refinement.borderColor { self.borderColor = bc }
+        if let bs = refinement.borderStyle { self.borderStyle = bs }
+        self.cornerRadii.refine(with: refinement.cornerRadii)
+        if let shadows = refinement.boxShadow { self.boxShadow = shadows }
+        self.text.refine(with: refinement.text)
+        if let mc = refinement.mouseCursor { self.mouseCursor = mc }
+        if let o = refinement.opacity { self.opacity = o }
+        if let gc = refinement.gridCols { self.gridCols = gc }
+        if let gr = refinement.gridRows { self.gridRows = gr }
+        if let gl = refinement.gridLocation { self.gridLocation = gl }
+        if let dbg = refinement.debug { self.debug = dbg }
+        if let dbgB = refinement.debugBelow { self.debugBelow = dbgB }
+    }
+}
+
+/// The concrete CSS-like styling applied to an element via the `Styled` protocol.
+public struct Style: Sendable, Equatable, Refineable, DefaultInitializable {
+    public typealias Refinement = StyleRefinement
+
+    private var storage: StyleStorage
+
+    private mutating func ensureUnique() {
+        if !isKnownUniquelyReferenced(&storage) {
+            storage = storage.copy()
+        }
+    }
+
+    /// What layout strategy should be used?
+    public var display: Display {
+        get { storage.display }
+        set { ensureUnique(); storage.display = newValue }
+        _modify { ensureUnique(); yield &storage.display }
+    }
+    /// Should the element be painted on screen?
+    public var visibility: Visibility {
+        get { storage.visibility }
+        set { ensureUnique(); storage.visibility = newValue }
+        _modify { ensureUnique(); yield &storage.visibility }
+    }
+    /// How children overflowing their container should affect layout.
+    public var overflow: Point<Overflow> {
+        get { storage.overflow }
+        set { ensureUnique(); storage.overflow = newValue }
+        _modify { ensureUnique(); yield &storage.overflow }
+    }
+    /// Space reserved for scrollbars.
+    public var scrollbarWidth: AbsoluteLength {
+        get { storage.scrollbarWidth }
+        set { ensureUnique(); storage.scrollbarWidth = newValue }
+        _modify { ensureUnique(); yield &storage.scrollbarWidth }
+    }
+    /// Whether both x and y axes can scroll concurrently.
+    public var allowConcurrentScroll: Bool {
+        get { storage.allowConcurrentScroll }
+        set { ensureUnique(); storage.allowConcurrentScroll = newValue }
+        _modify { ensureUnique(); yield &storage.allowConcurrentScroll }
+    }
+    /// Restrict scroll to axis indicated by mouse wheel.
+    public var restrictScrollToAxis: Bool {
+        get { storage.restrictScrollToAxis }
+        set { ensureUnique(); storage.restrictScrollToAxis = newValue }
+        _modify { ensureUnique(); yield &storage.restrictScrollToAxis }
+    }
+    /// Positioning strategy (relative vs. absolute).
+    public var position: Position {
+        get { storage.position }
+        set { ensureUnique(); storage.position = newValue }
+        _modify { ensureUnique(); yield &storage.position }
+    }
+    /// Inset tweaking position relative to layout.
+    public var inset: Edges<Length> {
+        get { storage.inset }
+        set { ensureUnique(); storage.inset = newValue }
+        _modify { ensureUnique(); yield &storage.inset }
+    }
+    /// Initial size.
+    public var size: Size<Length> {
+        get { storage.size }
+        set { ensureUnique(); storage.size = newValue }
+        _modify { ensureUnique(); yield &storage.size }
+    }
+    /// Minimum size.
+    public var minSize: Size<Length> {
+        get { storage.minSize }
+        set { ensureUnique(); storage.minSize = newValue }
+        _modify { ensureUnique(); yield &storage.minSize }
+    }
+    /// Maximum size.
+    public var maxSize: Size<Length> {
+        get { storage.maxSize }
+        set { ensureUnique(); storage.maxSize = newValue }
+        _modify { ensureUnique(); yield &storage.maxSize }
+    }
+    /// Preferred aspect ratio (width / height).
+    public var aspectRatio: Float? {
+        get { storage.aspectRatio }
+        set { ensureUnique(); storage.aspectRatio = newValue }
+        _modify { ensureUnique(); yield &storage.aspectRatio }
+    }
+    /// Outer margins.
+    public var margin: Edges<Length> {
+        get { storage.margin }
+        set { ensureUnique(); storage.margin = newValue }
+        _modify { ensureUnique(); yield &storage.margin }
+    }
+    /// Inner padding.
+    public var padding: Edges<DefiniteLength> {
+        get { storage.padding }
+        set { ensureUnique(); storage.padding = newValue }
+        _modify { ensureUnique(); yield &storage.padding }
+    }
+    /// Border stroke widths.
+    public var borderWidths: Edges<AbsoluteLength> {
+        get { storage.borderWidths }
+        set { ensureUnique(); storage.borderWidths = newValue }
+        _modify { ensureUnique(); yield &storage.borderWidths }
+    }
+    /// Cross-axis item alignment.
+    public var alignItems: AlignItems? {
+        get { storage.alignItems }
+        set { ensureUnique(); storage.alignItems = newValue }
+        _modify { ensureUnique(); yield &storage.alignItems }
+    }
+    /// Self cross-axis override.
+    public var alignSelf: AlignSelf? {
+        get { storage.alignSelf }
+        set { ensureUnique(); storage.alignSelf = newValue }
+        _modify { ensureUnique(); yield &storage.alignSelf }
+    }
+    /// Cross-axis space distribution.
+    public var alignContent: AlignContent? {
+        get { storage.alignContent }
+        set { ensureUnique(); storage.alignContent = newValue }
+        _modify { ensureUnique(); yield &storage.alignContent }
+    }
+    /// Main-axis space distribution.
+    public var justifyContent: JustifyContent? {
+        get { storage.justifyContent }
+        set { ensureUnique(); storage.justifyContent = newValue }
+        _modify { ensureUnique(); yield &storage.justifyContent }
+    }
+    /// Gaps between items in flex/grid.
+    public var gap: Size<DefiniteLength> {
+        get { storage.gap }
+        set { ensureUnique(); storage.gap = newValue }
+        _modify { ensureUnique(); yield &storage.gap }
+    }
+    /// Main axis flow direction.
+    public var flexDirection: FlexDirection {
+        get { storage.flexDirection }
+        set { ensureUnique(); storage.flexDirection = newValue }
+        _modify { ensureUnique(); yield &storage.flexDirection }
+    }
+    /// Whether items wrap.
+    public var flexWrap: FlexWrap {
+        get { storage.flexWrap }
+        set { ensureUnique(); storage.flexWrap = newValue }
+        _modify { ensureUnique(); yield &storage.flexWrap }
+    }
+    /// Initial main axis size.
+    public var flexBasis: Length {
+        get { storage.flexBasis }
+        set { ensureUnique(); storage.flexBasis = newValue }
+        _modify { ensureUnique(); yield &storage.flexBasis }
+    }
+    /// Expansion growth rate.
+    public var flexGrow: Float {
+        get { storage.flexGrow }
+        set { ensureUnique(); storage.flexGrow = newValue }
+        _modify { ensureUnique(); yield &storage.flexGrow }
+    }
+    /// Contraction shrink rate.
+    public var flexShrink: Float {
+        get { storage.flexShrink }
+        set { ensureUnique(); storage.flexShrink = newValue }
+        _modify { ensureUnique(); yield &storage.flexShrink }
+    }
+    /// Fill/background of element.
+    public var background: Fill? {
+        get { storage.background }
+        set { ensureUnique(); storage.background = newValue }
+        _modify { ensureUnique(); yield &storage.background }
+    }
+    /// Border stroke color.
+    public var borderColor: Hsla? {
+        get { storage.borderColor }
+        set { ensureUnique(); storage.borderColor = newValue }
+        _modify { ensureUnique(); yield &storage.borderColor }
+    }
+    /// Border style.
+    public var borderStyle: BorderStyle {
+        get { storage.borderStyle }
+        set { ensureUnique(); storage.borderStyle = newValue }
+        _modify { ensureUnique(); yield &storage.borderStyle }
+    }
+    /// Corner radii.
+    public var cornerRadii: Corners<AbsoluteLength> {
+        get { storage.cornerRadii }
+        set { ensureUnique(); storage.cornerRadii = newValue }
+        _modify { ensureUnique(); yield &storage.cornerRadii }
+    }
+    /// Drop shadows.
+    public var boxShadow: [BoxShadow] {
+        get { storage.boxShadow }
+        set { ensureUnique(); storage.boxShadow = newValue }
+        _modify { ensureUnique(); yield &storage.boxShadow }
+    }
+    /// Text styling overrides.
+    public var text: TextStyleRefinement {
+        get { storage.text }
+        set { ensureUnique(); storage.text = newValue }
+        _modify { ensureUnique(); yield &storage.text }
+    }
+    /// Mouse pointer hover cursor.
+    public var mouseCursor: CursorStyle? {
+        get { storage.mouseCursor }
+        set { ensureUnique(); storage.mouseCursor = newValue }
+        _modify { ensureUnique(); yield &storage.mouseCursor }
+    }
+    /// Opacity factor.
+    public var opacity: Float? {
+        get { storage.opacity }
+        set { ensureUnique(); storage.opacity = newValue }
+        _modify { ensureUnique(); yield &storage.opacity }
+    }
+    /// Grid columns template.
+    public var gridCols: GridTemplate? {
+        get { storage.gridCols }
+        set { ensureUnique(); storage.gridCols = newValue }
+        _modify { ensureUnique(); yield &storage.gridCols }
+    }
+    /// Grid rows template.
+    public var gridRows: GridTemplate? {
+        get { storage.gridRows }
+        set { ensureUnique(); storage.gridRows = newValue }
+        _modify { ensureUnique(); yield &storage.gridRows }
+    }
+    /// Grid location placement.
+    public var gridLocation: GridLocation? {
+        get { storage.gridLocation }
+        set { ensureUnique(); storage.gridLocation = newValue }
+        _modify { ensureUnique(); yield &storage.gridLocation }
+    }
+    /// Red debugging outline.
+    public var debug: Bool {
+        get { storage.debug }
+        set { ensureUnique(); storage.debug = newValue }
+        _modify { ensureUnique(); yield &storage.debug }
+    }
+    /// Red debugging outline on descendants.
+    public var debugBelow: Bool {
+        get { storage.debugBelow }
+        set { ensureUnique(); storage.debugBelow = newValue }
+        _modify { ensureUnique(); yield &storage.debugBelow }
+    }
+
+    public init(
+        display: Display = .block,
+        visibility: Visibility = .visible,
+        overflow: Point<Overflow> = Point(x: .visible, y: .visible),
+        scrollbarWidth: AbsoluteLength = .pixels(Pixels(0.0)),
+        allowConcurrentScroll: Bool = false,
+        restrictScrollToAxis: Bool = false,
+        position: Position = .relative,
+        inset: Edges<Length> = Edges.auto(),
+        size: Size<Length> = Size.auto(),
+        minSize: Size<Length> = Size.auto(),
+        maxSize: Size<Length> = Size.auto(),
+        aspectRatio: Float? = nil,
+        margin: Edges<Length> = Edges.zero,
+        padding: Edges<DefiniteLength> = Edges.zero,
+        borderWidths: Edges<AbsoluteLength> = Edges.zero,
+        alignItems: AlignItems? = nil,
+        alignSelf: AlignSelf? = nil,
+        alignContent: AlignContent? = nil,
+        justifyContent: JustifyContent? = nil,
+        gap: Size<DefiniteLength> = Size(width: .zero, height: .zero),
+        flexDirection: FlexDirection = .row,
+        flexWrap: FlexWrap = .noWrap,
+        flexBasis: Length = .auto,
+        flexGrow: Float = 0.0,
+        flexShrink: Float = 1.0,
+        background: Fill? = nil,
+        borderColor: Hsla? = nil,
+        borderStyle: BorderStyle = .solid,
+        cornerRadii: Corners<AbsoluteLength> = Corners.zero,
+        boxShadow: [BoxShadow] = [],
+        text: TextStyleRefinement = TextStyleRefinement(),
+        mouseCursor: CursorStyle? = nil,
+        opacity: Float? = nil,
+        gridCols: GridTemplate? = nil,
+        gridRows: GridTemplate? = nil,
+        gridLocation: GridLocation? = nil,
+        debug: Bool = false,
+        debugBelow: Bool = false
+    ) {
+        self.storage = StyleStorage(
+            display: display,
+            visibility: visibility,
+            overflow: overflow,
+            scrollbarWidth: scrollbarWidth,
+            allowConcurrentScroll: allowConcurrentScroll,
+            restrictScrollToAxis: restrictScrollToAxis,
+            position: position,
+            inset: inset,
+            size: size,
+            minSize: minSize,
+            maxSize: maxSize,
+            aspectRatio: aspectRatio,
+            margin: margin,
+            padding: padding,
+            borderWidths: borderWidths,
+            alignItems: alignItems,
+            alignSelf: alignSelf,
+            alignContent: alignContent,
+            justifyContent: justifyContent,
+            gap: gap,
+            flexDirection: flexDirection,
+            flexWrap: flexWrap,
+            flexBasis: flexBasis,
+            flexGrow: flexGrow,
+            flexShrink: flexShrink,
+            background: background,
+            borderColor: borderColor,
+            borderStyle: borderStyle,
+            cornerRadii: cornerRadii,
+            boxShadow: boxShadow,
+            text: text,
+            mouseCursor: mouseCursor,
+            opacity: opacity,
+            gridCols: gridCols,
+            gridRows: gridRows,
+            gridLocation: gridLocation,
+            debug: debug,
+            debugBelow: debugBelow
+        )
+    }
+
     public init() {
         self.init(display: .block)
+    }
+
+    public static func == (lhs: Style, rhs: Style) -> Bool {
+        if lhs.storage === rhs.storage { return true }
+        return lhs.storage == rhs.storage
     }
 
     /// Returns true if the style is visible and the background is opaque.
@@ -1720,17 +2316,11 @@ public struct Style: Sendable, Equatable, Refineable, DefaultInitializable {
     }
 
     @MainActor
-    public func paint(
+    public func paintBackground(
         _ bounds: Bounds<Pixels>,
-        _ window: inout Window,
-        _ cx: inout App,
-        _ continuation: (inout Window, inout App) -> Void
+        cornerRadii: Corners<Pixels>,
+        _ window: inout Window
     ) {
-        let remSize = window.remSize
-        let cornerRadii = self.cornerRadii
-            .toPixels(remSize: remSize)
-            .clampRadiiForQuadSize(bounds.size)
-
         window.paintShadows(bounds: bounds, cornerRadii: cornerRadii, shadows: self.boxShadow)
 
         let backgroundColor = self.background?.color()
@@ -1746,9 +2336,15 @@ public struct Style: Sendable, Equatable, Refineable, DefaultInitializable {
                 borderStyle: self.borderStyle
             ))
         }
+    }
 
-        continuation(&window, &cx)
-
+    @MainActor
+    public func paintBorder(
+        _ bounds: Bounds<Pixels>,
+        cornerRadii: Corners<Pixels>,
+        _ window: inout Window
+    ) {
+        let remSize = window.remSize
         if self.isBorderVisible() {
             let borderWidths = self.borderWidths.toPixels(remSize: remSize)
             let maxBorderWidth = borderWidths.max()
@@ -1805,45 +2401,26 @@ public struct Style: Sendable, Equatable, Refineable, DefaultInitializable {
         }
     }
 
+    @MainActor
+    public func paint(
+        _ bounds: Bounds<Pixels>,
+        _ window: inout Window,
+        _ cx: inout App,
+        _ continuation: (inout Window, inout App) -> Void
+    ) {
+        let remSize = window.remSize
+        let cornerRadii = self.cornerRadii
+            .toPixels(remSize: remSize)
+            .clampRadiiForQuadSize(bounds.size)
+
+        paintBackground(bounds, cornerRadii: cornerRadii, &window)
+        continuation(&window, &cx)
+        paintBorder(bounds, cornerRadii: cornerRadii, &window)
+    }
+
     public mutating func refine(with refinement: StyleRefinement) {
-        if let d = refinement.display { self.display = d }
-        if let v = refinement.visibility { self.visibility = v }
-        self.overflow.refine(with: refinement.overflow)
-        if let sw = refinement.scrollbarWidth { self.scrollbarWidth = sw }
-        if let ac = refinement.allowConcurrentScroll { self.allowConcurrentScroll = ac }
-        if let rs = refinement.restrictScrollToAxis { self.restrictScrollToAxis = rs }
-        if let p = refinement.position { self.position = p }
-        self.inset.refine(with: refinement.inset)
-        self.size.refine(with: refinement.size)
-        self.minSize.refine(with: refinement.minSize)
-        self.maxSize.refine(with: refinement.maxSize)
-        if let ar = refinement.aspectRatio { self.aspectRatio = ar }
-        self.margin.refine(with: refinement.margin)
-        self.padding.refine(with: refinement.padding)
-        self.borderWidths.refine(with: refinement.borderWidths)
-        if let ai = refinement.alignItems { self.alignItems = ai }
-        if let aself = refinement.alignSelf { self.alignSelf = aself }
-        if let ac = refinement.alignContent { self.alignContent = ac }
-        if let jc = refinement.justifyContent { self.justifyContent = jc }
-        self.gap.refine(with: refinement.gap)
-        if let fd = refinement.flexDirection { self.flexDirection = fd }
-        if let fw = refinement.flexWrap { self.flexWrap = fw }
-        if let fb = refinement.flexBasis { self.flexBasis = fb }
-        if let fg = refinement.flexGrow { self.flexGrow = fg }
-        if let fs = refinement.flexShrink { self.flexShrink = fs }
-        if let b = refinement.background { self.background = b }
-        if let bc = refinement.borderColor { self.borderColor = bc }
-        if let bs = refinement.borderStyle { self.borderStyle = bs }
-        self.cornerRadii.refine(with: refinement.cornerRadii)
-        if let shadows = refinement.boxShadow { self.boxShadow = shadows }
-        self.text.refine(with: refinement.text)
-        if let mc = refinement.mouseCursor { self.mouseCursor = mc }
-        if let o = refinement.opacity { self.opacity = o }
-        if let gc = refinement.gridCols { self.gridCols = gc }
-        if let gr = refinement.gridRows { self.gridRows = gr }
-        if let gl = refinement.gridLocation { self.gridLocation = gl }
-        if let dbg = refinement.debug { self.debug = dbg }
-        if let dbgB = refinement.debugBelow { self.debugBelow = dbgB }
+        ensureUnique()
+        storage.refine(with: refinement)
     }
 
     public func isSuperset(of refinement: StyleRefinement) -> Bool {
