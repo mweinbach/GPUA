@@ -1,6 +1,6 @@
 // Ported from: crates/gpui/src/app.rs
 // Upstream commit: 650aab59d54f4f6f85d42c965831935568ac1162
-// Port status: in-progress
+// Port status: ported
 
 import Foundation
 #if canImport(FoundationNetworking)
@@ -340,34 +340,7 @@ public protocol ScreenCaptureSource: Sendable {
     var title: String { get }
 }
 
-/// Menu representation for system menu bar.
-public struct Menu: Sendable {
-    public var name: SharedString
-    public var items: [MenuItem]
-
-    public init(name: SharedString = "", items: [MenuItem] = []) {
-        self.name = name
-        self.items = items
-    }
-}
-
-/// A single item in an application or dock menu.
-public enum MenuItem: Sendable {
-    case separator
-    case action(name: SharedString, action: any Action)
-    case submenu(Menu)
-}
-
-/// An owned menu structure returned from the platform.
-public struct OwnedMenu: Sendable {
-    public var name: SharedString
-    public var items: [MenuItem]
-
-    public init(name: SharedString = "", items: [MenuItem] = []) {
-        self.name = name
-        self.items = items
-    }
-}
+// Menu, MenuItem, OwnedMenu are declared in platform/app_menu.swift
 
 /// Default empty asset source.
 public struct EmptyAssetSource: AssetSource {
@@ -393,14 +366,7 @@ public struct NullHttpClient: HttpClient {
     }
 }
 
-/// SVG rendering engine for GPUI.
-public final class SvgRenderer: Sendable {
-    public let assetSource: any AssetSource
-
-    public init(assetSource: any AssetSource = EmptyAssetSource()) {
-        self.assetSource = assetSource
-    }
-}
+// SvgRenderer is declared in svg_renderer.swift
 
 // DisplayId and PlatformDisplay are declared in window.swift
 
@@ -466,6 +432,15 @@ public protocol Platform: AnyObject, Sendable {
     func onReopen(_ callback: @escaping () -> Void)
     func onOpenUrls(_ callback: @escaping ([String]) -> Void)
     func onQuit(_ callback: @escaping () -> Void)
+    func onWillOpenAppMenu(_ callback: @escaping @MainActor () -> Void)
+    func onValidateAppMenuCommand(_ callback: @escaping @MainActor (any Action) -> Bool)
+    func onAppMenuAction(_ callback: @escaping @MainActor (any Action) -> Void)
+}
+
+extension Platform {
+    public func onWillOpenAppMenu(_ callback: @escaping @MainActor () -> Void) {}
+    public func onValidateAppMenuCommand(_ callback: @escaping @MainActor (any Action) -> Bool) {}
+    public func onAppMenuAction(_ callback: @escaping @MainActor (any Action) -> Void) {}
 }
 
 /// In-memory platform display implementation for headless/testing execution.
@@ -1717,6 +1692,10 @@ public final class App: AppContext, BorrowAppContext, @unchecked Sendable {
 
     public func registerInspectorElement<T>(_ f: Any, _ type: T.Type = T.self) {
         inspectorElementRegistry[ObjectIdentifier(T.self)] = f
+    }
+
+    public func inspectorElementRenderer(for typeId: ObjectIdentifier) -> (@Sendable (InspectorElementId, Any, inout Window, inout App) -> AnyElement)? {
+        inspectorElementRegistry[typeId] as? (@Sendable (InspectorElementId, Any, inout Window, inout App) -> AnyElement)
     }
 
     public func initColors() {

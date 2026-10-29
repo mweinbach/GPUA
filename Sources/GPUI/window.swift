@@ -1374,19 +1374,6 @@ public struct GpuSpecs: Sendable, Equatable {
     public init() {}
 }
 
-public struct Image: Sendable, Equatable {
-    public var id: UInt64
-    public var width: Int
-    public var height: Int
-    public var data: [UInt8]
-
-    public init(id: UInt64 = 1, width: Int = 0, height: Int = 0, data: [UInt8] = []) {
-        self.id = id
-        self.width = width
-        self.height = height
-        self.data = data
-    }
-}
 
 public enum InputModality: Sendable, Equatable {
     case mouse
@@ -1986,6 +1973,7 @@ public struct Window: @unchecked Sendable {
 
     // MARK: - Stacks & Scoping
 
+    @inline(__always)
     public mutating func withContentMask<R>(
         _ mask: ContentMask<Pixels>?,
         _ f: (inout Window) -> R
@@ -2000,6 +1988,7 @@ public struct Window: @unchecked Sendable {
         return f(&self)
     }
 
+    @inline(__always)
     public mutating func withContentMask<R>(
         _ mask: ContentMask<Pixels>,
         _ f: (inout Window) -> R
@@ -2285,6 +2274,7 @@ public struct Window: @unchecked Sendable {
         }
 
         propagateEvent = true
+        cx.propagateEvent = true
         defaultPrevented = false
 
         switch event {
@@ -2353,7 +2343,7 @@ public struct Window: @unchecked Sendable {
         }
 
         return DispatchEventResult(
-            propagate: propagateEvent,
+            propagate: propagateEvent && cx.propagateEvent,
             defaultPrevented: defaultPrevented
         )
     }
@@ -2371,16 +2361,18 @@ public struct Window: @unchecked Sendable {
         // Capture phase (front to back)
         for listener in listeners {
             listener(event, .capture, &self, &cx)
-            if !propagateEvent {
+            if !propagateEvent || !cx.propagateEvent {
+                propagateEvent = false
                 break
             }
         }
 
         // Bubble phase (back to front)
-        if propagateEvent {
+        if propagateEvent && cx.propagateEvent {
             for listener in listeners.reversed() {
                 listener(event, .bubble, &self, &cx)
-                if !propagateEvent {
+                if !propagateEvent || !cx.propagateEvent {
+                    propagateEvent = false
                     break
                 }
             }

@@ -101,11 +101,11 @@ public struct TooltipBuilder: @unchecked Sendable {
 // PORT NOTE: ActiveTooltip manages tooltip presentation and hide timers matching upstream Task<()>.
 public enum ActiveTooltip: @unchecked Sendable {
     /// Currently delaying before showing the tooltip.
-    case waitingForShow(Task<Void, Never>?)
+    case waitingForShow(_Concurrency.Task<Void, Never>?)
     /// Tooltip is visible, element was hovered or for hoverable tooltips, the tooltip was hovered.
     case visible(tooltip: AnyTooltip, isHoverable: Bool)
     /// Tooltip is visible and hoverable, but the mouse is no longer hovering. Currently delaying before hiding it.
-    case waitingForHide(tooltip: AnyTooltip, task: Task<Void, Never>?)
+    case waitingForHide(tooltip: AnyTooltip, task: _Concurrency.Task<Void, Never>?)
 }
 
 public func clearActiveTooltip(
@@ -736,15 +736,31 @@ public struct Interactivity: @unchecked Sendable {
                 }
             }
 
-            let hitbox: Hitbox?
-            if self.shouldInsertHitbox(style: style, window: window, cx: cx) {
-                hitbox = window.insertHitbox(bounds, self.hitboxBehavior)
-            } else {
-                hitbox = nil
-            }
+            let overflowMask = style.overflowMask(bounds: bounds, remSize: window.remSize)
+            let res: R
+            if let mask = overflowMask {
+                res = window.withContentMask(mask) { window in
+                    let hitbox: Hitbox?
+                    if self.shouldInsertHitbox(style: style, window: window, cx: cx) {
+                        hitbox = window.insertHitbox(bounds, self.hitboxBehavior)
+                    } else {
+                        hitbox = nil
+                    }
 
-            let scrollOffset = self.clampScrollPosition(bounds: bounds, style: style, window: &window)
-            let res = f(style, scrollOffset, hitbox, &window, &cx)
+                    let scrollOffset = self.clampScrollPosition(bounds: bounds, style: style, window: &window)
+                    return f(style, scrollOffset, hitbox, &window, &cx)
+                }
+            } else {
+                let hitbox: Hitbox?
+                if self.shouldInsertHitbox(style: style, window: window, cx: cx) {
+                    hitbox = window.insertHitbox(bounds, self.hitboxBehavior)
+                } else {
+                    hitbox = nil
+                }
+
+                let scrollOffset = self.clampScrollPosition(bounds: bounds, style: style, window: &window)
+                res = f(style, scrollOffset, hitbox, &window, &cx)
+            }
             elementState = state
             return res
         }
@@ -1814,6 +1830,10 @@ public struct Div: Styled, InteractiveElement, ParentElement, Element, IntoEleme
         self.prepaintListener = nil
         self.imageCacheProvider = nil
         self.prepaintOrderFn = nil
+    }
+
+    public mutating func extend(_ elements: [AnyElement]) {
+        self.children.append(contentsOf: elements)
     }
 
     public var style: StyleRefinement {

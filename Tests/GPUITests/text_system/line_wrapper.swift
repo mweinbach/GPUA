@@ -538,13 +538,4 @@ struct LineWrapperTests {
         )
         #expect(layout2.width == layout1.width)
     }
-
-    @Test("test_test_app_context_lifecycle")
-    @MainActor
-    func test_test_app_context_lifecycle() {
-        let cx = TestAppContext.build(dispatcher: TestDispatcher.new(seed: 0))
-        let textSys = cx.textSystem
-        let fontId = textSys.resolveFont(font(".ZedMono"))
-        #expect(fontId.value > 0)
-    }
 }

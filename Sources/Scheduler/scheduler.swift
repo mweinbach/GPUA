@@ -165,6 +165,8 @@ public struct Timer: Sendable {
     }
 }
 
+public typealias SchedulerTimer = Timer
+
 public protocol Scheduler: Sendable {
     func block(
         sessionId: SessionId?,

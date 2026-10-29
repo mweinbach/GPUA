@@ -1,6 +1,6 @@
 // Ported from: crates/gpui/src/platform.rs
 // Upstream commit: 650aab59d54f4f6f85d42c965831935568ac1162
-// Port status: in-progress
+// Port status: ported
 
 import Foundation
 import Refineable
@@ -130,16 +130,7 @@ public struct AtlasTile: Sendable, Equatable, Hashable {
 // MARK: - Image and SVG Params
 
 
-/// Parameters for rendering an SVG to the atlas.
-public struct RenderSvgParams: Sendable, Equatable, Hashable {
-    public var path: SharedString
-    public var size: Size<DevicePixels>
-
-    public init(path: SharedString, size: Size<DevicePixels>) {
-        self.path = path
-        self.size = size
-    }
-}
+// RenderSvgParams is declared in svg_renderer.swift
 
 /// Key identifying an entry in the platform sprite atlas.
 public enum AtlasKey: Sendable, Equatable, Hashable {
@@ -261,6 +252,11 @@ public protocol PlatformDispatcher: Sendable {
     func dispatchAfter(duration: TimeInterval, _ runnable: @escaping @Sendable () -> Void)
     func spawnRealtime(_ f: @escaping @Sendable () -> Void)
     func now() -> Date
+    func asTest() -> TestDispatcher?
+}
+
+extension PlatformDispatcher {
+    public func asTest() -> TestDispatcher? { nil }
 }
 
 // MARK: - Platform Text System
@@ -409,3 +405,99 @@ public struct NoopTextSystem: PlatformTextSystem, Sendable {
         .grayscale
     }
 }
+
+// MARK: - Image Types
+
+/// Supported image formats matching upstream ImageFormat.
+public enum ImageFormat: Sendable, Equatable, Hashable, CaseIterable {
+    case png
+    case jpeg
+    case webp
+    case gif
+    case svg
+    case bmp
+    case tiff
+    case ico
+
+    public var mimeType: String {
+        switch self {
+        case .png: return "image/png"
+        case .jpeg: return "image/jpeg"
+        case .webp: return "image/webp"
+        case .gif: return "image/gif"
+        case .svg: return "image/svg+xml"
+        case .bmp: return "image/bmp"
+        case .tiff: return "image/tiff"
+        case .ico: return "image/ico"
+        }
+    }
+
+    public static func fromMimeType(_ mimeType: String) -> ImageFormat? {
+        switch mimeType {
+        case "image/png": return .png
+        case "image/jpeg", "image/jpg": return .jpeg
+        case "image/webp": return .webp
+        case "image/gif": return .gif
+        case "image/svg+xml": return .svg
+        case "image/bmp": return .bmp
+        case "image/tiff", "image/tif": return .tiff
+        case "image/ico": return .ico
+        default: return nil
+        }
+    }
+}
+
+/// An image with a format and raw bytes matching upstream Image.
+public struct Image: Sendable, Equatable, Hashable {
+    public var format: ImageFormat
+    public var bytes: [UInt8]
+    public var id: UInt64
+    public var width: Int
+    public var height: Int
+
+    public var data: [UInt8] {
+        get { bytes }
+        set { bytes = newValue }
+    }
+
+    public init(
+        format: ImageFormat = .png,
+        bytes: [UInt8] = [],
+        id: UInt64 = 0,
+        width: Int = 0,
+        height: Int = 0,
+        data: [UInt8] = []
+    ) {
+        self.format = format
+        let raw = !bytes.isEmpty ? bytes : data
+        self.bytes = raw
+        self.id = id != 0 ? id : UInt64(truncatingIfNeeded: raw.hashValue)
+        self.width = width
+        self.height = height
+    }
+
+    public static func empty() -> Image {
+        Image(format: .png, bytes: [])
+    }
+
+    public static func fromBytes(format: ImageFormat, bytes: [UInt8]) -> Image {
+        Image(format: format, bytes: bytes)
+    }
+
+    public func toImageData(svgRenderer: SvgRenderer) throws -> RenderImage {
+        switch format {
+        case .svg:
+            return try svgRenderer.renderSingleFrame(bytes: bytes, scaleFactor: 1.0)
+        default:
+            return RenderImage()
+        }
+    }
+}
+
+/// A no-op asset source for testing and headless scenarios.
+public struct NoopAssetSource: AssetSource {
+    public init() {}
+    public func load(_ path: String) throws -> Data? { nil }
+    public func list(_ path: String) throws -> [SharedString] { [] }
+}
+

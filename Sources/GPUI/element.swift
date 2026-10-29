@@ -4,8 +4,6 @@
 
 import Foundation
 
-public typealias InspectorElementId = ElementId
-
 // MARK: - Element Protocols
 
 /// Implemented by types that participate in laying out and painting the contents of a window.
@@ -116,7 +114,7 @@ public protocol ParentElement {
 
 extension ParentElement {
     public mutating func extend<S: Sequence>(_ elements: S) where S.Element == AnyElement {
-        extend(Array(elements))
+        self.extend(elements as? [AnyElement] ?? Array(elements))
     }
 
     public func child(_ child: some IntoElement) -> Self {

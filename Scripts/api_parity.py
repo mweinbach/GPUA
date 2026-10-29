@@ -427,6 +427,13 @@ def parse_swift_declarations(text: str, file_path: str) -> List[Dict]:
             idx += 1
             continue
 
+        # Skip import statements (e.g. import protocol Foo.Bar)
+        if tok_type == "WORD" and val == "import":
+            idx += 1
+            while idx < n and tokens[idx][2] == line:
+                idx += 1
+            continue
+
         is_member_level = (not type_stack and brace_depth == 0) or (
             type_stack and brace_depth == type_stack[-1][1]
         )

@@ -350,6 +350,10 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
         self.creatorThreadId = currentThreadId()
     }
 
+    public func rng() -> SharedRng {
+        rngInstance
+    }
+
     @discardableResult
     public static func once<R: Sendable>(_ f: @Sendable @escaping (TestScheduler) async throws -> R) async throws -> R {
         let scheduler = TestScheduler(config: .withSeed(0))

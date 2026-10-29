@@ -613,3 +613,8 @@ public final class BackgroundExecutor: @unchecked Sendable {
         }
     }
 }
+
+// PORT NOTE: Typealiases to avoid module-shadowing when importing Scheduler into GPUI.
+public typealias SchedulerBackgroundExecutor = BackgroundExecutor
+public typealias SchedulerForegroundExecutor = ForegroundExecutor
+public typealias SchedulerTask<T: Sendable> = Task<T>
