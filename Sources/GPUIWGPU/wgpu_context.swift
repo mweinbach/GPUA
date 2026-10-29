@@ -155,7 +155,7 @@ public final class WgpuContext: @unchecked Sendable {
         return wgpuCreateInstance(&desc)!
         #else
         // PORT NOTE: WebGPU C runtime calls are gated on os(Linux) because libwgpu_native is linked on Linux, while Windows uses D3D11 in GPUIWindows and Android/WASI backends are deferred per R3.
-        return UnsafeMutableRawPointer(bitPattern: 1)!
+        return OpaquePointer(bitPattern: 1)!
         #endif
     }
 

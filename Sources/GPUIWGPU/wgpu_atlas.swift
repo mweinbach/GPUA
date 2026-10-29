@@ -275,8 +275,8 @@ struct WgpuAtlasState {
         let view = wgpuTextureCreateView(texture, nil)!
         #else
         // PORT NOTE: WebGPU C runtime calls are gated on os(Linux) because libwgpu_native is linked on Linux, while Windows uses D3D11 in GPUIWindows and Android/WASI backends are deferred per R3.
-        let texture = UnsafeMutableRawPointer(bitPattern: 1)!
-        let view = UnsafeMutableRawPointer(bitPattern: 1)!
+        let texture = OpaquePointer(bitPattern: 1)!
+        let view = OpaquePointer(bitPattern: 1)!
         #endif
 
         var list = storage[kind]

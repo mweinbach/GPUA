@@ -632,11 +632,11 @@ public final class WgpuRenderer: @unchecked Sendable {
             var passDesc = WGPURenderPassDescriptor()
             passDesc.label = WGPUStringView(data: nil, length: 0)
             passDesc.colorAttachmentCount = 1
-            withUnsafePointer(to: &colorAttachment) { attPtr in
+            let initialPass = withUnsafePointer(to: &colorAttachment) { attPtr in
                 passDesc.colorAttachments = attPtr
+                return wgpuCommandEncoderBeginRenderPass(encoder, &passDesc)
             }
-
-            guard var renderPass = wgpuCommandEncoderBeginRenderPass(encoder, &passDesc) else {
+            guard var renderPass = initialPass else {
                 wgpuCommandEncoderRelease(encoder)
                 return
             }
@@ -1403,11 +1403,11 @@ public final class WgpuRenderer: @unchecked Sendable {
 
         var pDesc = WGPURenderPassDescriptor()
         pDesc.colorAttachmentCount = 1
-        withUnsafePointer(to: &att) { attPtr in
+        let maybePass = withUnsafePointer(to: &att) { attPtr in
             pDesc.colorAttachments = attPtr
+            return wgpuCommandEncoderBeginRenderPass(encoder, &pDesc)
         }
-
-        guard let pass = wgpuCommandEncoderBeginRenderPass(encoder, &pDesc) else {
+        guard let pass = maybePass else {
             return false
         }
         wgpuRenderPassEncoderSetPipeline(pass, res.pipelines.pathRasterization)
