@@ -14,7 +14,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `Taffy` | 47 | 3 | 0 | 44 | 0 | 0 | 18,695 | 98% |
 | `GPUILinux` | 24 | 0 | 0 | 24 | 0 | 0 | 12,710 | 100% |
 | `GPUIExamples` | 40 | 40 | 0 | 0 | 0 | 0 | 12,441 | 0% |
-| `GPUIWindows` | 18 | 1 | 0 | 17 | 0 | 0 | 11,223 | 86% |
+| `GPUIWindows` | 18 | 0 | 0 | 18 | 0 | 0 | 11,223 | 100% |
 | `GPUIMacOS` | 14 | 14 | 0 | 0 | 0 | 0 | 10,175 | 0% |
 | `ZedUtil` | 23 | 0 | 0 | 6 | 0 | 17 | 9,596 | 100% |
 | `GPUIiOS` | 20 | 20 | 0 | 0 | 0 | 0 | 6,168 | 0% |
@@ -29,10 +29,10 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIUtil` | 2 | 0 | 0 | 2 | 0 | 0 | 433 | 100% |
 | `GPUICollections` | 3 | 0 | 0 | 2 | 0 | 1 | 414 | 100% |
 | `Media` | 2 | 0 | 0 | 2 | 0 | 0 | 362 | 100% |
-| `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
+| `GPUIPlatform` | 1 | 0 | 0 | 1 | 0 | 0 | 169 | 100% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **338** | 111 | 0 | 207 | 0 | 20 | 154,333 | 77% |
+| **Total** | **338** | 109 | 0 | 209 | 0 | 20 | 154,333 | 78% |
 
 ## Files
 
@@ -328,8 +328,8 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/gpui_platform/src/gpui_platform.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_platform/src/gpui_platform.rs) | [Sources/GPUIPlatform/gpui_platform.swift](../Sources/GPUIPlatform/gpui_platform.swift) | source | 169 | not-started |
-| [crates/gpui_platform/src/gpui_platform.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_platform/src/gpui_platform.rs) | [Tests/GPUIPlatformTests/gpui_platform.swift](../Tests/GPUIPlatformTests/gpui_platform.swift) | inline-test |  | not-started |
+| [crates/gpui_platform/src/gpui_platform.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_platform/src/gpui_platform.rs) | [Sources/GPUIPlatform/gpui_platform.swift](../Sources/GPUIPlatform/gpui_platform.swift) | source | 169 | ported |
+| [crates/gpui_platform/src/gpui_platform.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_platform/src/gpui_platform.rs) | [Tests/GPUIPlatformTests/gpui_platform.swift](../Tests/GPUIPlatformTests/gpui_platform.swift) | inline-test |  | ported |
 
 ### `GPUIUtil`
 
@@ -388,7 +388,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui_windows/src/system_settings.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/system_settings.rs) | [Sources/GPUIWindows/system_settings.swift](../Sources/GPUIWindows/system_settings.swift) | source | 87 | ported |
 | [crates/gpui_windows/src/util.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/util.rs) | [Sources/GPUIWindows/util.swift](../Sources/GPUIWindows/util.swift) | source | 192 | ported |
 | [crates/gpui_windows/src/vsync.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/vsync.rs) | [Sources/GPUIWindows/vsync.swift](../Sources/GPUIWindows/vsync.swift) | source | 81 | ported |
-| [crates/gpui_windows/src/window.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/window.rs) | [Sources/GPUIWindows/window.swift](../Sources/GPUIWindows/window.swift) | source | 1537 | not-started |
+| [crates/gpui_windows/src/window.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/window.rs) | [Sources/GPUIWindows/window.swift](../Sources/GPUIWindows/window.swift) | source | 1537 | ported |
 | [crates/gpui_windows/src/wrapper.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/wrapper.rs) | [Sources/GPUIWindows/wrapper.swift](../Sources/GPUIWindows/wrapper.swift) | source | 53 | ported |
 | [crates/gpui_windows/src/alpha_correction.hlsl](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/alpha_correction.hlsl) | [Sources/GPUIWindows/alpha_correction.hlsl](../Sources/GPUIWindows/alpha_correction.hlsl) | asset |  | copied |
 | [crates/gpui_windows/src/color_text_raster.hlsl](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/color_text_raster.hlsl) | [Sources/GPUIWindows/color_text_raster.hlsl](../Sources/GPUIWindows/color_text_raster.hlsl) | asset |  | copied |
@@ -396,7 +396,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui_windows/src/keyboard.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/keyboard.rs) | [Tests/GPUIWindowsTests/keyboard.swift](../Tests/GPUIWindowsTests/keyboard.swift) | inline-test |  | ported |
 | [crates/gpui_windows/src/platform.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/platform.rs) | [Tests/GPUIWindowsTests/platform.swift](../Tests/GPUIWindowsTests/platform.swift) | inline-test |  | ported |
 | [crates/gpui_windows/src/shaders.hlsl](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/shaders.hlsl) | [Sources/GPUIWindows/shaders.hlsl](../Sources/GPUIWindows/shaders.hlsl) | asset |  | copied |
-| [crates/gpui_windows/src/window.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/window.rs) | [Tests/GPUIWindowsTests/window.swift](../Tests/GPUIWindowsTests/window.swift) | inline-test |  | not-started |
+| [crates/gpui_windows/src/window.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/window.rs) | [Tests/GPUIWindowsTests/window.swift](../Tests/GPUIWindowsTests/window.swift) | inline-test |  | ported |
 
 ### `GPUIiOS`
 

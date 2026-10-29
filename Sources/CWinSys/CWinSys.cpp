@@ -2553,6 +2553,208 @@ void cwin_win32_notify_frame_changed(void* hwnd) {
                  SWP_NOOWNERZORDER | SWP_NOREPOSITION | SWP_NOSENDCHANGING | SWP_NOSIZE | SWP_NOZORDER);
 }
 
+int cwin_win32_show_window(void* hwnd, int cmd_show) {
+    if (!hwnd) return (int)E_INVALIDARG;
+    ShowWindow(static_cast<HWND>(hwnd), cmd_show);
+    return 0;
+}
+
+int cwin_win32_is_window_visible(void* hwnd) {
+    if (!hwnd) return 0;
+    return IsWindowVisible(static_cast<HWND>(hwnd)) ? 1 : 0;
+}
+
+int cwin_win32_is_window_minimized(void* hwnd) {
+    if (!hwnd) return 0;
+    return IsIconic(static_cast<HWND>(hwnd)) ? 1 : 0;
+}
+
+int cwin_win32_is_window_maximized(void* hwnd) {
+    if (!hwnd) return 0;
+    return IsZoomed(static_cast<HWND>(hwnd)) ? 1 : 0;
+}
+
+int cwin_win32_set_window_pos(void* hwnd, void* hwnd_insert_after, int x, int y, int cx, int cy, uint32_t flags) {
+    if (!hwnd) return (int)E_INVALIDARG;
+    BOOL ok = SetWindowPos(
+        static_cast<HWND>(hwnd),
+        static_cast<HWND>(hwnd_insert_after),
+        x, y, cx, cy,
+        static_cast<UINT>(flags)
+    );
+    return ok ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
+}
+
+int cwin_win32_get_window_rect(void* hwnd, int32_t* left, int32_t* top, int32_t* right, int32_t* bottom) {
+    if (!hwnd || !left || !top || !right || !bottom) return (int)E_INVALIDARG;
+    RECT rc = { 0, 0, 0, 0 };
+    if (!GetWindowRect(static_cast<HWND>(hwnd), &rc)) {
+        return (int)HRESULT_FROM_WIN32(GetLastError());
+    }
+    *left = rc.left;
+    *top = rc.top;
+    *right = rc.right;
+    *bottom = rc.bottom;
+    return 0;
+}
+
+int cwin_win32_get_client_rect(void* hwnd, int32_t* left, int32_t* top, int32_t* right, int32_t* bottom) {
+    if (!hwnd || !left || !top || !right || !bottom) return (int)E_INVALIDARG;
+    RECT rc = { 0, 0, 0, 0 };
+    if (!GetClientRect(static_cast<HWND>(hwnd), &rc)) {
+        return (int)HRESULT_FROM_WIN32(GetLastError());
+    }
+    *left = rc.left;
+    *top = rc.top;
+    *right = rc.right;
+    *bottom = rc.bottom;
+    return 0;
+}
+
+int cwin_win32_set_window_text(void* hwnd, const uint16_t* title) {
+    if (!hwnd) return (int)E_INVALIDARG;
+    const wchar_t* wtitle = title ? reinterpret_cast<const wchar_t*>(title) : L"";
+    BOOL ok = SetWindowTextW(static_cast<HWND>(hwnd), wtitle);
+    return ok ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
+}
+
+int cwin_win32_get_window_text(void* hwnd, uint16_t* out_text, int max_chars) {
+    if (!hwnd || !out_text || max_chars <= 0) return 0;
+    int len = GetWindowTextW(static_cast<HWND>(hwnd), reinterpret_cast<wchar_t*>(out_text), max_chars);
+    return len;
+}
+
+int cwin_win32_set_foreground_window(void* hwnd) {
+    if (!hwnd) return (int)E_INVALIDARG;
+    SetForegroundWindow(static_cast<HWND>(hwnd));
+    return 0;
+}
+
+int cwin_win32_set_active_window(void* hwnd) {
+    if (!hwnd) return (int)E_INVALIDARG;
+    SetActiveWindow(static_cast<HWND>(hwnd));
+    return 0;
+}
+
+int cwin_win32_set_focus(void* hwnd) {
+    if (!hwnd) return (int)E_INVALIDARG;
+    SetFocus(static_cast<HWND>(hwnd));
+    return 0;
+}
+
+int cwin_win32_get_cursor_pos(int32_t* x, int32_t* y) {
+    if (!x || !y) return (int)E_INVALIDARG;
+    POINT pt = { 0, 0 };
+    if (!GetCursorPos(&pt)) {
+        return (int)HRESULT_FROM_WIN32(GetLastError());
+    }
+    *x = pt.x;
+    *y = pt.y;
+    return 0;
+}
+
+int cwin_win32_screen_to_client(void* hwnd, int32_t* x, int32_t* y) {
+    if (!hwnd || !x || !y) return (int)E_INVALIDARG;
+    POINT pt = { *x, *y };
+    if (!ScreenToClient(static_cast<HWND>(hwnd), &pt)) {
+        return (int)HRESULT_FROM_WIN32(GetLastError());
+    }
+    *x = pt.x;
+    *y = pt.y;
+    return 0;
+}
+
+int cwin_win32_validate_rect(void* hwnd) {
+    if (!hwnd) return (int)E_INVALIDARG;
+    ValidateRect(static_cast<HWND>(hwnd), nullptr);
+    return 0;
+}
+
+int cwin_win32_set_non_rude_hwnd(void* hwnd, int non_rude) {
+    if (!hwnd) return (int)E_INVALIDARG;
+    if (non_rude) {
+        SetPropW(static_cast<HWND>(hwnd), L"NonRudeHWND", reinterpret_cast<HANDLE>(1));
+    } else {
+        RemovePropW(static_cast<HWND>(hwnd), L"NonRudeHWND");
+    }
+    return 0;
+}
+
+int cwin_win32_track_mouse_event(void* hwnd, uint32_t flags) {
+    if (!hwnd) return (int)E_INVALIDARG;
+    TRACKMOUSEEVENT tme;
+    tme.cbSize = sizeof(TRACKMOUSEEVENT);
+    tme.dwFlags = static_cast<DWORD>(flags);
+    tme.hwndTrack = static_cast<HWND>(hwnd);
+    tme.dwHoverTime = HOVER_DEFAULT;
+    return TrackMouseEvent(&tme) ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
+}
+
+uintptr_t cwin_win32_set_timer(void* hwnd, uintptr_t id, uint32_t elapse) {
+    return static_cast<uintptr_t>(SetTimer(
+        static_cast<HWND>(hwnd),
+        static_cast<UINT_PTR>(id),
+        static_cast<UINT>(elapse),
+        nullptr
+    ));
+}
+
+int cwin_win32_kill_timer(void* hwnd, uintptr_t id) {
+    BOOL ok = KillTimer(static_cast<HWND>(hwnd), static_cast<UINT_PTR>(id));
+    return ok ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
+}
+
+int cwin_win32_set_window_composition_attribute(void* hwnd, uint32_t accent_state, uint32_t color) {
+    if (!hwnd) return (int)E_INVALIDARG;
+    HWND h = static_cast<HWND>(hwnd);
+    typedef HRESULT(WINAPI* PFN_DwmSetWindowAttribute)(HWND, DWORD, LPCVOID, DWORD);
+    static PFN_DwmSetWindowAttribute pfnDwmSetWindowAttribute =
+        reinterpret_cast<PFN_DwmSetWindowAttribute>(GetProcAddress(GetModuleHandleW(L"dwmapi.dll"), "DwmSetWindowAttribute"));
+
+    if (pfnDwmSetWindowAttribute) {
+        DWORD backdrop = accent_state;
+        pfnDwmSetWindowAttribute(h, 38, &backdrop, sizeof(backdrop));
+    }
+    return 0;
+}
+
+int cwin_win32_task_dialog(
+    void* hwnd_parent,
+    int level,
+    const uint16_t* instruction,
+    const uint16_t* content,
+    const uint16_t** button_labels,
+    int button_count,
+    int* out_button_index
+) {
+    if (out_button_index) *out_button_index = 0;
+    HWND parent = static_cast<HWND>(hwnd_parent);
+    const wchar_t* inst = instruction ? reinterpret_cast<const wchar_t*>(instruction) : L"";
+    const wchar_t* cnt = content ? reinterpret_cast<const wchar_t*>(content) : L"";
+
+    UINT mb_type = MB_OK;
+    switch (level) {
+    case 1: mb_type |= MB_ICONINFORMATION; break;
+    case 2: mb_type |= MB_ICONWARNING; break;
+    case 3: mb_type |= MB_ICONERROR; break;
+    default: mb_type |= MB_ICONINFORMATION; break;
+    }
+
+    if (button_count == 2) {
+        mb_type |= MB_OKCANCEL;
+    } else if (button_count >= 3) {
+        mb_type |= MB_YESNOCANCEL;
+    }
+
+    int res = MessageBoxW(parent, cnt, inst, mb_type);
+    if (out_button_index) {
+        if (res == IDOK || res == IDYES) *out_button_index = 0;
+        else if (res == IDCANCEL || res == IDNO) *out_button_index = 1;
+        else *out_button_index = 0;
+    }
+    return 0;
+}
+
 // MARK: - Win32 Enhanced Clipboard
 
 int cwin_win32_clipboard_open(void* hwnd) {
@@ -2733,7 +2935,7 @@ public:
                      | DIRECTMANIPULATION_CONFIGURATION_RAILS_X
                      | DIRECTMANIPULATION_CONFIGURATION_RAILS_Y
                      | DIRECTMANIPULATION_CONFIGURATION_SCALING;
-        viewport_->ActivateConfiguration(config);
+        viewport_->ActivateConfiguration(static_cast<DIRECTMANIPULATION_CONFIGURATION>(config));
         viewport_->SetViewportOptions(DIRECTMANIPULATION_VIEWPORT_OPTIONS_MANUALUPDATE | DIRECTMANIPULATION_VIEWPORT_OPTIONS_DISABLEPIXELSNAPPING);
 
         RECT rc = { 0, 0, 1000, 1000 };

@@ -253,6 +253,29 @@ int32_t cwin_win32_get_frame_thickness_x(uint32_t dpi);
 int32_t cwin_win32_get_frame_thickness_y(uint32_t dpi);
 void cwin_win32_notify_frame_changed(void* hwnd);
 
+// Win32 Window State & Manipulation
+int cwin_win32_show_window(void* hwnd, int cmd_show);
+int cwin_win32_is_window_visible(void* hwnd);
+int cwin_win32_is_window_minimized(void* hwnd);
+int cwin_win32_is_window_maximized(void* hwnd);
+int cwin_win32_set_window_pos(void* hwnd, void* hwnd_insert_after, int x, int y, int cx, int cy, uint32_t flags);
+int cwin_win32_get_window_rect(void* hwnd, int32_t* left, int32_t* top, int32_t* right, int32_t* bottom);
+int cwin_win32_get_client_rect(void* hwnd, int32_t* left, int32_t* top, int32_t* right, int32_t* bottom);
+int cwin_win32_set_window_text(void* hwnd, const uint16_t* title);
+int cwin_win32_get_window_text(void* hwnd, uint16_t* out_text, int max_chars);
+int cwin_win32_set_foreground_window(void* hwnd);
+int cwin_win32_set_active_window(void* hwnd);
+int cwin_win32_set_focus(void* hwnd);
+int cwin_win32_get_cursor_pos(int32_t* x, int32_t* y);
+int cwin_win32_screen_to_client(void* hwnd, int32_t* x, int32_t* y);
+int cwin_win32_validate_rect(void* hwnd);
+int cwin_win32_set_non_rude_hwnd(void* hwnd, int non_rude);
+int cwin_win32_track_mouse_event(void* hwnd, uint32_t flags);
+uintptr_t cwin_win32_set_timer(void* hwnd, uintptr_t id, uint32_t elapse);
+int cwin_win32_kill_timer(void* hwnd, uintptr_t id);
+int cwin_win32_set_window_composition_attribute(void* hwnd, uint32_t accent_state, uint32_t color);
+int cwin_win32_task_dialog(void* hwnd_parent, int level, const uint16_t* instruction, const uint16_t* content, const uint16_t** button_labels, int button_count, int* out_button_index);
+
 // Win32 Enhanced Clipboard
 int cwin_win32_clipboard_open(void* hwnd);
 int cwin_win32_clipboard_close(void);

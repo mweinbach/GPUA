@@ -50,6 +50,7 @@ private func platformMessageWndProc(
 public final class WindowsPlatform: Platform, @unchecked Sendable {
     public let headless: Bool
     public let dispatcher: WindowsDispatcher
+    public let directxDevices: DirectXDevices?
     private let _backgroundExecutor: GPUI.BackgroundExecutor
     private let _foregroundExecutor: GPUI.ForegroundExecutor
     private let _textSystem: any PlatformTextSystem
@@ -80,9 +81,12 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
         self._foregroundExecutor = GPUI.ForegroundExecutor(dispatcher: disp)
 
         if headless {
-            self._textSystem = NoopTextSystem()
-        } else {
+            self.directxDevices = nil
             self._textSystem = (try? DirectWriteTextSystem(directxDevices: nil)) ?? NoopTextSystem()
+        } else {
+            let devs = try? DirectXDevices()
+            self.directxDevices = devs
+            self._textSystem = (try? DirectWriteTextSystem(directxDevices: devs)) ?? NoopTextSystem()
         }
 
         // Register window class for message-only anchor window
@@ -214,11 +218,16 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     }
 
     public func openWindow(handle: AnyWindowHandle, options: WindowOptions) -> any PlatformWindow {
-        let win = DefaultPlatformWindow(
-            appearance: windowAppearance()
+        let win = WindowsWindow(
+            handle: handle,
+            options: options,
+            platform: self
         )
         lock.lock()
         windowObjects[handle] = win
+        if let h = win.hwnd {
+            rawWindowHandles.append(h)
+        }
         lock.unlock()
         return win
     }

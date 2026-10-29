@@ -313,14 +313,14 @@ final class PipelineState<T>: @unchecked Sendable {
         cwin_d3d11_ps_set_shader(context, pixelShader)
 
         if let gp = globalParams {
-            var bufArr: [UnsafeMutableRawPointer?] = [gp]
+            let bufArr: [UnsafeMutableRawPointer?] = [gp]
             bufArr.withUnsafeBufferPointer { p in
                 cwin_d3d11_vs_set_constant_buffers(context, 0, 1, p.baseAddress)
                 cwin_d3d11_ps_set_constant_buffers(context, 0, 1, p.baseAddress)
             }
         }
 
-        var srvArr: [UnsafeMutableRawPointer?] = [view]
+        let srvArr: [UnsafeMutableRawPointer?] = [view]
         srvArr.withUnsafeBufferPointer { p in
             cwin_d3d11_vs_set_shader_resources(context, 1, 1, p.baseAddress)
             cwin_d3d11_ps_set_shader_resources(context, 1, 1, p.baseAddress)
@@ -373,13 +373,13 @@ final class PipelineState<T>: @unchecked Sendable {
         setPipelineState(context: context, view: srv, topology: 5 /* TRIANGLESTRIP */, viewport: viewport, globalParams: globalParams)
 
         if let sampler = sampler {
-            var samplers: [UnsafeMutableRawPointer?] = [sampler]
+            let samplers: [UnsafeMutableRawPointer?] = [sampler]
             samplers.withUnsafeBufferPointer { p in
                 cwin_d3d11_ps_set_samplers(context, 0, 1, p.baseAddress)
             }
         }
         if let texture = texture {
-            var texs: [UnsafeMutableRawPointer?] = [texture]
+            let texs: [UnsafeMutableRawPointer?] = [texture]
             texs.withUnsafeBufferPointer { p in
                 cwin_d3d11_vs_set_shader_resources(context, 0, 1, p.baseAddress)
                 cwin_d3d11_ps_set_shader_resources(context, 0, 1, p.baseAddress)
@@ -409,13 +409,13 @@ final class PipelineState<T>: @unchecked Sendable {
         setPipelineState(context: context, view: viewToUse, topology: 5 /* TRIANGLESTRIP */, viewport: viewport, globalParams: globalParams)
 
         if let sampler = sampler {
-            var samplers: [UnsafeMutableRawPointer?] = [sampler]
+            let samplers: [UnsafeMutableRawPointer?] = [sampler]
             samplers.withUnsafeBufferPointer { p in
                 cwin_d3d11_ps_set_samplers(context, 0, 1, p.baseAddress)
             }
         }
         if let texture = texture {
-            var texs: [UnsafeMutableRawPointer?] = [texture]
+            let texs: [UnsafeMutableRawPointer?] = [texture]
             texs.withUnsafeBufferPointer { p in
                 cwin_d3d11_vs_set_shader_resources(context, 0, 1, p.baseAddress)
                 cwin_d3d11_ps_set_shader_resources(context, 0, 1, p.baseAddress)
@@ -435,6 +435,8 @@ public final class DirectXRenderer: @unchecked Sendable {
     public let atlas: DirectXAtlas
     public private(set) var width: UInt32
     public private(set) var height: UInt32
+    public var captureFrames: Bool = false
+    public private(set) var lastCapturedFrame: (width: UInt32, height: UInt32, rgba: [UInt8])?
 
     private var swapChain: WinHandle?
     private var renderTarget: WinHandle?
@@ -707,7 +709,7 @@ public final class DirectXRenderer: @unchecked Sendable {
         cwin_d3d11_clear_render_target_view(ctx, rtv, clearColor)
 
         // Set RTV & Viewport
-        var rtvArr: [UnsafeMutableRawPointer?] = [rtv]
+        let rtvArr: [UnsafeMutableRawPointer?] = [rtv]
         rtvArr.withUnsafeBufferPointer { p in
             cwin_d3d11_om_set_render_targets(ctx, 1, p.baseAddress, nil)
         }
@@ -762,6 +764,18 @@ public final class DirectXRenderer: @unchecked Sendable {
                 drawPolychromeSprites(textureId: textureId, start: range.lowerBound, count: range.count)
             case .surfaces:
                 break
+            }
+        }
+
+        if captureFrames, let rt = renderTarget {
+            var rowPitch: UInt32 = 0
+            var pixelPtr: UnsafeMutablePointer<UInt8>? = nil
+            if cwin_d3d11_readback_texture_pixels(devices.device, devices.deviceContext, rt, width, height, &rowPitch, 1, &pixelPtr) == 0,
+               let ptr = pixelPtr {
+                let totalBytes = Int(rowPitch) * Int(height)
+                let bytes = Array(UnsafeBufferPointer(start: ptr, count: totalBytes))
+                cwin_d3d11_free_pixel_buffer(ptr)
+                self.lastCapturedFrame = (width: width, height: height, rgba: bytes)
             }
         }
 
@@ -880,7 +894,7 @@ public final class DirectXRenderer: @unchecked Sendable {
         cwin_d3d11_clear_render_target_view(ctx, msaaView, zeroColor)
 
         // Set intermediate MSAA texture as render target
-        var msaaArr: [UnsafeMutableRawPointer?] = [msaaView]
+        let msaaArr: [UnsafeMutableRawPointer?] = [msaaView]
         msaaArr.withUnsafeBufferPointer { p in
             cwin_d3d11_om_set_render_targets(ctx, 1, p.baseAddress, nil)
         }
@@ -924,7 +938,7 @@ public final class DirectXRenderer: @unchecked Sendable {
         )
 
         // Restore main render target
-        var rtvArr: [UnsafeMutableRawPointer?] = [renderTargetView]
+        let rtvArr: [UnsafeMutableRawPointer?] = [renderTargetView]
         rtvArr.withUnsafeBufferPointer { p in
             cwin_d3d11_om_set_render_targets(ctx, 1, p.baseAddress, nil)
         }
