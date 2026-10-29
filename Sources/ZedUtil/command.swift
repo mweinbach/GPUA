@@ -4,6 +4,7 @@
 
 import Foundation
 
+// PORT NOTE: Command wraps Foundation.Process configured before execution on a single thread matching upstream std::process::Command.
 public final class Command: @unchecked Sendable {
     private let process: Process
     private var arguments: [String] = []

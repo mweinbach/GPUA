@@ -155,6 +155,7 @@ private final class WindowRef: @unchecked Sendable {
     init(_ window: Window) { self.window = window }
 }
 
+// PORT NOTE: Reference box to allow synchronous inout mutation of App across @Sendable closure barrier.
 private final class AppRef: @unchecked Sendable {
     var app: App
     init(_ app: App) { self.app = app }
@@ -175,7 +176,7 @@ extension AbsoluteLength {
 
     @inlinable
     public func toTaffyLengthPercentage(remSize: Pixels, scaleFactor: Float) -> Taffy.LengthPercentage {
-        .length(toTaffy(remSize: remSize, scaleFactor: scaleFactor))
+        return .length(toTaffy(remSize: remSize, scaleFactor: scaleFactor))
     }
 }
 
@@ -672,6 +673,6 @@ public struct TaffyLayoutEngine: Sendable {
     }
 
     public mutating func computeLayoutBounds(id: LayoutId, scaleFactor: Float) -> Bounds<Pixels> {
-        layoutBounds(id: id, scaleFactor: scaleFactor)
+        return layoutBounds(id: id, scaleFactor: scaleFactor)
     }
 }

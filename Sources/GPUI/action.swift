@@ -96,7 +96,9 @@ public enum ActionBuildError: Error, CustomStringConvertible, Sendable {
 }
 
 /// Dynamic action registry mapping action names and type IDs to dynamic builders.
+// PORT NOTE: ActionRegistry synchronizes all mutable registry state via NSLock, matching upstream thread-safe action registration.
 public final class ActionRegistry: @unchecked Sendable {
+    // PORT NOTE: ActionData wraps dynamic build closures with type-erased JSON payloads protected by ActionRegistry.lock.
     private struct ActionData: @unchecked Sendable {
         let build: @Sendable ([String: Any]) throws -> any Action
     }

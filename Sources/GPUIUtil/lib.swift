@@ -84,6 +84,7 @@ extension Result: ResultExt {
 }
 
 /// Scope-guard RAII wrapper that executes an action when dropped, unless aborted.
+// PORT NOTE: Deferred is a single-scope RAII guard that executes its action upon deinit within the local lexical scope matching upstream scopeguard.
 public final class Deferred: @unchecked Sendable {
     private var action: (() -> Void)?
 

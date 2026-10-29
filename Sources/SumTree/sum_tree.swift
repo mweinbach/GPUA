@@ -184,6 +184,7 @@ public enum Edit<T: KeyedItem>: Sendable {
 
 // MARK: - Node
 
+// PORT NOTE: Node represents internal copy-on-write B-tree node storage matching upstream Arc<Node<T>> with value semantics.
 final class Node<T: Item>: @unchecked Sendable {
     var height: Int
     var summary: T.SummaryType

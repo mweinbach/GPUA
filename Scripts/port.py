@@ -474,6 +474,36 @@ def cmd_todo(args, cfg):
         print(f"{e.lines:6}  {e.swift:70}  <- {e.upstream}")
 
 
+def check_concurrency_justifications() -> list[str]:
+    """Verify that every `@unchecked Sendable` and `nonisolated(unsafe)` in Sources/
+    has an explanatory `// PORT NOTE:` comment within the preceding 3 lines."""
+    errors: list[str] = []
+    markers = ["@unchecked Sendable", "nonisolated(unsafe)"]
+    sources_dir = ROOT / "Sources"
+    if not sources_dir.exists():
+        return errors
+
+    for path in sorted(sources_dir.rglob("*.swift")):
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except Exception as e:
+            errors.append(f"{path.relative_to(ROOT)}: unable to read file: {e}")
+            continue
+
+        for idx, line in enumerate(lines):
+            for marker in markers:
+                if marker in line:
+                    start = max(0, idx - 3)
+                    preceding = lines[start:idx]
+                    has_note = any("// PORT NOTE:" in l for l in preceding) or ("// PORT NOTE:" in line)
+                    if not has_note:
+                        rel = path.relative_to(ROOT).as_posix()
+                        errors.append(
+                            f"{rel}:{idx + 1}: found `{marker}` without preceding `// PORT NOTE:` justification within 3 lines"
+                        )
+    return errors
+
+
 def cmd_check(args, cfg):
     up_dict, rows = collect(cfg)
     errors: list[str] = []
@@ -514,6 +544,8 @@ def cmd_check(args, cfg):
 
     if STATUS_DOC.exists() and STATUS_DOC.read_text().rstrip() != render_status(cfg, rows).rstrip():
         errors.append("docs/PORTING_STATUS.md is out of date (run Scripts/port.py status --write)")
+
+    errors.extend(check_concurrency_justifications())
 
     if errors:
         print("\n".join(errors))

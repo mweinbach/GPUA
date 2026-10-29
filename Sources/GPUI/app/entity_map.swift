@@ -67,7 +67,7 @@ public struct EntityId: Sendable, Equatable, Hashable, RawRepresentable, Compara
     }
 }
 
-struct SlotEntry: @unchecked Sendable {
+struct SlotEntry: Sendable {
     var generation: UInt32
     var count: Int // positive if active, -1 if free
     var nextFree: Int?
@@ -96,6 +96,7 @@ public struct LeakDetectorSnapshot: Sendable {
 }
 
 /// Tracks entity handle allocations to detect leaks.
+// PORT NOTE: LeakDetector tracks entity allocations for leak detection; accessed within the thread-safe context of EntityRefCounts and EntityMap.
 public final class LeakDetector: @unchecked Sendable {
     private var nextHandleId: UInt64 = 0
     private var entityHandles: [EntityId: [UInt64: String]] = [:] // handleId -> typeName
@@ -155,6 +156,7 @@ public final class LeakDetector: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: Synchronized via internal NSLock protecting all slot arrays, generations, and reference counts.
 final class EntityRefCounts: @unchecked Sendable {
     private let lock = NSLock()
     private var slots: [SlotEntry] = []
@@ -260,6 +262,7 @@ func doubleLeasePanic(operation: String, typeName: String) -> Never {
 }
 
 /// A dynamically typed reference to an entity, which can be downcast into an `Entity<T>`.
+// PORT NOTE: AnyEntity stores immutable identifiers and references thread-safe EntityRefCounts, matching upstream Sendable entity handles.
 public final class AnyEntity: @unchecked Sendable, Identifiable, Hashable, Equatable, Comparable, Error {
     public let entityId: EntityId
     public let entityType: ObjectIdentifier
@@ -334,6 +337,7 @@ public final class AnyEntity: @unchecked Sendable, Identifiable, Hashable, Equat
 }
 
 /// A strong, well-typed reference to an entity managed by GPUI.
+// PORT NOTE: Entity wraps AnyEntity, providing an immutable handle to entity storage whose access is guarded by MainActor context methods.
 public struct Entity<T>: @unchecked Sendable, Identifiable, Hashable, Equatable, Comparable {
     public let anyEntity: AnyEntity
 
@@ -424,6 +428,7 @@ public struct Entity<T>: @unchecked Sendable, Identifiable, Hashable, Equatable,
 }
 
 /// A type-erased, weak reference to an entity.
+// PORT NOTE: AnyWeakEntity stores immutable identifiers and weak reference to thread-safe EntityRefCounts, matching upstream WeakEntity.
 public struct AnyWeakEntity: @unchecked Sendable, Hashable, Equatable, Comparable {
     public let entityId: EntityId
     public let entityType: ObjectIdentifier
@@ -459,7 +464,7 @@ public struct AnyWeakEntity: @unchecked Sendable, Hashable, Equatable, Comparabl
     }
 
     public static func newInvalid() -> AnyWeakEntity {
-        struct Generator: @unchecked Sendable {
+        struct Generator: Sendable {
             private static let lock = NSLock()
             // PORT NOTE: Synchronized via Generator.lock
             private nonisolated(unsafe) static var nextId: UInt64 = UInt64.max
@@ -501,6 +506,7 @@ public struct AnyWeakEntity: @unchecked Sendable, Hashable, Equatable, Comparabl
 }
 
 /// A weak reference to an entity of the given type.
+// PORT NOTE: WeakEntity wraps AnyWeakEntity for typed weak references, matching upstream WeakEntity Send conformance.
 public struct WeakEntity<T>: @unchecked Sendable, Hashable, Equatable, Comparable {
     public let anyEntity: AnyWeakEntity
 
@@ -601,6 +607,7 @@ public struct Slot<T>: Sendable {
 }
 
 /// The storage arena for all entities in the application.
+// PORT NOTE: EntityMap is exclusively accessed on the main thread via App / AppContext (ADR-0003); @unchecked Sendable permits passing across context boundaries where entity leasing maintains runtime safety.
 public final class EntityMap: @unchecked Sendable {
     private var entities: [EntityId: Any] = [:]
     public var accessedEntities: Set<EntityId> = []

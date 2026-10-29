@@ -6,6 +6,7 @@ import Foundation
 
 /// A handle to a subscription created by GPUI. When dropped (or released),
 /// the subscription is cancelled and the callback will no longer be invoked.
+// PORT NOTE: Synchronized via internal NSLock protecting cancellation closure execution.
 public final class Subscription: @unchecked Sendable, CustomDebugStringConvertible {
     private let lock = NSLock()
     private var unsubscribe: (@Sendable () -> Void)?
@@ -55,6 +56,7 @@ public final class Subscription: @unchecked Sendable, CustomDebugStringConvertib
     }
 }
 
+// PORT NOTE: Subscriber state is protected by atomic boolean flags and accessed within SubscriberSet lock.
 final class Subscriber<Callback>: @unchecked Sendable {
     let active: AtomicBool
     let dropped: AtomicBool
@@ -67,6 +69,7 @@ final class Subscriber<Callback>: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: Synchronized via internal NSLock providing thread-safe boolean access matching upstream AtomicBool.
 final class AtomicBool: @unchecked Sendable {
     private let lock = NSLock()
     private var _value: Bool
@@ -89,6 +92,7 @@ final class AtomicBool: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: Synchronized via internal NSLock protecting subscriber maps and IDs across threads.
 public final class SubscriberSet<EmitterKey: Hashable & Sendable, Callback>: @unchecked Sendable {
     private final class State {
         var subscribers: [EmitterKey: [Int: Subscriber<Callback>]] = [:]

@@ -67,6 +67,7 @@ public protocol Focusable {
 public protocol Prompt: EventEmitter<PromptResponse>, Focusable {}
 
 /// A handle to an active prompt used to resolve user choice.
+// PORT NOTE: PromptHandle wraps a completion handler matching upstream oneshot::Sender, invoked once when user selection is made.
 public final class PromptHandle: @unchecked Sendable {
     private var handler: (@Sendable (Int) -> Void)?
 
@@ -98,7 +99,7 @@ public final class PromptHandle: @unchecked Sendable {
 }
 
 /// A prompt handle capable of being rendered in a window.
-public struct RenderablePromptHandle: @unchecked Sendable {
+public struct RenderablePromptHandle: Sendable {
     public var view: AnyView
 
     public init(view: AnyView) {
@@ -150,7 +151,7 @@ public typealias PromptRendererFunction = @MainActor @Sendable (
 ) -> RenderablePromptHandle
 
 /// Configures how prompts are built and displayed.
-public enum PromptBuilder: @unchecked Sendable {
+public enum PromptBuilder: Sendable {
     case `default`
     case custom(PromptRendererFunction)
 

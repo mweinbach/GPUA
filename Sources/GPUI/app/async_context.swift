@@ -6,6 +6,7 @@ import Foundation
 import Scheduler
 
 /// An async-friendly version of `App` that can be held across `await` points in asynchronous code.
+// PORT NOTE: AsyncApp crosses thread boundaries; operations accessing App are strictly isolated to @MainActor.
 public struct AsyncApp: @unchecked Sendable {
     public weak var app: App?
     public let backgroundExecutor: BackgroundExecutor
@@ -82,6 +83,7 @@ public struct AsyncApp: @unchecked Sendable {
 }
 
 /// A cloneable handle to an async application context combined with a window.
+// PORT NOTE: AsyncWindowContext wraps AsyncApp for async window access with MainActor safety guarantees.
 public struct AsyncWindowContext: @unchecked Sendable {
     public var app: AsyncApp
 

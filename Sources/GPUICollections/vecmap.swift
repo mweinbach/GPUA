@@ -43,6 +43,7 @@ public prefix func *<T>(ref: ValueRef<T>) -> T {
 
 /// A reference to a value stored inside a `VecMap`, allowing in-place mutation
 /// analogous to Rust's mutable reference `&mut V`.
+// PORT NOTE: ValueRef represents a localized mutable reference to a VecMap element within single-threaded execution.
 public final class ValueRef<Value>: @unchecked Sendable {
     private let getter: () -> Value
     private let setter: (Value) -> Void
@@ -70,6 +71,7 @@ extension ValueRef: Equatable where Value: Equatable {
 }
 
 /// Internal storage holding SoA vectors with copy-on-write semantics.
+// PORT NOTE: VecMapStorage is internal copy-on-write storage uniquely owned by a VecMap value type instance.
 final class VecMapStorage<Key, Value>: @unchecked Sendable {
     var keys: [Key] = []
     var values: [Value] = []

@@ -62,6 +62,7 @@ public struct DeterministicRng: Sendable {
     }
 }
 
+// PORT NOTE: Synchronized via internal NSLock protecting the deterministic RNG state across threads.
 public final class SharedRng: @unchecked Sendable {
     private let lock = NSLock()
     private var rng: DeterministicRng
@@ -149,6 +150,7 @@ public struct SchedulerError: Error, CustomStringConvertible, Sendable {
     public var description: String { message }
 }
 
+// PORT NOTE: ScheduledTimer holds immutable let properties; timerRef is synchronized via NSLock.
 public final class ScheduledTimer: @unchecked Sendable {
     public let expiration: ContinuousClock.Instant
     public let timerRef: TimerRef
@@ -159,7 +161,7 @@ public final class ScheduledTimer: @unchecked Sendable {
     }
 }
 
-public struct ScheduledRunnable: @unchecked Sendable {
+public struct ScheduledRunnable: Sendable {
     public var sessionId: SessionId?
     public var priority: Priority
     public var runnable: Runnable
@@ -187,6 +189,7 @@ public struct ScheduledRunnable: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: Synchronized via internal stateLock and executorLock protecting all mutable test scheduler queues and sessions.
 public final class TestScheduler: Scheduler, @unchecked Sendable {
     private struct State {
         var runnables: [ScheduledRunnable] = []
@@ -1113,6 +1116,7 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
     }
 }
 
+// PORT NOTE: TestWaker holds a weak reference to TestScheduler for deterministic waker checks.
 public final class TestWaker: @unchecked Sendable {
     private weak var scheduler: TestScheduler?
 
@@ -1129,6 +1133,7 @@ public final class TestWaker: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: OneshotSender holds immutable reference to thread-safe Oneshot channel.
 public final class OneshotSender<T: Sendable>: @unchecked Sendable {
     private let channel: Oneshot<T>
 
@@ -1142,6 +1147,7 @@ public final class OneshotSender<T: Sendable>: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: OneshotReceiver holds immutable reference to thread-safe Oneshot channel.
 public final class OneshotReceiver<T: Sendable>: @unchecked Sendable {
     private let channel: Oneshot<T>
 
@@ -1160,6 +1166,7 @@ public final class OneshotReceiver<T: Sendable>: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: Synchronized via internal NSLock protecting value, completion status, and continuation waiter.
 public final class Oneshot<T: Sendable>: @unchecked Sendable {
     private struct ReceiverWaiter: Sendable {
         let continuation: CheckedContinuation<T?, Never>
@@ -1205,6 +1212,7 @@ public final class Oneshot<T: Sendable>: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: UnboundedSender holds immutable reference to thread-safe UnboundedChannel.
 public final class UnboundedSender<T: Sendable>: @unchecked Sendable {
     private let channel: UnboundedChannel<T>
 
@@ -1221,6 +1229,7 @@ public final class UnboundedSender<T: Sendable>: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: UnboundedReceiver holds immutable reference to thread-safe UnboundedChannel.
 public final class UnboundedReceiver<T: Sendable>: @unchecked Sendable {
     private let channel: UnboundedChannel<T>
 
@@ -1233,6 +1242,7 @@ public final class UnboundedReceiver<T: Sendable>: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: Synchronized via internal NSLock protecting buffer, closed status, and continuation waiter.
 public final class UnboundedChannel<T: Sendable>: @unchecked Sendable {
     private struct CollectorWaiter: Sendable {
         let continuation: CheckedContinuation<[T], Never>

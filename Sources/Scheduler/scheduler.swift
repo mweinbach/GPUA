@@ -55,6 +55,7 @@ public struct RunnableMeta: Sendable {
     }
 }
 
+// PORT NOTE: Runnable stores immutable Sendable properties (meta, cancellation token, @Sendable action), matching upstream Runnable execution across threads.
 public final class Runnable: @unchecked Sendable {
     public let meta: RunnableMeta
     public let token: CancellationToken?
@@ -93,6 +94,7 @@ public enum TestSchedulerContext {
     public static func notifyResumed() {}
 }
 
+// PORT NOTE: Synchronized via internal NSLock protecting timer firing state and waiters.
 public final class TimerRef: @unchecked Sendable {
     private struct Waiter: Sendable {
         let continuation: CheckedContinuation<Void, Never>

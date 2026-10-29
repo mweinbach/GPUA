@@ -9,6 +9,7 @@ public protocol Clock: Sendable {
     func now() -> ContinuousClock.Instant
 }
 
+// PORT NOTE: Synchronized via internal NSLock protecting simulated instants and dates across threads.
 public final class TestClock: Clock, @unchecked Sendable {
     private struct State {
         var now: ContinuousClock.Instant

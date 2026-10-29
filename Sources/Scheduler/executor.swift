@@ -4,6 +4,7 @@
 
 import Foundation
 
+// PORT NOTE: Synchronized via internal NSLock protecting cancellation flag, callbacks, and task handle.
 public final class CancellationToken: @unchecked Sendable {
     private let lock = NSLock()
     private var _isCancelled: Bool = false
@@ -64,6 +65,7 @@ public final class CancellationToken: @unchecked Sendable {
 
 #if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
 @available(macOS 15.0, iOS 18.0, watchOS 11.0, tvOS 18.0, visionOS 2.0, *)
+// PORT NOTE: TestSchedulerExecutor holds immutable session and priority properties with weak scheduler reference.
 public final class TestSchedulerExecutor: TaskExecutor, @unchecked Sendable {
     private weak var scheduler: TestScheduler?
     public let sessionId: SessionId?
@@ -89,6 +91,7 @@ public final class TestSchedulerExecutor: TaskExecutor, @unchecked Sendable {
     }
 }
 #else
+// PORT NOTE: TestSchedulerExecutor holds immutable session and priority properties with weak scheduler reference.
 public final class TestSchedulerExecutor: TaskExecutor, @unchecked Sendable {
     private weak var scheduler: TestScheduler?
     public let sessionId: SessionId?
@@ -115,6 +118,7 @@ public final class TestSchedulerExecutor: TaskExecutor, @unchecked Sendable {
 }
 #endif
 
+// PORT NOTE: Synchronized via internal NSLock protecting task completion result, state flags, and continuation waiters.
 public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
     private struct TaskWaiter: Sendable {
         let id: UUID
@@ -224,6 +228,7 @@ public final class TaskBox<T: Sendable>: AnyTaskBox, @unchecked Sendable {
     }
 }
 
+// PORT NOTE: Synchronized via internal NSLock protecting detachment flag; state and cancellation token are Sendable.
 public final class Task<T: Sendable>: @unchecked Sendable {
     public enum State {
         case ready(T)
@@ -358,6 +363,7 @@ public final class Task<T: Sendable>: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: FallibleTask holds an immutable reference to thread-safe Task<T>.
 public final class FallibleTask<T: Sendable>: @unchecked Sendable {
     private let innerTask: Task<T>
 
@@ -410,6 +416,7 @@ public enum BlockTimeoutResult<T: Sendable>: Sendable {
     public var isTimeout: Bool { err != nil }
 }
 
+// PORT NOTE: ForegroundExecutor holds immutable sessionId and Sendable scheduler reference.
 public final class ForegroundExecutor: @unchecked Sendable {
     public let sessionId: SessionId
     public let scheduler: any Scheduler
@@ -507,6 +514,7 @@ public final class ForegroundExecutor: @unchecked Sendable {
     }
 }
 
+// PORT NOTE: BackgroundExecutor holds immutable Sendable scheduler reference.
 public final class BackgroundExecutor: @unchecked Sendable {
     public let scheduler: any Scheduler
 
