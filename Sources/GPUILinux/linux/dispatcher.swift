@@ -2,15 +2,13 @@
 // Upstream commit: 650aab59d54f
 // Port status: ported
 
-#if os(Linux) || os(Windows) || os(Android) || os(WASI)
+#if os(Linux)
 import Foundation
 import GPUI
 import Scheduler
-
-#if os(Linux)
 import Glibc
 import CLinuxSys
-#endif
+
 
 // MARK: - Calloop Event & Actions
 
@@ -413,8 +411,8 @@ public final class PriorityQueueCalloopReceiver<T: Sendable>: @unchecked Sendabl
 
 // MARK: - TimerManager (timerfd)
 
-// PORT NOTE: TimerManager synchronizes timer queues and timerfd state with an internal NSLock.
-private final class TimerManager: @unchecked Sendable {
+// PORT NOTE: TimerManagerState synchronizes timer queues and timerfd state with an internal NSLock.
+private final class TimerManagerState: @unchecked Sendable {
     struct PendingTimer: Comparable {
         let deadline: ContinuousClock.Instant
         let action: @Sendable () -> Void
@@ -432,11 +430,9 @@ private final class TimerManager: @unchecked Sendable {
         }
     }
 
-    #if os(Linux)
     private let epollFd: Int32
     private let timerFd: Int32
     private let wakeFd: Int32
-    #endif
     private let lock = NSLock()
     private var queue: [PendingTimer] = []
     private var nextId: UInt64 = 0
@@ -444,7 +440,6 @@ private final class TimerManager: @unchecked Sendable {
     private let clock = ContinuousClock()
 
     init() {
-        #if os(Linux)
         self.epollFd = epoll_create1(Int32(EPOLL_CLOEXEC))
         self.timerFd = timerfd_create(CLOCK_MONOTONIC, Int32(TFD_NONBLOCK | TFD_CLOEXEC))
         self.wakeFd = eventfd(0, Int32(EFD_CLOEXEC | EFD_NONBLOCK))
@@ -458,11 +453,14 @@ private final class TimerManager: @unchecked Sendable {
         ev2.events = UInt32(EPOLLIN.rawValue)
         ev2.data.fd = wakeFd
         epoll_ctl(epollFd, EPOLL_CTL_ADD, wakeFd, &ev2)
-        #endif
+    }
 
-        Thread.detachNewThread { [weak self] in
-            self?.runLoop()
-        }
+    func stop() {
+        lock.lock()
+        isRunning = false
+        lock.unlock()
+        var val: UInt64 = 1
+        _ = Glibc.write(wakeFd, &val, MemoryLayout<UInt64>.size)
     }
 
     func schedule(duration: TimeInterval, runnable: @escaping @Sendable () -> Void) {
@@ -477,14 +475,11 @@ private final class TimerManager: @unchecked Sendable {
         queue.append(PendingTimer(deadline: deadline, action: runnable, id: id))
         queue.sort()
 
-        #if os(Linux)
         var val: UInt64 = 1
         _ = Glibc.write(wakeFd, &val, MemoryLayout<UInt64>.size)
-        #endif
     }
 
-    private func runLoop() {
-        #if os(Linux)
+    func runLoop() {
         var events = [epoll_event](repeating: epoll_event(), count: 4)
         while true {
             lock.lock()
@@ -511,21 +506,6 @@ private final class TimerManager: @unchecked Sendable {
             }
 
             lock.lock()
-            let now = clock.now
-            var expired: [@Sendable () -> Void] = []
-            while let first = queue.first, first.deadline <= now {
-                expired.append(first.action)
-                queue.removeFirst()
-            }
-            lock.unlock()
-
-            for action in expired {
-                action()
-            }
-        }
-        #else
-        while true {
-            lock.lock()
             if !isRunning {
                 lock.unlock()
                 break
@@ -536,30 +516,18 @@ private final class TimerManager: @unchecked Sendable {
                 expired.append(first.action)
                 queue.removeFirst()
             }
-            let nextSleep: TimeInterval?
-            if let first = queue.first {
-                let diff = first.deadline - now
-                let (secs, attos) = diff.components
-                nextSleep = max(0.001, Double(secs) + Double(attos) / 1e18)
-            } else {
-                nextSleep = nil
-            }
             lock.unlock()
 
             for action in expired {
                 action()
             }
-
-            if let sleepSec = nextSleep {
-                Thread.sleep(forTimeInterval: min(sleepSec, 0.05))
-            } else {
-                Thread.sleep(forTimeInterval: 0.01)
-            }
         }
-        #endif
+
+        if epollFd >= 0 { Glibc.close(epollFd) }
+        if timerFd >= 0 { Glibc.close(timerFd) }
+        if wakeFd >= 0 { Glibc.close(wakeFd) }
     }
 
-    #if os(Linux)
     private func armTimerFd(nextDeadline: ContinuousClock.Instant?) {
         guard let nextDeadline = nextDeadline else {
             var its = itimerspec()
@@ -581,19 +549,25 @@ private final class TimerManager: @unchecked Sendable {
         its.it_interval.tv_nsec = 0
         timerfd_settime(timerFd, 0, &its, nil)
     }
-    #endif
+}
+
+// PORT NOTE: TimerManager holds TimerManagerState and stops timer thread cleanly on deinit.
+private final class TimerManager: @unchecked Sendable {
+    private let state = TimerManagerState()
+
+    init() {
+        let state = self.state
+        Thread.detachNewThread {
+            state.runLoop()
+        }
+    }
+
+    func schedule(duration: TimeInterval, runnable: @escaping @Sendable () -> Void) {
+        state.schedule(duration: duration, runnable: runnable)
+    }
 
     deinit {
-        lock.lock()
-        isRunning = false
-        lock.unlock()
-        #if os(Linux)
-        var val: UInt64 = 1
-        _ = Glibc.write(wakeFd, &val, MemoryLayout<UInt64>.size)
-        if epollFd >= 0 { Glibc.close(epollFd) }
-        if timerFd >= 0 { Glibc.close(timerFd) }
-        if wakeFd >= 0 { Glibc.close(wakeFd) }
-        #endif
+        state.stop()
     }
 }
 
@@ -606,8 +580,6 @@ public final class LinuxDispatcher: PlatformDispatcher, @unchecked Sendable {
     private let backgroundReceiver: PriorityQueueReceiver<@Sendable () -> Void>
     private let timerManager: TimerManager
     private let mainThread: Thread
-    private var isRunning: Bool = true
-    private let lock = NSLock()
 
     public init(mainSender: PriorityQueueCalloopSender<@Sendable () -> Void>) {
         self.mainSender = mainSender
@@ -620,20 +592,9 @@ public final class LinuxDispatcher: PlatformDispatcher, @unchecked Sendable {
         let threadCount = max(ProcessInfo.processInfo.activeProcessorCount, 2)
         for _ in 0..<threadCount {
             let receiver = bgReceiver
-            Thread.detachNewThread { [weak self] in
-                while true {
-                    guard let self = self else { break }
-                    self.lock.lock()
-                    let running = self.isRunning
-                    self.lock.unlock()
-                    if !running { break }
-
-                    do {
-                        let runnable = try receiver.pop()
-                        runnable()
-                    } catch {
-                        break
-                    }
+            Thread.detachNewThread {
+                while let runnable = try? receiver.pop() {
+                    runnable()
                 }
             }
         }
@@ -699,10 +660,6 @@ public final class LinuxDispatcher: PlatformDispatcher, @unchecked Sendable {
         getCurrentThreadTaskTimings()
     }
 
-    deinit {
-        lock.lock()
-        isRunning = false
-        lock.unlock()
-    }
+    deinit {}
 }
 #endif

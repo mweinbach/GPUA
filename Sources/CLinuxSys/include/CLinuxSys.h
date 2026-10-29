@@ -14,6 +14,7 @@
 #include <xkbcommon/xkbcommon-compose.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_OUTLINE_H
 #include <harfbuzz/hb.h>
 #include <harfbuzz/hb-ft.h>
 #include <fontconfig/fontconfig.h>

@@ -2,7 +2,7 @@
 // Upstream commit: 650aab59d54f
 // Port status: ported
 
-#if os(Linux) || os(Windows) || os(Android) || os(WASI)
+#if os(Linux)
 import Foundation
 import Testing
 import GPUI
@@ -205,6 +205,30 @@ struct LinuxDispatcherTests {
 
         try client.runOnce(timeout: 0.05)
         #expect(executed.value)
+    }
+
+    @Test func testDispatcherDeinitWhenDropped() throws {
+        weak var weakDispatcher: LinuxDispatcher?
+        do {
+            let (_, mainReceiver) = PriorityQueueCalloopReceiver<@Sendable () -> Void>.new()
+            let (mainSender, _) = PriorityQueueCalloopReceiver<@Sendable () -> Void>.new()
+            _ = mainReceiver
+            let dispatcher = LinuxDispatcher.new(mainSender: mainSender)
+            weakDispatcher = dispatcher
+            #expect(weakDispatcher != nil)
+
+            let ran = AtomicBox<Bool>(false)
+            dispatcher.dispatchAfter(duration: 0.01) {
+                ran.value = true
+            }
+
+            let start = ContinuousClock.now
+            while !ran.value && (ContinuousClock.now - start) < .milliseconds(200) {
+                Thread.sleep(forTimeInterval: 0.005)
+            }
+            #expect(ran.value)
+        }
+        #expect(weakDispatcher == nil)
     }
 }
 #endif

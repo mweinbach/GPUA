@@ -2,7 +2,7 @@
 // Upstream commit: 650aab59d54f
 // Port status: in-progress
 
-#if os(Linux) || os(Windows) || os(Android) || os(WASI)
+#if os(Linux)
 import Foundation
 import GPUI
 import Scheduler
