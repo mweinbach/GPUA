@@ -10,7 +10,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Target | Files | Not started | In progress | Ported | Verified | Skipped | Upstream lines | Lines done |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `GPUI` | 81 | 53 | 3 | 25 | 0 | 0 | 53,398 | 40% |
+| `GPUI` | 81 | 53 | 4 | 24 | 0 | 0 | 53,398 | 35% |
 | `Taffy` | 47 | 3 | 0 | 44 | 0 | 0 | 18,695 | 98% |
 | `GPUILinux` | 24 | 24 | 0 | 0 | 0 | 0 | 12,710 | 0% |
 | `GPUIExamples` | 40 | 40 | 0 | 0 | 0 | 0 | 12,441 | 0% |
@@ -32,7 +32,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **338** | 228 | 3 | 88 | 0 | 19 | 154,333 | 36% |
+| **Total** | **338** | 228 | 4 | 87 | 0 | 19 | 154,333 | 34% |
 
 ## Files
 
@@ -48,7 +48,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 |---|---|---|---:|---|
 | [crates/gpui/src/_ownership_and_data_flow.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/_ownership_and_data_flow.rs) | [Sources/GPUI/_ownership_and_data_flow.swift](../Sources/GPUI/_ownership_and_data_flow.swift) | source | 140 | not-started |
 | [crates/gpui/src/action.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/action.rs) | [Sources/GPUI/action.swift](../Sources/GPUI/action.swift) | source | 453 | ported |
-| [crates/gpui/src/app.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app.rs) | [Sources/GPUI/app.swift](../Sources/GPUI/app.swift) | source | 2737 | ported |
+| [crates/gpui/src/app.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app.rs) | [Sources/GPUI/app.swift](../Sources/GPUI/app.swift) | source | 2737 | in-progress |
 | [crates/gpui/src/app/async_context.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/async_context.rs) | [Sources/GPUI/app/async_context.swift](../Sources/GPUI/app/async_context.swift) | source | 483 | ported |
 | [crates/gpui/src/app/context.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/context.rs) | [Sources/GPUI/app/app_context.swift](../Sources/GPUI/app/app_context.swift) | source | 877 | ported |
 | [crates/gpui/src/app/entity_map.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui/src/app/entity_map.rs) | [Sources/GPUI/app/entity_map.swift](../Sources/GPUI/app/entity_map.swift) | source | 1275 | ported |
