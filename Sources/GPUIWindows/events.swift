@@ -292,8 +292,8 @@ public func decode_mouse_down(
     scaleFactor: Float,
     clickState: ClickState
 ) -> MouseDownEvent {
-    let x = Int16(lparam & 0xFFFF)
-    let y = Int16((lparam >> 16) & 0xFFFF)
+    let x = Int16(truncatingIfNeeded: lparam)
+    let y = Int16(truncatingIfNeeded: lparam >> 16)
     let physicalPoint = Point(x: DevicePixels(Int32(x)), y: DevicePixels(Int32(y)))
     let clickCount = clickState.update(button: button, newPosition: physicalPoint)
     return MouseDownEvent(
@@ -311,8 +311,8 @@ public func decode_mouse_up(
     scaleFactor: Float,
     clickCount: Int
 ) -> MouseUpEvent {
-    let x = Float(Int16(lparam & 0xFFFF))
-    let y = Float(Int16((lparam >> 16) & 0xFFFF))
+    let x = Float(Int16(truncatingIfNeeded: lparam))
+    let y = Float(Int16(truncatingIfNeeded: lparam >> 16))
     return MouseUpEvent(
         button: button,
         position: logical_point(x: x, y: y, scaleFactor: scaleFactor),
@@ -326,8 +326,8 @@ public func decode_mouse_move(
     scaleFactor: Float,
     pressedButton: MouseButton?
 ) -> MouseMoveEvent {
-    let x = Float(Int16(lparam & 0xFFFF))
-    let y = Float(Int16((lparam >> 16) & 0xFFFF))
+    let x = Float(Int16(truncatingIfNeeded: lparam))
+    let y = Float(Int16(truncatingIfNeeded: lparam >> 16))
     return MouseMoveEvent(
         position: logical_point(x: x, y: y, scaleFactor: scaleFactor),
         pressedButton: pressedButton,
@@ -342,9 +342,9 @@ public func decode_mouse_wheel(
     isHorizontal: Bool,
     scrollAmount: Float
 ) -> ScrollWheelEvent {
-    let rawDelta = Float(Int16((wparam >> 16) & 0xFFFF))
-    let x = Float(Int16(lparam & 0xFFFF))
-    let y = Float(Int16((lparam >> 16) & 0xFFFF))
+    let rawDelta = Float(Int16(truncatingIfNeeded: wparam >> 16))
+    let x = Float(Int16(truncatingIfNeeded: lparam))
+    let y = Float(Int16(truncatingIfNeeded: lparam >> 16))
     let position = logical_point(x: x, y: y, scaleFactor: scaleFactor)
     let modifiers = current_modifiers()
 

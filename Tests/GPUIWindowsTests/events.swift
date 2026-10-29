@@ -71,6 +71,32 @@ struct WindowsEventsTests {
             Issue.record("Expected .lines delta")
         }
     }
+
+    @Test
+    func testNegativeCoordinatesAndWheelDelta() {
+        let wparam: UInt = UInt(UInt16(bitPattern: -120)) << 16
+        let lparam: Int = (Int(Int16(bitPattern: -20)) << 16) | Int(UInt16(bitPattern: -10))
+        let event = decode_mouse_wheel(
+            wparam: wparam,
+            lparam: lparam,
+            scaleFactor: 1.0,
+            isHorizontal: false,
+            scrollAmount: 3.0
+        )
+
+        #expect(event.position.x.value == -10.0)
+        #expect(event.position.y.value == -20.0)
+        if case .lines(let pt) = event.delta {
+            #expect(pt.y == -3.0)
+            #expect(pt.x == 0.0)
+        } else {
+            Issue.record("Expected .lines delta")
+        }
+
+        let moveEvent = decode_mouse_move(lparam: lparam, scaleFactor: 1.0, pressedButton: nil)
+        #expect(moveEvent.position.x.value == -10.0)
+        #expect(moveEvent.position.y.value == -20.0)
+    }
 }
 
 #endif
