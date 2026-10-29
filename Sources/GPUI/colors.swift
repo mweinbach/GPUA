@@ -112,3 +112,17 @@ public struct Colors: Sendable, Equatable, Hashable {
         }
     }
 }
+
+/// Global wrapper for default colors.
+public struct GlobalColors: Global, Default, Sendable, Equatable {
+    public var colors: Colors
+
+    public init(_ colors: Colors = Colors.dark()) {
+        self.colors = colors
+    }
+
+    public static func `default`() -> GlobalColors {
+        GlobalColors(Colors.dark())
+    }
+}
+

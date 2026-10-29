@@ -1,0 +1,56 @@
+[
+  {
+    "item": "AppCell",
+    "status": "omitted",
+    "target_batch": "Batch 3.1 (App Model)",
+    "reason": "Rust-specific RefCell wrapper for interior mutability; Swift uses reference types and actor isolation."
+  },
+  {
+    "item": "AppCell::borrow",
+    "status": "omitted",
+    "target_batch": "Batch 3.1 (App Model)",
+    "reason": "Rust RefCell borrow method; not needed with Swift reference semantics and actor isolation."
+  },
+  {
+    "item": "AppCell::borrow_mut",
+    "status": "omitted",
+    "target_batch": "Batch 3.1 (App Model)",
+    "reason": "Rust RefCell mutable borrow method; not needed with Swift reference semantics and actor isolation."
+  },
+  {
+    "item": "AppCell::try_borrow_mut",
+    "status": "omitted",
+    "target_batch": "Batch 3.1 (App Model)",
+    "reason": "Rust RefCell try_borrow_mut method; not needed with Swift reference semantics and actor isolation."
+  },
+  {
+    "item": "AppRef",
+    "status": "omitted",
+    "target_batch": "Batch 3.1 (App Model)",
+    "reason": "Rust RefCell RAII immutability guard; not needed in Swift reference model."
+  },
+  {
+    "item": "AppRefMut",
+    "status": "omitted",
+    "target_batch": "Batch 3.1 (App Model)",
+    "reason": "Rust RefCell RAII mutable borrow guard; not needed in Swift reference model."
+  },
+  {
+    "item": "App::ref_counts_drop_handle",
+    "status": "omitted",
+    "target_batch": "Batch 3.1 (App Model)",
+    "reason": "Internal Rust Rc/RefCell drop handle for reference count tracking; Swift ARC handles deallocation natively."
+  },
+  {
+    "item": "Application::text_system",
+    "status": "deferred",
+    "target_batch": "Batch 3.3 (TestPlatform / Text System)",
+    "reason": "Text system queries and layout pipeline are scheduled for Batch 3.3 implementation."
+  },
+  {
+    "item": "App::text_system",
+    "status": "deferred",
+    "target_batch": "Batch 3.3 (TestPlatform / Text System)",
+    "reason": "Text system queries and layout pipeline are scheduled for Batch 3.3 implementation."
+  }
+]
