@@ -220,155 +220,489 @@ def parse_rust_file(path: str) -> List[Dict]:
     return items
 
 
+def strip_swift_comments(code: str) -> str:
+    """Strip single-line and nested block comments from Swift code while preserving string literals."""
+    res = []
+    i = 0
+    n = len(code)
+    in_str = False
+    str_quote = ""
+    while i < n:
+        c = code[i]
+        if in_str:
+            res.append(c)
+            if c == "\\" and i + 1 < n:
+                res.append(code[i + 1])
+                i += 2
+                continue
+            if c == str_quote:
+                in_str = False
+            i += 1
+        else:
+            if c == '"':
+                in_str = True
+                str_quote = '"'
+                res.append(c)
+                i += 1
+            elif c == "/" and i + 1 < n and code[i + 1] == "/":
+                i += 2
+                while i < n and code[i] != "\n":
+                    i += 1
+            elif c == "/" and i + 1 < n and code[i + 1] == "*":
+                depth = 1
+                i += 2
+                while i < n and depth > 0:
+                    if i + 1 < n and code[i : i + 2] == "/*":
+                        depth += 1
+                        i += 2
+                    elif i + 1 < n and code[i : i + 2] == "*/":
+                        depth -= 1
+                        i += 2
+                    else:
+                        i += 1
+            else:
+                res.append(c)
+                i += 1
+    return "".join(res)
+
+
+def check_is_stub(raw_body: Optional[str]) -> Tuple[bool, str]:
+    """
+    Analyze a Swift function/method/property implementation body between `{` and `}`.
+    Returns (is_stub: bool, reason: str).
+    """
+    if raw_body is None:
+        return False, ""
+    cleaned = strip_swift_comments(raw_body).strip()
+    if not cleaned:
+        return True, "Empty body ({})"
+
+    # Check for placeholder calls: fatalError, todo, unimplemented
+    m_ph = re.match(
+        r"^(?:return\s+)?(fatalError|todo|unimplemented)\s*(?:\(.*\))?;?$",
+        cleaned,
+        re.DOTALL,
+    )
+    if m_ph:
+        return True, f"Placeholder ({m_ph.group(1)})"
+
+    # Strip trailing semicolon
+    cleaned_expr = cleaned.rstrip(";").strip()
+
+    # Check for trivial returns or bare expression bodies
+    if cleaned_expr.startswith("return "):
+        expr = cleaned_expr[7:].strip().rstrip(";").strip()
+    elif cleaned_expr == "return":
+        expr = ""
+    else:
+        expr = cleaned_expr
+
+    trivial_map = {
+        "": "Empty return",
+        "nil": "Trivial return (nil)",
+        "false": "Trivial return (false)",
+        "true": "Trivial return (true)",
+        ".zero": "Trivial return (.zero)",
+        "[]": "Trivial return ([])",
+        '""': 'Trivial return ("")',
+        "''": 'Trivial return ("")',
+        "[:]": "Trivial return ([:])",
+        "()": "Trivial return (())",
+        "0": "Trivial return (0)",
+        "0.0": "Trivial return (0.0)",
+        "-1": "Trivial return (-1)",
+        "default": "Trivial return (default)",
+    }
+
+    if expr in trivial_map:
+        return True, trivial_map[expr]
+
+    return False, ""
+
+
+def tokenize_swift(text: str) -> List[Tuple[str, str, int, int, int]]:
+    """Tokenize Swift source code into (kind, value, line, start_char, end_char)."""
+    tokens = []
+    i = 0
+    n = len(text)
+    line = 1
+    while i < n:
+        c = text[i]
+        if c == "\n":
+            line += 1
+            i += 1
+        elif c in " \t\r":
+            i += 1
+        elif c == "/" and i + 1 < n and text[i + 1] == "/":
+            i += 2
+            while i < n and text[i] != "\n":
+                i += 1
+        elif c == "/" and i + 1 < n and text[i + 1] == "*":
+            depth = 1
+            i += 2
+            while i < n and depth > 0:
+                if text[i] == "\n":
+                    line += 1
+                if i + 1 < n and text[i : i + 2] == "/*":
+                    depth += 1
+                    i += 2
+                elif i + 1 < n and text[i : i + 2] == "*/":
+                    depth -= 1
+                    i += 2
+                else:
+                    i += 1
+        elif c == '"':
+            start_i = i
+            start_line = line
+            if text[i : i + 3] == '"""':
+                i += 3
+                while i + 2 < n and text[i : i + 3] != '"""':
+                    if text[i] == "\n":
+                        line += 1
+                    elif text[i] == "\\" and i + 1 < n:
+                        i += 1
+                    i += 1
+                i += 3
+            else:
+                i += 1
+                while i < n and text[i] != '"':
+                    if text[i] == "\n":
+                        line += 1
+                    elif text[i] == "\\" and i + 1 < n:
+                        i += 1
+                    i += 1
+                if i < n:
+                    i += 1
+            tokens.append(("STRING", text[start_i:i], start_line, start_i, i))
+        elif c.isalpha() or c == "_" or c == "`":
+            start_i = i
+            if c == "`":
+                i += 1
+                while i < n and text[i] != "`":
+                    i += 1
+                if i < n:
+                    i += 1
+                val = text[start_i + 1 : i - 1]
+            else:
+                while i < n and (text[i].isalnum() or text[i] == "_"):
+                    i += 1
+                val = text[start_i:i]
+            tokens.append(("WORD", val, line, start_i, i))
+        elif text[i : i + 2] == "->":
+            tokens.append(("SYMBOL", "->", line, i, i + 2))
+            i += 2
+        else:
+            tokens.append(("SYMBOL", c, line, i, i + 1))
+            i += 1
+    return tokens
+
+
+def parse_swift_declarations(text: str, file_path: str) -> List[Dict]:
+    """
+    Parse a Swift source file for member-level and top-level declarations,
+    including their enclosing type and implementation body between `{` and `}`.
+    """
+    tokens = tokenize_swift(text)
+    type_stack: List[Tuple[str, int, bool]] = []
+    brace_depth = 0
+    decls: List[Dict] = []
+
+    type_keywords = {"struct", "class", "enum", "actor", "extension", "protocol"}
+    decl_keywords = {"func", "init", "subscript", "var", "let", "typealias", "case"}
+    all_stop = type_keywords | decl_keywords | {"}"}
+
+    idx = 0
+    n = len(tokens)
+    while idx < n:
+        tok_type, val, line, s_pos, e_pos = tokens[idx]
+
+        if tok_type == "SYMBOL" and val == "{":
+            brace_depth += 1
+            idx += 1
+            continue
+        elif tok_type == "SYMBOL" and val == "}":
+            if type_stack and type_stack[-1][1] == brace_depth:
+                type_stack.pop()
+            brace_depth -= 1
+            idx += 1
+            continue
+
+        is_member_level = (not type_stack and brace_depth == 0) or (
+            type_stack and brace_depth == type_stack[-1][1]
+        )
+
+        # Type declaration
+        if tok_type == "WORD" and val in type_keywords:
+            is_proto = val == "protocol"
+            j = idx + 1
+            while j < n and tokens[j][0] != "WORD":
+                j += 1
+            if j < n:
+                t_name = tokens[j][1]
+                while j < n and not (
+                    tokens[j][0] == "SYMBOL" and tokens[j][1] == "{"
+                ):
+                    j += 1
+                if j < n:
+                    type_stack.append((t_name, brace_depth + 1, is_proto))
+                    brace_depth += 1
+                    enclosing = type_stack[-2][0] if len(type_stack) > 1 else None
+                    decls.append(
+                        {
+                            "kind": val,
+                            "name": t_name,
+                            "enclosing": enclosing,
+                            "file": file_path,
+                            "line": line,
+                            "body": None,
+                            "body_line": None,
+                        }
+                    )
+                    idx = j + 1
+                    continue
+
+        # Function / Initializer / Subscript declaration
+        if is_member_level and tok_type == "WORD" and val in ("func", "init", "subscript"):
+            decl_kind = val
+            f_name = val
+            j = idx + 1
+            if decl_kind == "func":
+                f_name = None
+                while j < n:
+                    if tokens[j][0] == "WORD":
+                        f_name = tokens[j][1]
+                        j += 1
+                        break
+                    elif tokens[j][0] == "SYMBOL" and tokens[j][1] in {
+                        "==", "!=", "+", "-", "<", ">", "<=", ">="
+                    }:
+                        f_name = tokens[j][1]
+                        j += 1
+                        break
+                    j += 1
+            if f_name:
+                paren_depth = 0
+                body = None
+                body_line = None
+                while j < n:
+                    t_j = tokens[j]
+                    if t_j[0] == "SYMBOL" and t_j[1] == "(":
+                        paren_depth += 1
+                    elif t_j[0] == "SYMBOL" and t_j[1] == ")":
+                        paren_depth = max(0, paren_depth - 1)
+                    elif paren_depth == 0:
+                        if t_j[0] == "SYMBOL" and t_j[1] == "{":
+                            body_line = t_j[2]
+                            body_s = t_j[4]
+                            b_depth = 1
+                            k = j + 1
+                            while k < n and b_depth > 0:
+                                if tokens[k][0] == "SYMBOL" and tokens[k][1] == "{":
+                                    b_depth += 1
+                                elif tokens[k][0] == "SYMBOL" and tokens[k][1] == "}":
+                                    b_depth -= 1
+                                k += 1
+                            body_e = tokens[k - 1][3] if k <= n else len(text)
+                            body = text[body_s:body_e]
+                            idx = k
+                            break
+                        elif (
+                            t_j[0] == "WORD" and t_j[1] in all_stop
+                        ) or (t_j[0] == "SYMBOL" and t_j[1] == "}"):
+                            idx = j
+                            break
+                    j += 1
+                enclosing = type_stack[-1][0] if type_stack else None
+                decls.append(
+                    {
+                        "kind": decl_kind,
+                        "name": f_name,
+                        "enclosing": enclosing,
+                        "file": file_path,
+                        "line": line,
+                        "body": body,
+                        "body_line": body_line,
+                    }
+                )
+                if body is not None:
+                    continue
+
+        # Property declaration (var / let)
+        if is_member_level and tok_type == "WORD" and val in ("var", "let"):
+            decl_kind = val
+            j = idx + 1
+            names = []
+            while j < n and not (
+                tokens[j][0] == "SYMBOL" and tokens[j][1] in (":", "=", "{")
+            ):
+                if tokens[j][0] == "WORD":
+                    names.append(tokens[j][1])
+                j += 1
+
+            body = None
+            body_line = None
+            is_computed = False
+            paren_depth = 0
+            while j < n:
+                t_j = tokens[j]
+                if t_j[0] == "SYMBOL" and t_j[1] == "(":
+                    paren_depth += 1
+                elif t_j[0] == "SYMBOL" and t_j[1] == ")":
+                    paren_depth = max(0, paren_depth - 1)
+                elif paren_depth == 0:
+                    if t_j[0] == "SYMBOL" and t_j[1] == "=":
+                        break
+                    elif t_j[0] == "SYMBOL" and t_j[1] == "{":
+                        if type_stack and type_stack[-1][2]:
+                            # Protocol requirement
+                            pass
+                        else:
+                            is_computed = True
+                            body_line = t_j[2]
+                            body_s = t_j[4]
+                            b_depth = 1
+                            k = j + 1
+                            while k < n and b_depth > 0:
+                                if tokens[k][0] == "SYMBOL" and tokens[k][1] == "{":
+                                    b_depth += 1
+                                elif tokens[k][0] == "SYMBOL" and tokens[k][1] == "}":
+                                    b_depth -= 1
+                                k += 1
+                            body_e = tokens[k - 1][3] if k <= n else len(text)
+                            body = text[body_s:body_e]
+                            idx = k
+                        break
+                    elif (
+                        t_j[0] == "WORD" and t_j[1] in all_stop
+                    ) or (t_j[0] == "SYMBOL" and t_j[1] == "}"):
+                        break
+                j += 1
+
+            enclosing = type_stack[-1][0] if type_stack else None
+            for nm in names:
+                decls.append(
+                    {
+                        "kind": "var" if is_computed else decl_kind,
+                        "name": nm,
+                        "enclosing": enclosing,
+                        "file": file_path,
+                        "line": line,
+                        "body": body,
+                        "body_line": body_line,
+                    }
+                )
+            if body is not None:
+                continue
+
+        # Typealias
+        if is_member_level and tok_type == "WORD" and val == "typealias":
+            j = idx + 1
+            while j < n and tokens[j][0] != "WORD":
+                j += 1
+            if j < n:
+                ta_name = tokens[j][1]
+                enclosing = type_stack[-1][0] if type_stack else None
+                decls.append(
+                    {
+                        "kind": "typealias",
+                        "name": ta_name,
+                        "enclosing": enclosing,
+                        "file": file_path,
+                        "line": line,
+                        "body": None,
+                        "body_line": None,
+                    }
+                )
+                idx = j + 1
+                continue
+
+        # Enum case
+        if is_member_level and tok_type == "WORD" and val == "case":
+            j = idx + 1
+            while j < n and tokens[j][0] != "WORD":
+                j += 1
+            if j < n:
+                case_name = tokens[j][1]
+                enclosing = type_stack[-1][0] if type_stack else None
+                decls.append(
+                    {
+                        "kind": "case",
+                        "name": case_name,
+                        "enclosing": enclosing,
+                        "file": file_path,
+                        "line": line,
+                        "body": None,
+                        "body_line": None,
+                    }
+                )
+                idx = j + 1
+                continue
+
+        idx += 1
+    return decls
+
+
 def parse_swift_files(
     paths: List[str],
-) -> Tuple[Set[str], Set[str], Dict[str, List[Tuple[str, int, str]]]]:
+) -> Tuple[
+    Set[str],
+    Set[str],
+    Dict[str, List[Tuple[str, int, str]]],
+    Dict[str, List[Dict]],
+    Dict[str, List[Dict]],
+]:
     """
-    Parse Swift files for declarations.
+    Parse Swift files for declarations and implementation bodies.
     Returns:
       declared_names: Set of unqualified identifiers
       qualified_names: Set of `EnclosingType.identifier`
       locations: Dict of identifier -> list of (file, line, kind)
+      decls_by_qual: Dict of `EnclosingType.identifier` -> list of decl dicts
+      decls_by_name: Dict of `identifier` -> list of decl dicts
     """
     declared_names: Set[str] = set()
     qualified_names: Set[str] = set()
     locations: Dict[str, List[Tuple[str, int, str]]] = {}
-
-    type_decl_re = re.compile(
-        r"\b(?:struct|class|actor|enum|protocol|extension)\s+`?([a-zA-Z0-9_]+)`?"
-    )
-    func_decl_re = re.compile(r"\bfunc\s+`?([a-zA-Z0-9_]+)`?")
-    typealias_decl_re = re.compile(r"\btypealias\s+`?([a-zA-Z0-9_]+)`?")
-    case_decl_re = re.compile(r"\bcase\s+`?([a-zA-Z0-9_]+)`?")
+    decls_by_qual: Dict[str, List[Dict]] = {}
+    decls_by_name: Dict[str, List[Dict]] = {}
 
     for path in paths:
         with open(path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+            text = f.read()
 
-        type_stack: List[Tuple[str, int]] = []
-        brace_depth = 0
-        in_block_comment = False
+        file_decls = parse_swift_declarations(text, path)
+        for d in file_decls:
+            name = d["name"]
+            enc = d["enclosing"]
+            line = d["line"]
+            kind = d["kind"]
 
-        for line_num, line in enumerate(lines, 1):
-            clean = ""
-            i = 0
-            n = len(line)
-            while i < n:
-                if in_block_comment:
-                    if line[i : i + 2] == "*/":
-                        in_block_comment = False
-                        i += 2
-                    else:
-                        i += 1
-                else:
-                    if line[i : i + 2] == "/*":
-                        in_block_comment = True
-                        i += 2
-                    elif line[i : i + 2] == "//":
-                        break
-                    elif line[i] == '"':
-                        clean += line[i]
-                        i += 1
-                        while i < n:
-                            if line[i] == "\\":
-                                clean += line[i : i + 2]
-                                i += 2
-                            elif line[i] == '"':
-                                clean += line[i]
-                                i += 1
-                                break
-                            else:
-                                clean += line[i]
-                                i += 1
-                    else:
-                        clean += line[i]
-                        i += 1
+            declared_names.add(name)
+            locations.setdefault(name, []).append((path, line, kind))
+            decls_by_name.setdefault(name, []).append(d)
 
-            if not in_block_comment:
-                # Track type / extension boundaries
-                m_type = type_decl_re.search(clean)
-                if m_type and "{" in clean:
-                    type_name = m_type.group(1)
-                    type_stack.append((type_name, brace_depth + 1))
-                    declared_names.add(type_name)
-                    locations.setdefault(type_name, []).append(
-                        (path, line_num, "type")
-                    )
+            if enc:
+                qual = f"{enc}.{name}"
+                qualified_names.add(qual)
+                decls_by_qual.setdefault(qual, []).append(d)
 
-                # Functions
-                for m_func in func_decl_re.finditer(clean):
-                    name = m_func.group(1)
-                    declared_names.add(name)
-                    locations.setdefault(name, []).append(
-                        (path, line_num, "func")
-                    )
-                    if type_stack:
-                        qualified_names.add(f"{type_stack[-1][0]}.{name}")
-
-                # Initializers
-                if re.search(r"\binit\b", clean):
-                    declared_names.add("init")
-                    locations.setdefault("init", []).append(
-                        (path, line_num, "init")
-                    )
-                    if type_stack:
-                        qualified_names.add(f"{type_stack[-1][0]}.init")
-
-                # Typealiases
-                for m_ta in typealias_decl_re.finditer(clean):
-                    name = m_ta.group(1)
-                    declared_names.add(name)
-                    locations.setdefault(name, []).append(
-                        (path, line_num, "typealias")
-                    )
-                    if type_stack:
-                        qualified_names.add(f"{type_stack[-1][0]}.{name}")
-
-                # Variables & Constants
-                for name in parse_var_let_names(clean):
-                    declared_names.add(name)
-                    locations.setdefault(name, []).append(
-                        (path, line_num, "var/let")
-                    )
-                    if type_stack:
-                        qualified_names.add(f"{type_stack[-1][0]}.{name}")
-
-                # Enum Cases
-                for m_case in case_decl_re.finditer(clean):
-                    name = m_case.group(1)
-                    declared_names.add(name)
-                    locations.setdefault(name, []).append(
-                        (path, line_num, "case")
-                    )
-                    if type_stack:
-                        qualified_names.add(f"{type_stack[-1][0]}.{name}")
-
-            # Track brace depth
-            for ch in clean:
-                if ch == "{":
-                    brace_depth += 1
-                elif ch == "}":
-                    if type_stack and type_stack[-1][1] == brace_depth:
-                        type_stack.pop()
-                    brace_depth -= 1
-
-    return declared_names, qualified_names, locations
+    return declared_names, qualified_names, locations, decls_by_qual, decls_by_name
 
 
 def load_ledger(ledger_path: str) -> Dict[str, Dict]:
     """
-    Load deferral / rename ledger JSON file.
+    Load deferral / rename / stub exemption ledger JSON file.
     Validates that each entry contains:
       - item
-      - status: 'deferred' | 'renamed' | 'omitted'
-      - target_batch
+      - status: 'deferred' | 'renamed' | 'omitted' | 'stub_allowed'
+      - target_batch (optional for stub_allowed)
       - reason
     """
     with open(ledger_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     ledger: Dict[str, Dict] = {}
-    valid_statuses = {"deferred", "renamed", "omitted"}
+    valid_statuses = {"deferred", "renamed", "omitted", "stub_allowed"}
 
     if isinstance(data, list):
         entries = data
@@ -399,7 +733,9 @@ def load_ledger(ledger_path: str) -> Dict[str, Dict]:
             raise ValueError(
                 f"Ledger entry '{item}' has invalid status '{status}'. Expected one of {valid_statuses}"
             )
-        if not target_batch or not isinstance(target_batch, str):
+        if status != "stub_allowed" and (
+            not target_batch or not isinstance(target_batch, str)
+        ):
             raise ValueError(
                 f"Ledger entry '{item}' missing string 'target_batch'"
             )
@@ -435,26 +771,38 @@ def generate_markdown_report(
     swift_files: List[str],
     ledger_file: Optional[str],
     rust_items: List[Dict],
-    matched: List[Dict],
+    genuine: List[Dict],
     deferred: List[Dict],
     renamed: List[Dict],
     omitted: List[Dict],
+    stub_allowed: List[Dict],
+    stubs: List[Dict],
     missing: List[Dict],
 ) -> str:
-    """Generate Markdown parity report."""
+    """Generate Markdown parity report with dedicated stub detection and summary tables."""
     total = len(rust_items)
-    n_matched = len(matched)
+    n_genuine = len(genuine)
     n_deferred = len(deferred)
     n_renamed = len(renamed)
     n_omitted = len(omitted)
+    n_stub_allowed = len(stub_allowed)
+    n_stubs = len(stubs)
     n_missing = len(missing)
-    n_exempted = n_deferred + n_renamed + n_omitted
+    n_exempted = n_deferred + n_renamed + n_omitted + n_stub_allowed
 
     pct_covered = (
-        ((n_matched + n_exempted) / total * 100.0) if total > 0 else 0.0
+        ((n_genuine + n_exempted) / total * 100.0) if total > 0 else 0.0
     )
-    pct_matched = (n_matched / total * 100.0) if total > 0 else 0.0
+    pct_genuine = (n_genuine / total * 100.0) if total > 0 else 0.0
+    pct_exempted = (n_exempted / total * 100.0) if total > 0 else 0.0
+    pct_deferred = (n_deferred / total * 100.0) if total > 0 else 0.0
+    pct_renamed = (n_renamed / total * 100.0) if total > 0 else 0.0
+    pct_omitted = (n_omitted / total * 100.0) if total > 0 else 0.0
+    pct_stub_allowed = (n_stub_allowed / total * 100.0) if total > 0 else 0.0
+    pct_stubs = (n_stubs / total * 100.0) if total > 0 else 0.0
+    pct_missing = (n_missing / total * 100.0) if total > 0 else 0.0
 
+    is_passing = n_stubs == 0 and n_missing == 0
     now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     md = []
@@ -475,16 +823,47 @@ def generate_markdown_report(
     md.append("| Metric | Count | Percentage |")
     md.append("| :--- | :--- | :--- |")
     md.append(f"| **Total Upstream `pub`/`pub(crate)` Items** | **{total}** | 100.0% |")
-    md.append(f"| Found in Swift Target(s) | {n_matched} | {pct_matched:.1f}% |")
-    md.append(f"| Legitimate Ledger Exemptions | {n_exempted} | {(n_exempted/total*100.0 if total else 0):.1f}% |")
-    md.append(f"| — *Deferred to Later Batch* | {n_deferred} | {(n_deferred/total*100.0 if total else 0):.1f}% |")
-    md.append(f"| — *Renamed in Swift* | {n_renamed} | {(n_renamed/total*100.0 if total else 0):.1f}% |")
-    md.append(f"| — *Omitted (Obsolete/OS-specific)* | {n_omitted} | {(n_omitted/total*100.0 if total else 0):.1f}% |")
-    md.append(f"| **MISSING (Unaccounted / Unported)** | **{n_missing}** | **{(n_missing/total*100.0 if total else 0):.1f}%** |")
+    md.append(f"| Genuine Swift Implementations | {n_genuine} | {pct_genuine:.1f}% |")
+    md.append(f"| Legitimate Ledger Exemptions | {n_exempted} | {pct_exempted:.1f}% |")
+    md.append(f"| — *Deferred to Later Batch* | {n_deferred} | {pct_deferred:.1f}% |")
+    md.append(f"| — *Renamed in Swift* | {n_renamed} | {pct_renamed:.1f}% |")
+    md.append(f"| — *Omitted (Obsolete/OS-specific)* | {n_omitted} | {pct_omitted:.1f}% |")
+    md.append(f"| — *Allowed Stubs (Exempted)* | {n_stub_allowed} | {pct_stub_allowed:.1f}% |")
+    md.append(f"| **Stubs Detected (FAIL)** | **{n_stubs}** | **{pct_stubs:.1f}%** |")
+    md.append(f"| **Missing Items (FAIL)** | **{n_missing}** | **{pct_missing:.1f}%** |")
     md.append("")
-    status_badge = "✅ PASS" if n_missing == 0 else "❌ FAILED"
-    md.append(f"**Audit Status**: {status_badge} ({pct_covered:.1f}% accounted for)")
+    if is_passing:
+        status_badge = "✅ PASS"
+        md.append(f"**Audit Status**: {status_badge} (100.0% accounted for, all implementations verified genuine)")
+    else:
+        status_badge = "❌ FAILED"
+        reasons = []
+        if n_stubs > 0:
+            reasons.append(f"{n_stubs} stubs detected")
+        if n_missing > 0:
+            reasons.append(f"{n_missing} missing items")
+        md.append(f"**Audit Status**: {status_badge} ({pct_covered:.1f}% accounted for; {', '.join(reasons)})")
     md.append("")
+
+    # Section for Stubs Detected
+    if stubs:
+        md.append("## Stubs Detected (Action Required)")
+        md.append("")
+        md.append("These Swift declarations were matched to upstream items but flagged as stubs (empty implementation body, trivial return, or placeholder). They must be implemented genuinely or explicitly documented in the ledger with `\"status\": \"stub_allowed\"` and technical rationale:")
+        md.append("")
+        md.append("| Upstream Item | Swift Declaration Location | Stub Reason / Body Excerpt |")
+        md.append("| :--- | :--- | :--- |")
+        for it in stubs:
+            sd = it.get("stub_decl", {})
+            loc_str = f"{Path(sd.get('file', '')).name}:{sd.get('line', '?')}"
+            reason_str = it.get("stub_reason", "Stub body")
+            excerpt = it.get("stub_excerpt", "")
+            if excerpt:
+                info = f"`{reason_str}`: `{excerpt}`"
+            else:
+                info = f"`{reason_str}`"
+            md.append(f"| `{it['item']}` | `{loc_str}` | {info} |")
+        md.append("")
 
     # Section for Missing Items
     if missing:
@@ -500,7 +879,7 @@ def generate_markdown_report(
         md.append("")
 
     # Section for Ledger Exemptions
-    exemptions = deferred + renamed + omitted
+    exemptions = deferred + renamed + omitted + stub_allowed
     if exemptions:
         md.append("## Legitimate Ledger Exemptions")
         md.append("")
@@ -508,21 +887,24 @@ def generate_markdown_report(
         md.append("| :--- | :--- | :--- | :--- |")
         for it in exemptions:
             entry = it["ledger_entry"]
-            md.append(f"| `{it['item']}` | `{entry['status']}` | {entry['target_batch']} | {entry['reason']} |")
+            target_batch = entry.get("target_batch", "N/A")
+            md.append(f"| `{it['item']}` | `{entry['status']}` | {target_batch} | {entry['reason']} |")
         md.append("")
 
-    # Section for Matched Items
-    md.append("## Matched Items")
+    # Section for Genuine Items
+    md.append("## Genuine Swift Implementations")
     md.append("")
-    md.append(f"Found {n_matched} matching declarations in Swift target files:")
+    md.append(f"Found {n_genuine} matching genuine declarations in Swift target files:")
     md.append("")
     md.append("<details>")
-    md.append("<summary>Click to view matched declarations</summary>")
+    md.append(f"<summary>Click to view genuine declarations ({n_genuine} total)</summary>")
     md.append("")
-    md.append("| Line | Upstream Item | Kind | Swift Declaration / Symbol |")
-    md.append("| :--- | :--- | :--- | :--- |")
-    for it in matched:
-        md.append(f"| {it['line']} | `{it['item']}` | `{it['kind']}` | `{it['swift_name']}` |")
+    md.append("| Line | Upstream Item | Kind | Swift Declaration / Symbol | Location |")
+    md.append("| :--- | :--- | :--- | :--- | :--- |")
+    for it in genuine:
+        decl = it.get("swift_decl", {})
+        loc = f"{Path(decl.get('file', '')).name}:{decl.get('line', '?')}" if decl else ""
+        md.append(f"| {it['line']} | `{it['item']}` | `{it['kind']}` | `{it['swift_name']}` | `{loc}` |")
     md.append("")
     md.append("</details>")
     md.append("")
@@ -607,13 +989,21 @@ def main():
     # Parse Rust items
     rust_items = parse_rust_file(upstream_path)
 
-    # Parse Swift symbols
-    declared_names, qualified_names, locations = parse_swift_files(swift_paths)
+    # Parse Swift symbols & declarations
+    (
+        declared_names,
+        qualified_names,
+        locations,
+        decls_by_qual,
+        decls_by_name,
+    ) = parse_swift_files(swift_paths)
 
-    matched: List[Dict] = []
+    genuine: List[Dict] = []
     deferred: List[Dict] = []
     renamed: List[Dict] = []
     omitted: List[Dict] = []
+    stub_allowed: List[Dict] = []
+    stubs: List[Dict] = []
     missing: List[Dict] = []
 
     for it in rust_items:
@@ -623,52 +1013,106 @@ def main():
         enclosing = it["enclosing"]
         kind = it["kind"]
 
-        # Check in Swift
-        is_matched = False
-        if enclosing and f"{enclosing}.{swift_name}" in qualified_names:
-            is_matched = True
-        elif enclosing and f"{enclosing}.{rust_name}" in qualified_names:
-            is_matched = True
-        elif swift_name in declared_names:
-            is_matched = True
-        elif rust_name in declared_names:
-            is_matched = True
-        elif kind in ("const", "static") and (
-            rust_name.upper() in declared_names
-            or rust_name.lower() in declared_names
-        ):
-            is_matched = True
-
-        if is_matched:
-            it["status"] = "matched"
-            matched.append(it)
-            continue
-
-        # Check ledger
+        # Check ledger entry
         ledger_entry = ledger.get(item_key) or ledger.get(rust_name)
-        if ledger_entry:
-            it["ledger_entry"] = ledger_entry
-            entry_status = ledger_entry["status"]
-            it["status"] = entry_status
-            if entry_status == "deferred":
-                deferred.append(it)
-            elif entry_status == "renamed":
-                renamed.append(it)
-            elif entry_status == "omitted":
-                omitted.append(it)
+        target_swift_name = swift_name
+        if ledger_entry and ledger_entry["status"] == "renamed":
+            target_swift_name = ledger_entry.get("swift_name", swift_name)
+
+        # Lookup candidate Swift declarations
+        candidates: List[Dict] = []
+        if enclosing:
+            candidates.extend(decls_by_qual.get(f"{enclosing}.{target_swift_name}", []))
+            if not candidates:
+                candidates.extend(decls_by_qual.get(f"{enclosing}.{rust_name}", []))
+        if not candidates:
+            candidates.extend(decls_by_name.get(target_swift_name, []))
+            if not candidates:
+                candidates.extend(decls_by_name.get(rust_name, []))
+        if not candidates and kind in ("const", "static"):
+            candidates.extend(decls_by_name.get(rust_name.upper(), []))
+            if not candidates:
+                candidates.extend(decls_by_name.get(rust_name.lower(), []))
+
+        # Check if declaration was not found in Swift
+        if not candidates:
+            if ledger_entry:
+                it["ledger_entry"] = ledger_entry
+                st = ledger_entry["status"]
+                it["status"] = st
+                if st == "deferred":
+                    deferred.append(it)
+                elif st == "renamed":
+                    # Renamed target not found in Swift
+                    it["status"] = "missing"
+                    missing.append(it)
+                elif st == "omitted":
+                    omitted.append(it)
+                elif st == "stub_allowed":
+                    stub_allowed.append(it)
+                else:
+                    missing.append(it)
+            else:
+                it["status"] = "missing"
+                missing.append(it)
             continue
 
-        # Not matched and not in ledger
-        it["status"] = "missing"
-        missing.append(it)
+        # Declaration found in Swift: perform mechanical stub analysis
+        if kind == "fn" or any(
+            c["kind"] in ("func", "init", "subscript", "var") for c in candidates
+        ):
+            non_stub_candidates = []
+            stub_candidates = []
+            for c in candidates:
+                if c["body"] is not None:
+                    is_s, reason = check_is_stub(c["body"])
+                    if is_s:
+                        cleaned = strip_swift_comments(c["body"]).strip().rstrip(";").strip()
+                        if not cleaned:
+                            excerpt = "{}"
+                        else:
+                            first_line = cleaned.split("\n")[0].strip()
+                            excerpt = first_line[:50] + ("..." if len(first_line) > 50 else "")
+                        stub_candidates.append((c, reason, excerpt))
+                    else:
+                        non_stub_candidates.append(c)
+                else:
+                    # Protocol requirement without body or stored property
+                    non_stub_candidates.append(c)
+
+            if non_stub_candidates:
+                it["status"] = "genuine"
+                it["swift_decl"] = non_stub_candidates[0]
+                genuine.append(it)
+            else:
+                # All candidates are stubs
+                c, reason, excerpt = stub_candidates[0]
+                it["stub_decl"] = c
+                it["stub_reason"] = reason
+                it["stub_excerpt"] = excerpt
+
+                if ledger_entry and ledger_entry.get("status") == "stub_allowed":
+                    it["status"] = "stub_allowed"
+                    it["ledger_entry"] = ledger_entry
+                    stub_allowed.append(it)
+                else:
+                    it["status"] = "stub"
+                    stubs.append(it)
+        else:
+            # Type, enum, struct, typealias, const, static
+            it["status"] = "genuine"
+            it["swift_decl"] = candidates[0]
+            genuine.append(it)
 
     total = len(rust_items)
-    n_matched = len(matched)
+    n_genuine = len(genuine)
     n_deferred = len(deferred)
     n_renamed = len(renamed)
     n_omitted = len(omitted)
+    n_stub_allowed = len(stub_allowed)
+    n_stubs = len(stubs)
     n_missing = len(missing)
-    n_exempted = n_deferred + n_renamed + n_omitted
+    n_exempted = n_deferred + n_renamed + n_omitted + n_stub_allowed
 
     if not args.quiet:
         print("=" * 64)
@@ -685,19 +1129,35 @@ def main():
             print(f"  - {k:8s}: {v}")
         print("-" * 64)
         print(
-            f"Found in Swift Target(s):  {n_matched:3d} ({(n_matched/total*100.0 if total else 0):5.1f}%)"
+            f"Genuine Swift Implementations: {n_genuine:3d} ({(n_genuine/total*100.0 if total else 0):5.1f}%)"
         )
         print(
-            f"Ledger Exemptions:         {n_exempted:3d} ({(n_exempted/total*100.0 if total else 0):5.1f}%)"
+            f"Legitimate Ledger Exemptions:  {n_exempted:3d} ({(n_exempted/total*100.0 if total else 0):5.1f}%)"
         )
         if n_exempted > 0:
             print(f"  - Deferred to later batch: {n_deferred}")
             print(f"  - Renamed in Swift:        {n_renamed}")
             print(f"  - Omitted:                 {n_omitted}")
+            print(f"  - Allowed stubs:           {n_stub_allowed}")
         print(
-            f"MISSING (Unaccounted):     {n_missing:3d} ({(n_missing/total*100.0 if total else 0):5.1f}%)"
+            f"Stubs Detected (FAIL):         {n_stubs:3d} ({(n_stubs/total*100.0 if total else 0):5.1f}%)"
+        )
+        print(
+            f"Missing Items (FAIL):          {n_missing:3d} ({(n_missing/total*100.0 if total else 0):5.1f}%)"
         )
         print("=" * 64)
+
+        if stubs:
+            print(f"\n[!] Stubs Detected (Action Required) ({n_stubs} total):")
+            for it in stubs[:30]:
+                sd = it.get("stub_decl", {})
+                loc = f"{Path(sd.get('file', '')).name}:{sd.get('line', '?')}"
+                reason = it.get("stub_reason", "")
+                excerpt = it.get("stub_excerpt", "")
+                detail = f"[{reason}: {excerpt}]" if excerpt else f"[{reason}]"
+                print(f"  {it['item']:36s} -> {loc} {detail}")
+            if len(stubs) > 30:
+                print(f"  ... and {len(stubs) - 30} more stubs detected.")
 
         if missing:
             print(f"\n[!] Missing Items ({n_missing} total):")
@@ -716,10 +1176,12 @@ def main():
             swift_paths,
             args.ledger_file,
             rust_items,
-            matched,
+            genuine,
             deferred,
             renamed,
             omitted,
+            stub_allowed,
+            stubs,
             missing,
         )
         out_dir = os.path.dirname(os.path.abspath(args.markdown_file))
@@ -737,11 +1199,34 @@ def main():
             "swift_files": swift_paths,
             "ledger_file": args.ledger_file,
             "total_items": total,
-            "matched_count": n_matched,
+            "genuine_count": n_genuine,
+            "exempted_count": n_exempted,
             "deferred_count": n_deferred,
             "renamed_count": n_renamed,
             "omitted_count": n_omitted,
+            "stub_allowed_count": n_stub_allowed,
+            "stubs_count": n_stubs,
             "missing_count": n_missing,
+            "stubs": [
+                {
+                    "item": it["item"],
+                    "kind": it["kind"],
+                    "location": f"{Path(it.get('stub_decl', {}).get('file', '')).name}:{it.get('stub_decl', {}).get('line', '?')}",
+                    "reason": it.get("stub_reason", ""),
+                    "excerpt": it.get("stub_excerpt", ""),
+                }
+                for it in stubs
+            ],
+            "missing": [
+                {
+                    "item": it["item"],
+                    "kind": it["kind"],
+                    "line": it["line"],
+                    "swift_name": it["swift_name"],
+                    "enclosing": it["enclosing"],
+                }
+                for it in missing
+            ],
             "items": rust_items,
         }
         out_dir = os.path.dirname(os.path.abspath(args.json_file))
@@ -753,13 +1238,18 @@ def main():
             print(f"JSON report written to: {args.json_file}")
 
     # Exit code
-    if n_missing == 0:
+    if n_stubs == 0 and n_missing == 0:
         if not args.quiet:
-            print("Audit Result: PASSED (100% accounted for)")
+            print("Audit Result: PASSED (100% accounted for, genuine implementations verified)")
         sys.exit(0)
     else:
+        failure_parts = []
+        if n_stubs > 0:
+            failure_parts.append(f"{n_stubs} stubs detected")
+        if n_missing > 0:
+            failure_parts.append(f"{n_missing} items missing")
         if not args.quiet:
-            print(f"Audit Result: FAILED ({n_missing} items missing)")
+            print(f"Audit Result: FAILED ({', '.join(failure_parts)})")
         sys.exit(1)
 
 
