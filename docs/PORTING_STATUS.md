@@ -19,7 +19,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `ZedUtil` | 23 | 0 | 0 | 6 | 0 | 17 | 9,596 | 100% |
 | `GPUIiOS` | 20 | 20 | 0 | 0 | 0 | 0 | 6,168 | 0% |
 | `SumTree` | 4 | 0 | 0 | 4 | 0 | 0 | 3,313 | 100% |
-| `GPUIWGPU` | 5 | 5 | 0 | 0 | 0 | 0 | 3,307 | 0% |
+| `GPUIWGPU` | 5 | 1 | 0 | 4 | 0 | 0 | 3,307 | 80% |
 | `GPUIMacros` | 11 | 0 | 0 | 11 | 0 | 0 | 3,047 | 100% |
 | `GPUIWeb` | 10 | 10 | 0 | 0 | 0 | 0 | 2,787 | 0% |
 | `Scheduler` | 5 | 0 | 0 | 4 | 0 | 1 | 2,091 | 100% |
@@ -32,7 +32,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **338** | 157 | 0 | 161 | 0 | 20 | 154,333 | 60% |
+| **Total** | **338** | 153 | 0 | 165 | 0 | 20 | 154,333 | 62% |
 
 ## Files
 
@@ -343,14 +343,14 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
 | [crates/gpui_wgpu/src/cosmic_text_system.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/cosmic_text_system.rs) | [Sources/GPUIWGPU/cosmic_text_system.swift](../Sources/GPUIWGPU/cosmic_text_system.swift) | source | 645 | not-started |
-| [crates/gpui_wgpu/src/gpui_wgpu.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/gpui_wgpu.rs) | [Sources/GPUIWGPU/gpui_wgpu.swift](../Sources/GPUIWGPU/gpui_wgpu.swift) | source | 10 | not-started |
-| [crates/gpui_wgpu/src/wgpu_atlas.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/wgpu_atlas.rs) | [Sources/GPUIWGPU/wgpu_atlas.swift](../Sources/GPUIWGPU/wgpu_atlas.swift) | source | 423 | not-started |
-| [crates/gpui_wgpu/src/wgpu_context.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/wgpu_context.rs) | [Sources/GPUIWGPU/wgpu_context.swift](../Sources/GPUIWGPU/wgpu_context.swift) | source | 387 | not-started |
-| [crates/gpui_wgpu/src/wgpu_renderer.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/wgpu_renderer.rs) | [Sources/GPUIWGPU/wgpu_renderer.swift](../Sources/GPUIWGPU/wgpu_renderer.swift) | source | 1842 | not-started |
+| [crates/gpui_wgpu/src/gpui_wgpu.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/gpui_wgpu.rs) | [Sources/GPUIWGPU/gpui_wgpu.swift](../Sources/GPUIWGPU/gpui_wgpu.swift) | source | 10 | ported |
+| [crates/gpui_wgpu/src/wgpu_atlas.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/wgpu_atlas.rs) | [Sources/GPUIWGPU/wgpu_atlas.swift](../Sources/GPUIWGPU/wgpu_atlas.swift) | source | 423 | ported |
+| [crates/gpui_wgpu/src/wgpu_context.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/wgpu_context.rs) | [Sources/GPUIWGPU/wgpu_context.swift](../Sources/GPUIWGPU/wgpu_context.swift) | source | 387 | ported |
+| [crates/gpui_wgpu/src/wgpu_renderer.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/wgpu_renderer.rs) | [Sources/GPUIWGPU/wgpu_renderer.swift](../Sources/GPUIWGPU/wgpu_renderer.swift) | source | 1842 | ported |
 | [crates/gpui_wgpu/src/shaders.wgsl](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/shaders.wgsl) | [Sources/GPUIWGPU/shaders.wgsl](../Sources/GPUIWGPU/shaders.wgsl) | asset |  | copied |
 | [crates/gpui_wgpu/src/shaders_subpixel.wgsl](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/shaders_subpixel.wgsl) | [Sources/GPUIWGPU/shaders_subpixel.wgsl](../Sources/GPUIWGPU/shaders_subpixel.wgsl) | asset |  | copied |
-| [crates/gpui_wgpu/src/wgpu_atlas.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/wgpu_atlas.rs) | [Tests/GPUIWGPUTests/wgpu_atlas.swift](../Tests/GPUIWGPUTests/wgpu_atlas.swift) | inline-test |  | not-started |
-| [crates/gpui_wgpu/src/wgpu_context.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/wgpu_context.rs) | [Tests/GPUIWGPUTests/wgpu_context.swift](../Tests/GPUIWGPUTests/wgpu_context.swift) | inline-test |  | not-started |
+| [crates/gpui_wgpu/src/wgpu_atlas.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/wgpu_atlas.rs) | [Tests/GPUIWGPUTests/wgpu_atlas.swift](../Tests/GPUIWGPUTests/wgpu_atlas.swift) | inline-test |  | ported |
+| [crates/gpui_wgpu/src/wgpu_context.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_wgpu/src/wgpu_context.rs) | [Tests/GPUIWGPUTests/wgpu_context.swift](../Tests/GPUIWGPUTests/wgpu_context.swift) | inline-test |  | ported |
 
 ### `GPUIWeb`
 

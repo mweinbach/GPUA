@@ -1371,7 +1371,22 @@ public protocol PlatformDisplay: AnyObject {
 }
 
 public struct GpuSpecs: Sendable, Equatable {
-    public init() {}
+    public var isSoftwareEmulated: Bool
+    public var deviceName: String
+    public var driverName: String
+    public var driverInfo: String
+
+    public init(
+        isSoftwareEmulated: Bool = false,
+        deviceName: String = "",
+        driverName: String = "",
+        driverInfo: String = ""
+    ) {
+        self.isSoftwareEmulated = isSoftwareEmulated
+        self.deviceName = deviceName
+        self.driverName = driverName
+        self.driverInfo = driverInfo
+    }
 }
 
 
