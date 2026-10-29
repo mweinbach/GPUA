@@ -12,7 +12,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 | `GPUI` | 81 | 0 | 0 | 80 | 0 | 1 | 53,398 | 100% |
 | `Taffy` | 47 | 3 | 0 | 44 | 0 | 0 | 18,695 | 98% |
-| `GPUILinux` | 24 | 24 | 0 | 0 | 0 | 0 | 12,710 | 0% |
+| `GPUILinux` | 24 | 19 | 2 | 3 | 0 | 0 | 12,710 | 4% |
 | `GPUIExamples` | 40 | 40 | 0 | 0 | 0 | 0 | 12,441 | 0% |
 | `GPUIWindows` | 18 | 18 | 0 | 0 | 0 | 0 | 11,223 | 0% |
 | `GPUIMacOS` | 14 | 14 | 0 | 0 | 0 | 0 | 10,175 | 0% |
@@ -32,7 +32,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **338** | 153 | 0 | 165 | 0 | 20 | 154,333 | 62% |
+| **Total** | **338** | 148 | 2 | 168 | 0 | 20 | 154,333 | 62% |
 
 ## Files
 
@@ -247,11 +247,11 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 |---|---|---|---:|---|
 | [crates/gpui_linux/src/gpui_linux.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/gpui_linux.rs) | [Sources/GPUILinux/gpui_linux.swift](../Sources/GPUILinux/gpui_linux.swift) | source | 4 | not-started |
 | [crates/gpui_linux/src/linux.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux.rs) | [Sources/GPUILinux/linux.swift](../Sources/GPUILinux/linux.swift) | source | 57 | not-started |
-| [crates/gpui_linux/src/linux/dispatcher.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/dispatcher.rs) | [Sources/GPUILinux/linux/dispatcher.swift](../Sources/GPUILinux/linux/dispatcher.swift) | source | 417 | not-started |
-| [crates/gpui_linux/src/linux/headless.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/headless.rs) | [Sources/GPUILinux/linux/headless.swift](../Sources/GPUILinux/linux/headless.swift) | source | 3 | not-started |
-| [crates/gpui_linux/src/linux/headless/client.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/headless/client.rs) | [Sources/GPUILinux/linux/headless/headless_client.swift](../Sources/GPUILinux/linux/headless/headless_client.swift) | source | 128 | not-started |
-| [crates/gpui_linux/src/linux/keyboard.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/keyboard.rs) | [Sources/GPUILinux/linux/keyboard.swift](../Sources/GPUILinux/linux/keyboard.swift) | source | 22 | not-started |
-| [crates/gpui_linux/src/linux/platform.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/platform.rs) | [Sources/GPUILinux/linux/platform.swift](../Sources/GPUILinux/linux/platform.swift) | source | 1117 | not-started |
+| [crates/gpui_linux/src/linux/dispatcher.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/dispatcher.rs) | [Sources/GPUILinux/linux/dispatcher.swift](../Sources/GPUILinux/linux/dispatcher.swift) | source | 417 | ported |
+| [crates/gpui_linux/src/linux/headless.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/headless.rs) | [Sources/GPUILinux/linux/headless.swift](../Sources/GPUILinux/linux/headless.swift) | source | 3 | ported |
+| [crates/gpui_linux/src/linux/headless/client.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/headless/client.rs) | [Sources/GPUILinux/linux/headless/headless_client.swift](../Sources/GPUILinux/linux/headless/headless_client.swift) | source | 128 | ported |
+| [crates/gpui_linux/src/linux/keyboard.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/keyboard.rs) | [Sources/GPUILinux/linux/keyboard.swift](../Sources/GPUILinux/linux/keyboard.swift) | source | 22 | in-progress |
+| [crates/gpui_linux/src/linux/platform.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/platform.rs) | [Sources/GPUILinux/linux/platform.swift](../Sources/GPUILinux/linux/platform.swift) | source | 1117 | in-progress |
 | [crates/gpui_linux/src/linux/text_system.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/text_system.rs) | [Sources/GPUILinux/linux/text_system.swift](../Sources/GPUILinux/linux/text_system.swift) | source | 1 | not-started |
 | [crates/gpui_linux/src/linux/wayland.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/wayland.rs) | [Sources/GPUILinux/linux/wayland.swift](../Sources/GPUILinux/linux/wayland.swift) | source | 47 | not-started |
 | [crates/gpui_linux/src/linux/wayland/client.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/wayland/client.rs) | [Sources/GPUILinux/linux/wayland/wayland_client.swift](../Sources/GPUILinux/linux/wayland/wayland_client.swift) | source | 2458 | not-started |
@@ -269,7 +269,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui_linux/src/linux/x11/window.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/x11/window.rs) | [Sources/GPUILinux/linux/x11/x11_window.swift](../Sources/GPUILinux/linux/x11/x11_window.swift) | source | 1841 | not-started |
 | [crates/gpui_linux/src/linux/x11/xim_handler.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/x11/xim_handler.rs) | [Sources/GPUILinux/linux/x11/xim_handler.swift](../Sources/GPUILinux/linux/x11/xim_handler.swift) | source | 133 | not-started |
 | [crates/gpui_linux/src/linux/xdg_desktop_portal.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/xdg_desktop_portal.rs) | [Sources/GPUILinux/linux/xdg_desktop_portal.swift](../Sources/GPUILinux/linux/xdg_desktop_portal.swift) | source | 164 | not-started |
-| [crates/gpui_linux/src/linux/dispatcher.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/dispatcher.rs) | [Tests/GPUILinuxTests/linux/dispatcher.swift](../Tests/GPUILinuxTests/linux/dispatcher.swift) | inline-test |  | not-started |
+| [crates/gpui_linux/src/linux/dispatcher.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/dispatcher.rs) | [Tests/GPUILinuxTests/linux/dispatcher.swift](../Tests/GPUILinuxTests/linux/dispatcher.swift) | inline-test |  | ported |
 | [crates/gpui_linux/src/linux/platform.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/platform.rs) | [Tests/GPUILinuxTests/linux/platform.swift](../Tests/GPUILinuxTests/linux/platform.swift) | inline-test |  | not-started |
 | [crates/gpui_linux/src/linux/x11/event.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_linux/src/linux/x11/event.rs) | [Tests/GPUILinuxTests/linux/x11/event.swift](../Tests/GPUILinuxTests/linux/x11/event.swift) | inline-test |  | not-started |
 
