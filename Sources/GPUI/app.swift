@@ -429,6 +429,7 @@ public struct DummyKeyboardLayout: PlatformKeyboardLayout, Sendable {
 
 /// Platform abstraction protocol implemented by platform backends.
 public protocol Platform: AnyObject, Sendable {
+    func textSystem() -> any PlatformTextSystem
     func backgroundExecutor() -> BackgroundExecutor?
     func foregroundExecutor() -> ForegroundExecutor?
     func run(_ onFinishLaunching: @escaping () -> Void)
@@ -509,6 +510,7 @@ public final class DefaultPlatform: Platform, @unchecked Sendable {
 
     public init() {}
 
+    public func textSystem() -> any PlatformTextSystem { NoopTextSystem() }
     public func backgroundExecutor() -> BackgroundExecutor? { nil }
     public func foregroundExecutor() -> ForegroundExecutor? { nil }
     public func run(_ onFinishLaunching: @escaping () -> Void) { onFinishLaunching() }
@@ -646,6 +648,10 @@ public final class Application: Sendable {
     public func pathForAuxiliaryExecutable(_ name: String) throws -> URL {
         try app.pathForAuxiliaryExecutable(name)
     }
+
+    public func textSystem() -> TextSystem {
+        app.textSystem()
+    }
 }
 
 /// A mutable reference to an entity owned by GPUI with RAII auto-notification on drop.
@@ -705,6 +711,7 @@ public final class App: AppContext, BorrowAppContext, @unchecked Sendable {
     public var _assetSource: any AssetSource = EmptyAssetSource()
     public var _svgRenderer: SvgRenderer
     public var _httpClient: any HttpClient = NullHttpClient()
+    public var _textSystem: TextSystem
     public var promptBuilder: Any? = nil
 
     private var globals: [ObjectIdentifier: Any] = [:]
@@ -759,6 +766,11 @@ public final class App: AppContext, BorrowAppContext, @unchecked Sendable {
         self._backgroundExecutor = backgroundExecutor ?? platform.backgroundExecutor() ?? BackgroundExecutor(scheduler: TestScheduler())
         self._foregroundExecutor = foregroundExecutor ?? platform.foregroundExecutor() ?? ForegroundExecutor(sessionId: SessionId(0), scheduler: TestScheduler())
         self._svgRenderer = SvgRenderer(assetSource: assetSource)
+        self._textSystem = TextSystem(platformTextSystem: platform.textSystem())
+    }
+
+    public func textSystem() -> TextSystem {
+        _textSystem
     }
 
     public static func newApp(
@@ -1179,7 +1191,7 @@ public final class App: AppContext, BorrowAppContext, @unchecked Sendable {
             cx.windowUpdateStack.append(id)
             let rootView = buildRootView(&window, cx)
             cx.windowUpdateStack.removeLast()
-            window.root = AnyView(entityId: rootView.entityId)
+            window.root = AnyView(rootView)
             cx.windowHandles[id] = anyHandle
             cx.windowsById[id] = window
             return handle

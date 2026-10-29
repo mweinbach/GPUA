@@ -40,17 +40,5 @@
     "status": "omitted",
     "target_batch": "Batch 3.1 (App Model)",
     "reason": "Internal Rust Rc/RefCell drop handle for reference count tracking; Swift ARC handles deallocation natively."
-  },
-  {
-    "item": "Application::text_system",
-    "status": "deferred",
-    "target_batch": "Batch 3.3 (TestPlatform / Text System)",
-    "reason": "Text system queries and layout pipeline are scheduled for Batch 3.3 implementation."
-  },
-  {
-    "item": "App::text_system",
-    "status": "deferred",
-    "target_batch": "Batch 3.3 (TestPlatform / Text System)",
-    "reason": "Text system queries and layout pipeline are scheduled for Batch 3.3 implementation."
   }
 ]

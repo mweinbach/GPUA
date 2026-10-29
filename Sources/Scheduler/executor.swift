@@ -598,4 +598,18 @@ public final class BackgroundExecutor: @unchecked Sendable {
     public func now() -> ContinuousClock.Instant {
         scheduler.clock().now()
     }
+
+    // PORT NOTE: runUntilParked executes scheduled test runnables until idle, matching upstream executor test-support.
+    public func runUntilParked() {
+        if let test = scheduler.asTest() {
+            test.run()
+        }
+    }
+
+    // PORT NOTE: allowParking permits test executor to idle with unresolved tasks without panicking.
+    public func allowParking() {
+        if let test = scheduler.asTest() {
+            test.allowParking()
+        }
+    }
 }

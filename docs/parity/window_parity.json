@@ -49,30 +49,6 @@
     "reason": "Idiomatic Swift initializer WindowHandle.init(anyHandle:)"
   },
   {
-    "item": "Window::paint_glyph",
-    "status": "deferred",
-    "target_batch": "Batch 3.3 (Text System)",
-    "reason": "Requires TextSystem shaping and glyph atlas from Batch 3.3"
-  },
-  {
-    "item": "Window::paint_emoji",
-    "status": "deferred",
-    "target_batch": "Batch 3.3 (Text System)",
-    "reason": "Requires TextSystem shaping and glyph atlas from Batch 3.3"
-  },
-  {
-    "item": "Window::text_system",
-    "status": "deferred",
-    "target_batch": "Batch 3.3 (Text System)",
-    "reason": "Requires PlatformTextSystem from Batch 3.3"
-  },
-  {
-    "item": "Window::text_style",
-    "status": "deferred",
-    "target_batch": "Batch 3.3 (Text System)",
-    "reason": "Requires TextSystem shaping and glyph atlas from Batch 3.3"
-  },
-  {
     "item": "Window::prepaint_index",
     "status": "deferred",
     "target_batch": "Batch 3.4 (Element Tree)",

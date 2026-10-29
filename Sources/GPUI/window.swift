@@ -1041,16 +1041,28 @@ public struct AnyWindowHandle: Sendable, Equatable, Hashable {
         WindowHandle<V>(anyHandle: self)
     }
 
+    @MainActor
     public func update<R>(_ cx: inout App, _ update: (AnyView, inout Window, inout App) -> R) -> Result<R, any Error> {
-        var win = Window(handle: self)
-        let root = win.root ?? AnyView(entityId: EntityId(1))
-        let result = update(root, &win, &cx)
-        return .success(result)
+        do {
+            var appCopy = cx
+            let result = try cx.updateWindow(self) { root, window, _ in
+                update(root, &window, &appCopy)
+            }
+            cx = appCopy
+            return .success(result)
+        } catch {
+            return .failure(error)
+        }
     }
 
+    @MainActor
     public func read<R>(_ cx: App, _ read: (AnyView, App) -> R) -> Result<R, any Error> {
-        let view = AnyView(entityId: EntityId(1))
-        return .success(read(view, cx))
+        do {
+            let result = try cx.readWindow(self, read)
+            return .success(result)
+        } catch {
+            return .failure(error)
+        }
     }
 }
 
@@ -1066,14 +1078,17 @@ public struct WindowHandle<V>: Sendable, Equatable, Hashable {
         WindowHandle(anyHandle: anyHandle)
     }
 
+    @MainActor
     public func update<R>(_ cx: inout App, _ update: (AnyView, inout Window, inout App) -> R) -> Result<R, any Error> {
         anyHandle.update(&cx, update)
     }
 
+    @MainActor
     public func read<R>(_ cx: App, _ read: (AnyView, App) -> R) -> Result<R, any Error> {
         anyHandle.read(cx, read)
     }
 
+    @MainActor
     public func readWith<R>(_ cx: App, _ read: (AnyView, App) -> R) -> Result<R, any Error> {
         anyHandle.read(cx, read)
     }
@@ -1085,6 +1100,9 @@ public struct WindowHandle<V>: Sendable, Equatable, Hashable {
         }
         switch readResult {
         case .success(let view):
+            if let anyEntity = view.entity {
+                return .success(Entity<V>(anyEntity: anyEntity))
+            }
             let entity = Entity<V>(anyEntity: AnyEntity(
                 id: view.entityId,
                 entityType: ObjectIdentifier(V.self),
@@ -1466,9 +1484,16 @@ public final class DefaultPlatformWindow: PlatformWindow, @unchecked Sendable {
 /// Type-erased view handle.
 public struct AnyView: Sendable, Equatable, Hashable {
     public var entityId: EntityId
+    public var entity: AnyEntity?
 
-    public init(entityId: EntityId) {
+    public init(entityId: EntityId, entity: AnyEntity? = nil) {
         self.entityId = entityId
+        self.entity = entity
+    }
+
+    public init<V>(_ entity: Entity<V>) {
+        self.entityId = entity.entityId
+        self.entity = entity.anyEntity
     }
 
     public static func == (lhs: AnyView, rhs: AnyView) -> Bool {
@@ -1558,6 +1583,8 @@ public struct Window: @unchecked Sendable {
     public var assetCache: [ObjectIdentifier: Any] = [:]
     public var keystrokeObservers: [(@Sendable (KeystrokeEvent, inout Window, inout App) -> Void)] = []
     public var keystrokeInterceptors: [(@Sendable (KeystrokeEvent, inout Window, inout App) -> Bool)] = []
+    public var spriteAtlas: any PlatformAtlas = TestAtlas.new()
+    public var windowTextSystem: WindowTextSystem? = nil
 
     public init(
         handle: AnyWindowHandle = AnyWindowHandle(id: 1),
@@ -1806,6 +1833,28 @@ public struct Window: @unchecked Sendable {
         nextFrame.scene.insertUnderline(underline)
     }
 
+    public mutating func paintUnderline(
+        origin: Point<Pixels>,
+        width: Pixels,
+        style: UnderlineStyle
+    ) {
+        let scale = scaleFactor
+        let height = style.wavy ? (style.thickness * Float(3.0)) : style.thickness
+        let bounds = Bounds(origin: origin, size: Size(width: width, height: height))
+        let mask = (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(scale)
+        let opacity = elementOpacity
+
+        nextFrame.scene.insertUnderline(Underline(
+            order: 0,
+            pad: 0,
+            bounds: bounds.scale(scale),
+            contentMask: mask,
+            color: (style.color ?? transparentBlack()).opacity(opacity),
+            thickness: style.thickness.scale(scale),
+            wavy: style.wavy ? 1 : 0
+        ))
+    }
+
     public mutating func paintMonochromeSprite(_ sprite: MonochromeSprite) {
         nextFrame.scene.insertMonochromeSprite(sprite)
     }
@@ -1820,6 +1869,28 @@ public struct Window: @unchecked Sendable {
 
     public mutating func paintStrikethrough(_ strikethrough: Underline) {
         nextFrame.scene.insertUnderline(strikethrough)
+    }
+
+    public mutating func paintStrikethrough(
+        origin: Point<Pixels>,
+        width: Pixels,
+        style: StrikethroughStyle
+    ) {
+        let scale = scaleFactor
+        let height = style.thickness
+        let bounds = Bounds(origin: origin, size: Size(width: width, height: height))
+        let mask = (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(scale)
+        let opacity = elementOpacity
+
+        nextFrame.scene.insertUnderline(Underline(
+            order: 0,
+            pad: 0,
+            bounds: bounds.scale(scale),
+            contentMask: mask,
+            color: (style.color ?? transparentBlack()).opacity(opacity),
+            thickness: style.thickness.scale(scale),
+            wavy: 0
+        ))
     }
 
     public mutating func paintSurface(_ surface: PaintSurface) {
@@ -1837,6 +1908,10 @@ public struct Window: @unchecked Sendable {
         contentMaskStack.append(combined)
         defer { contentMaskStack.removeLast() }
         return f(&self)
+    }
+
+    public func contentMask() -> ContentMask<Pixels> {
+        contentMaskStack.last ?? ContentMask(bounds: .zero)
     }
 
     public mutating func withElementOffset<R>(
@@ -2866,6 +2941,122 @@ public struct Window: @unchecked Sendable {
             transformation: .unit
         )
         nextFrame.scene.insertMonochromeSprite(sprite)
+    }
+
+    public func textSystem() -> WindowTextSystem {
+        if let ts = windowTextSystem {
+            return ts
+        }
+        return WindowTextSystem(textSystem: TextSystem(platformTextSystem: NoopTextSystem()))
+    }
+
+    public func textStyle() -> TextStyle {
+        var style = TextStyle()
+        for refinement in textStyleStack {
+            style.refine(with: refinement)
+        }
+        return style
+    }
+
+    public mutating func paintGlyph(
+        origin: Point<Pixels>,
+        fontId: FontId,
+        glyphId: GlyphId,
+        fontSize: Pixels,
+        color: Hsla
+    ) throws {
+        invalidator.debugAssertPaint()
+        let factor = scaleFactor
+        let glyphOrigin = origin.scale(factor)
+
+        let fractX = (glyphOrigin.x.value - floor(glyphOrigin.x.value)) * 4.0
+        let fractY = (glyphOrigin.y.value - floor(glyphOrigin.y.value)) * 4.0
+        let subpixelVariant = Point(x: UInt8(floor(fractX)), y: UInt8(floor(fractY)))
+
+        let params = RenderGlyphParams(
+            fontId: fontId,
+            glyphId: glyphId,
+            fontSize: fontSize,
+            subpixelVariant: subpixelVariant,
+            scaleFactor: factor,
+            isEmoji: false,
+            subpixelRendering: false
+        )
+
+        let rasterBounds = try textSystem().rasterBounds(params: params)
+        if !rasterBounds.isZero {
+            if let tile = try spriteAtlas.getOrInsertWith(key: .glyph(params), build: {
+                let (size, bytes) = try self.textSystem().rasterizeGlyph(params: params)
+                return (size, Data(bytes))
+            }) {
+                let bounds = Bounds<ScaledPixels>(
+                    origin: Point(
+                        x: ScaledPixels(glyphOrigin.x.value.rounded(.down)) + ScaledPixels(Float(rasterBounds.origin.x.value)),
+                        y: ScaledPixels(glyphOrigin.y.value.rounded(.down)) + ScaledPixels(Float(rasterBounds.origin.y.value))
+                    ),
+                    size: Size(
+                        width: ScaledPixels(Float(tile.bounds.size.width.value)),
+                        height: ScaledPixels(Float(tile.bounds.size.height.value))
+                    )
+                )
+                let monochromeSprite = MonochromeSprite(
+                    order: 0,
+                    bounds: bounds,
+                    contentMask: (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(factor),
+                    color: color.opacity(elementOpacity),
+                    tile: tile,
+                    transformation: .unit
+                )
+                nextFrame.scene.insertMonochromeSprite(monochromeSprite)
+            }
+        }
+    }
+
+    public mutating func paintEmoji(
+        origin: Point<Pixels>,
+        fontId: FontId,
+        glyphId: GlyphId,
+        fontSize: Pixels
+    ) throws {
+        invalidator.debugAssertPaint()
+        let factor = scaleFactor
+        let glyphOrigin = origin.scale(factor)
+
+        let params = RenderGlyphParams(
+            fontId: fontId,
+            glyphId: glyphId,
+            fontSize: fontSize,
+            subpixelVariant: Point(x: 0, y: 0),
+            scaleFactor: factor,
+            isEmoji: true,
+            subpixelRendering: false
+        )
+
+        let rasterBounds = try textSystem().rasterBounds(params: params)
+        if !rasterBounds.isZero {
+            if let tile = try spriteAtlas.getOrInsertWith(key: .glyph(params), build: {
+                let (size, bytes) = try self.textSystem().rasterizeGlyph(params: params)
+                return (size, Data(bytes))
+            }) {
+                let bounds = Bounds<ScaledPixels>(
+                    origin: Point(
+                        x: ScaledPixels(glyphOrigin.x.value.rounded(.down)) + ScaledPixels(Float(rasterBounds.origin.x.value)),
+                        y: ScaledPixels(glyphOrigin.y.value.rounded(.down)) + ScaledPixels(Float(rasterBounds.origin.y.value))
+                    ),
+                    size: Size(
+                        width: ScaledPixels(Float(tile.bounds.size.width.value)),
+                        height: ScaledPixels(Float(tile.bounds.size.height.value))
+                    )
+                )
+                let polychromeSprite = PolychromeSprite(
+                    order: 0,
+                    bounds: bounds,
+                    contentMask: (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(factor),
+                    tile: tile
+                )
+                nextFrame.scene.insertPolychromeSprite(polychromeSprite)
+            }
+        }
     }
 
     public mutating func paintImage(
