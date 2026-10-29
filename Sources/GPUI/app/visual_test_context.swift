@@ -163,6 +163,11 @@ public final class VisualTestContext: @unchecked Sendable {
     }
 }
 
+public struct VisualTestTimeoutError: LocalizedError, Sendable {
+    public init() {}
+    public var errorDescription: String? { "Timed out waiting for condition" }
+}
+
 // MARK: - VisualTestAppContext
 
 /// A test context that uses real platform rendering with deterministic task scheduling.
@@ -187,6 +192,17 @@ public final class VisualTestAppContext: AppContext, @unchecked Sendable {
         VisualTestAppContext(platform: platform)
     }
 
+    public static func withAssetSource(
+        platform: any Platform,
+        assetSource: any AssetSource
+    ) -> VisualTestAppContext {
+        VisualTestAppContext(platform: platform, assetSource: assetSource)
+    }
+
+    public func withAssetSource(_ assetSource: any AssetSource) -> VisualTestAppContext {
+        VisualTestAppContext(platform: visualPlatform.platform, assetSource: assetSource)
+    }
+
     public func openOffscreenWindow<V: Render>(
         size: Size<Pixels> = size(px(1280.0), px(800.0)),
         buildRoot: @escaping (inout Window, inout App) -> Entity<V>
@@ -202,12 +218,132 @@ public final class VisualTestAppContext: AppContext, @unchecked Sendable {
         }
     }
 
+    public func openOffscreenWindowDefault() -> VisualTestContext {
+        let handle = try! openOffscreenWindow(size: size(px(1280.0), px(800.0))) { _, cx in
+            cx.new { _ in EmptyView() }
+        }
+        let testPlatform = (visualPlatform.platform as? TestPlatform) ?? TestPlatform(
+            executor: backgroundExecutor,
+            foregroundExecutor: foregroundExecutor,
+            textSystem: visualPlatform.textSystem()
+        )
+        let ts = TextSystem(platformTextSystem: visualPlatform.textSystem())
+        let testAppContext = TestAppContext(
+            app: app,
+            backgroundExecutor: backgroundExecutor,
+            foregroundExecutor: foregroundExecutor,
+            dispatcher: visualPlatform.dispatcher(),
+            testPlatform: testPlatform,
+            textSystem: ts
+        )
+        let cx = VisualTestContext(cx: testAppContext, window: handle.anyHandle)
+        cx.runUntilParked()
+        return cx
+    }
+
+    public func openOffscreenWindowDefault<V: Render>(
+        buildRoot: @escaping (inout Window, inout App) -> Entity<V>
+    ) throws -> WindowHandle<V> {
+        try openOffscreenWindow(size: size(px(1280.0), px(800.0)), buildRoot: buildRoot)
+    }
+
+    public func isScreenCaptureSupported() -> Bool {
+        visualPlatform.isScreenCaptureSupported()
+    }
+
+    public func textSystem() -> TextSystem {
+        TextSystem(platformTextSystem: visualPlatform.textSystem())
+    }
+
+    public func executor() -> BackgroundExecutor {
+        backgroundExecutor
+    }
+
     public func runUntilParked() {
         visualPlatform.dispatcher().runUntilParked()
     }
 
     public func advanceClock(_ duration: Duration) {
         visualPlatform.dispatcher().advanceClock(by: duration)
+    }
+
+    public func read<R>(_ f: (App) -> R) -> R {
+        f(app)
+    }
+
+    public func spawn<R: Sendable>(_ future: @escaping @Sendable () async -> R) -> Task<R> {
+        foregroundExecutor.spawn(future)
+    }
+
+    public func hasGlobal<G: Global>(_ type: G.Type = G.self) -> Bool {
+        app.hasGlobal(type)
+    }
+
+    public func updateGlobal<G: Global, R>(_ f: (inout G, inout App) -> R) -> R {
+        var global: G = leaseGlobal()
+        var a = app
+        let result = f(&global, &a)
+        endGlobalLease(global)
+        return result
+    }
+
+    public func dispatchKeystroke(_ window: AnyWindowHandle, _ keystroke: Keystroke) {
+        _ = try? updateWindow(window) { _, win, app in
+            var win = win
+            var a = app
+            _ = win.dispatchKeystroke(keystroke, &a)
+        }
+    }
+
+    public func writeToClipboard(_ item: ClipboardItem) {
+        visualPlatform.writeToClipboard(item)
+    }
+
+    public func readFromClipboard() -> ClipboardItem? {
+        visualPlatform.readFromClipboard()
+    }
+
+    public func waitFor<T>(
+        timeout: Duration = .seconds(5),
+        _ condition: @escaping () -> T?
+    ) async throws -> T {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            runUntilParked()
+            if let result = condition() {
+                return result
+            }
+            advanceClock(.milliseconds(10))
+            try? await _Concurrency.Task.sleep(nanoseconds: 10_000_000)
+        }
+        if let result = condition() {
+            return result
+        }
+        throw VisualTestTimeoutError()
+    }
+
+    public func waitFor<T>(
+        _ entity: Entity<T>,
+        timeout: Duration = .seconds(5),
+        predicate: @escaping (T) -> Bool
+    ) async throws {
+        _ = try await waitFor(timeout: timeout) { [weak self] () -> Bool? in
+            guard let self else { return nil }
+            let val = self.readEntity(entity) { state, _ in state }
+            return predicate(val) ? true : nil
+        }
+    }
+
+    public func captureScreenshot(_ window: AnyWindowHandle) throws -> Image? {
+        try app.updateWindow(window) { _, window, _ in
+            window.platformWindow.renderToImage(scene: window.renderedFrame.scene)
+        }
+    }
+
+    public func waitForAnimations() async throws {
+        advanceClock(.milliseconds(32))
+        try? await _Concurrency.Task.sleep(nanoseconds: 32_000_000)
+        runUntilParked()
     }
 
     // MARK: - AppContext Protocol

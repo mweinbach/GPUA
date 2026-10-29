@@ -7,29 +7,18 @@ import Testing
 @testable import GPUI
 
 private func loadBundledFontBytes() -> ([UInt8], [UInt8]) {
-    let ibmPaths = [
-        "/Users/mweinbach/projects/GPUA/.upstream/gpui/assets/fonts/ibm-plex-sans/IBMPlexSans-Regular.ttf",
-        ".upstream/gpui/assets/fonts/ibm-plex-sans/IBMPlexSans-Regular.ttf"
-    ]
-    let lilexPaths = [
-        "/Users/mweinbach/projects/GPUA/.upstream/gpui/assets/fonts/lilex/Lilex-Regular.ttf",
-        ".upstream/gpui/assets/fonts/lilex/Lilex-Regular.ttf"
-    ]
+    let fixtureDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/fonts")
+    let ibmPath = fixtureDir.appendingPathComponent("ibm-plex-sans/IBMPlexSans-Regular.ttf").path
+    let lilexPath = fixtureDir.appendingPathComponent("lilex/Lilex-Regular.ttf").path
 
     var ibmData: [UInt8] = []
-    for p in ibmPaths {
-        if let data = FileManager.default.contents(atPath: p) {
-            ibmData = Array(data)
-            break
-        }
+    if let data = FileManager.default.contents(atPath: ibmPath) {
+        ibmData = Array(data)
     }
 
     var lilexData: [UInt8] = []
-    for p in lilexPaths {
-        if let data = FileManager.default.contents(atPath: p) {
-            lilexData = Array(data)
-            break
-        }
+    if let data = FileManager.default.contents(atPath: lilexPath) {
+        lilexData = Array(data)
     }
 
     return (ibmData, lilexData)
