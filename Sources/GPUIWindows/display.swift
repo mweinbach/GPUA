@@ -14,7 +14,7 @@ import CWinSys
 
 // PORT NOTE: WindowsDisplay represents a Windows HMONITOR display with logical and physical bounds and scale factor.
 public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
-    public let handle: OpaquePointer?
+    public let handle: WinHandle?
     public let displayId: DisplayId
     public let scaleFactor: Float
     public let bounds: Bounds<Pixels>
@@ -29,7 +29,7 @@ public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
         visibleBounds: Bounds<Pixels>,
         physicalBounds: Bounds<DevicePixels>,
         uuid: UUID,
-        handle: OpaquePointer? = nil
+        handle: WinHandle? = nil
     ) {
         self.displayId = displayId
         self.scaleFactor = scaleFactor
@@ -40,7 +40,7 @@ public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
         self.handle = handle
     }
 
-    public convenience init?(handle: OpaquePointer?, displayId: DisplayId) {
+    public convenience init?(handle: WinHandle?, displayId: DisplayId) {
         guard let handle = handle else { return nil }
         var info = CWinMonitorInfo()
         guard cwin_win32_get_monitor_info(handle, &info) == 0 else { return nil }
@@ -77,7 +77,7 @@ public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
 
         let nameStr = withUnsafePointer(to: info.device_name) { ptr in
             ptr.withMemoryRebound(to: UInt16.self, capacity: 32) { u16Ptr in
-                fromWideString(u16Ptr, length: 32)
+                fromWideString(u16Ptr)
             }
         }
         let deterministicUUID = WindowsDisplay.generateUUID(from: nameStr)
@@ -139,7 +139,7 @@ public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
         return WindowsDisplay(handle: hmon, displayId: DisplayId(0))
     }
 
-    public static func availableMonitors() -> [OpaquePointer] {
+    public static func availableMonitors() -> [WinHandle] {
         var monitors = [CWinMonitorInfo](repeating: CWinMonitorInfo(), count: 16)
         var count: UInt32 = 0
         let status = monitors.withUnsafeMutableBufferPointer { buf in
@@ -147,12 +147,12 @@ public final class WindowsDisplay: PlatformDisplay, @unchecked Sendable {
         }
         guard status == 0 && count > 0 else {
             if let primary = cwin_win32_primary_monitor() {
-                return [OpaquePointer(primary)]
+                return [primary]
             }
             return []
         }
         return (0..<Int(count)).compactMap { idx in
-            monitors[idx].handle != nil ? OpaquePointer(monitors[idx].handle!) : nil
+            monitors[idx].handle
         }
     }
 

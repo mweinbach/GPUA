@@ -110,20 +110,44 @@ extension UInt64: HiLoWord {
     }
 }
 
+// MARK: - WinHandle Typealias
+
+public typealias WinHandle = UnsafeMutableRawPointer
+
+public let GWLP_USERDATA: Int32 = -21
+public let GWL_STYLE: Int32 = -16
+public let GWL_EXSTYLE: Int32 = -20
+public let GWLP_WNDPROC: Int32 = -4
+
 // MARK: - WindowLong Helpers
 
-public func getWindowLong(hwnd: OpaquePointer?, nindex: Int32) -> Int {
+public func getWindowLong(hwnd: WinHandle?, nindex: Int32) -> Int {
     guard let hwnd = hwnd else { return 0 }
     var val: intptr_t = 0
     _ = cwin_win32_get_window_long_ptr(hwnd, Int32(nindex), &val)
     return Int(val)
 }
 
-public func setWindowLong(hwnd: OpaquePointer?, nindex: Int32, dwnewlong: Int) -> Int {
+public func setWindowLong(hwnd: WinHandle?, nindex: Int32, dwnewlong: Int) -> Int {
     guard let hwnd = hwnd else { return 0 }
     var old: intptr_t = 0
     _ = cwin_win32_set_window_long_ptr(hwnd, Int32(nindex), intptr_t(dwnewlong), &old)
     return Int(old)
+}
+
+public func getWindowLongPointer(hwnd: WinHandle?, nindex: Int32) -> WinHandle? {
+    guard let hwnd = hwnd else { return nil }
+    var val: intptr_t = 0
+    _ = cwin_win32_get_window_long_ptr(hwnd, Int32(nindex), &val)
+    return UnsafeMutableRawPointer(bitPattern: Int(val))
+}
+
+public func setWindowLongPointer(hwnd: WinHandle?, nindex: Int32, pointer: WinHandle?) -> WinHandle? {
+    guard let hwnd = hwnd else { return nil }
+    var old: intptr_t = 0
+    let val = intptr_t(bitPattern: pointer)
+    _ = cwin_win32_set_window_long_ptr(hwnd, Int32(nindex), val, &old)
+    return UnsafeMutableRawPointer(bitPattern: Int(old))
 }
 
 // MARK: - Credentials & URLs
@@ -134,7 +158,7 @@ public func windowsCredentialsTargetName(url: String) -> String {
 
 // MARK: - Cursor Loading
 
-public func loadCursor(style: CursorStyle) -> OpaquePointer? {
+public func loadCursor(style: CursorStyle) -> WinHandle? {
     let styleId: UInt32
     switch style {
     case .arrow:
@@ -167,7 +191,7 @@ public func loadCursor(style: CursorStyle) -> OpaquePointer? {
 
 // MARK: - DWM Dark Mode Configuration
 
-public func configureDwmDarkMode(hwnd: OpaquePointer?, appearance: WindowAppearance) {
+public func configureDwmDarkMode(hwnd: WinHandle?, appearance: WindowAppearance) {
     guard let hwnd = hwnd else { return }
     let isDark: Int32 = switch appearance {
     case .dark, .vibrantDark: 1
@@ -204,11 +228,9 @@ public func toWideString(_ string: String) -> [UInt16] {
 
 public func fromWideString(_ ptr: UnsafePointer<UInt16>?, length: Int? = nil) -> String {
     guard let ptr = ptr else { return "" }
-    if let len = length {
-        return String(decoding: UnsafeBufferPointer(start: ptr, count: len), as: UTF16.self)
-    }
+    let maxLen = length ?? Int.max
     var len = 0
-    while ptr[len] != 0 {
+    while len < maxLen && ptr[len] != 0 {
         len += 1
     }
     return String(decoding: UnsafeBufferPointer(start: ptr, count: len), as: UTF16.self)

@@ -39,6 +39,23 @@ final class WindowsPlatformCallbacks: @unchecked Sendable {
     var appMenuAction: [@MainActor (any Action) -> Void] = []
 }
 
+private func platformMessageWndProc(
+    hwnd: WinHandle?,
+    msg: UInt32,
+    wparam: UInt,
+    lparam: Int
+) -> Int {
+    if msg == WM_GPUI_TASK_DISPATCHED_ON_MAIN_THREAD {
+        if let hwnd = hwnd,
+           let ptr = getWindowLongPointer(hwnd: hwnd, nindex: GWLP_USERDATA) {
+            let disp = Unmanaged<WindowsDispatcher>.fromOpaque(ptr).takeUnretainedValue()
+            disp.runForegroundTasks()
+        }
+        return 0
+    }
+    return cwin_win32_def_window_proc(hwnd, msg, wparam, lparam)
+}
+
 // MARK: - WindowsPlatform
 
 // PORT NOTE: WindowsPlatform coordinates the Win32 window message loop, dispatcher, and display abstractions across threads.
@@ -49,11 +66,11 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     public let foregroundExecutor: ForegroundExecutor
     public let textSystem: any PlatformTextSystem
     public let validationNumber: UInt
-    public private(set) var messageHwnd: OpaquePointer?
-    public private(set) var currentCursor: OpaquePointer?
+    public private(set) var messageHwnd: WinHandle?
+    public private(set) var currentCursor: WinHandle?
 
     private let lock = NSLock()
-    private var rawWindowHandles: [OpaquePointer] = []
+    private var rawWindowHandles: [WinHandle] = []
     private var windowObjects: [AnyWindowHandle: any PlatformWindow] = [:]
     private var isQuit: Bool = false
     private let callbacks = WindowsPlatformCallbacks()
@@ -81,8 +98,12 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
 
         // Register window class for message-only anchor window
         let className = toWideString(PLATFORM_WINDOW_CLASS_NAME)
+        let wndProcPtr = unsafeBitCast(
+            platformMessageWndProc as @convention(c) (WinHandle?, UInt32, UInt, Int) -> Int,
+            to: UnsafeMutableRawPointer.self
+        )
         className.withUnsafeBufferPointer { buf in
-            _ = cwin_win32_register_window_class(buf.baseAddress, nil, nil)
+            _ = cwin_win32_register_window_class(buf.baseAddress, wndProcPtr, nil)
         }
 
         // Create message-only anchor window
@@ -90,8 +111,13 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
             cwin_win32_create_message_window(buf.baseAddress, nil, nil)
         }
         if let hwnd = hwnd {
-            self.messageHwnd = OpaquePointer(hwnd)
-            disp.setPlatformWindowHandle(OpaquePointer(hwnd))
+            self.messageHwnd = hwnd
+            disp.setPlatformWindowHandle(hwnd)
+            _ = setWindowLongPointer(
+                hwnd: hwnd,
+                nindex: GWLP_USERDATA,
+                pointer: Unmanaged.passUnretained(disp).toOpaque()
+            )
         }
 
         self.currentCursor = loadCursor(style: .arrow)
@@ -184,9 +210,8 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
         defer { lock.unlock() }
         let h = cwin_win32_get_active_window()
         guard let h = h else { return windowObjects.keys.first }
-        let targetPtr = OpaquePointer(h)
         for (handle, win) in windowObjects {
-            if let ptr = win.rawNativeViewPtr(), OpaquePointer(ptr) == targetPtr {
+            if let ptr = win.rawNativeViewPtr(), ptr == h {
                 return handle
             }
         }
@@ -234,7 +259,7 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     // MARK: - Clipboard
 
     public func readFromClipboard() -> ClipboardItem? {
-        var textPtr: UnsafeMutablePointer<wchar_t>? = nil
+        var textPtr: UnsafeMutablePointer<uint16_t>? = nil
         var len: Int = 0
         guard cwin_win32_clipboard_get_text(nil, &textPtr, &len) == 0, let textPtr = textPtr else {
             return nil
@@ -293,7 +318,7 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
 
     public func readCredentials(url: String) async throws -> (String, Data)? {
         let targetName = toWideString(windowsCredentialsTargetName(url: url))
-        var userPtr: UnsafeMutablePointer<wchar_t>? = nil
+        var userPtr: UnsafeMutablePointer<uint16_t>? = nil
         var blobPtr: UnsafeMutablePointer<UInt8>? = nil
         var blobLen: Int = 0
 
@@ -363,20 +388,31 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     public func promptForPaths(options: PathPromptOptions) async throws -> [URL]? {
         let allowMulti = options.multiple ? 1 : 0
         let pickFolders = options.directories ? 1 : 0
-        var pathsPtr: UnsafeMutablePointer<UnsafeMutablePointer<wchar_t>?>? = nil
+        var pathsPtr: UnsafeMutablePointer<UnsafeMutablePointer<uint16_t>?>? = nil
         var count: Int = 0
 
         let okLabelWide = options.prompt.map { toWideString($0) }
-        let okPtr = okLabelWide?.withUnsafeBufferPointer { $0.baseAddress }
-
-        let status = cwin_win32_file_open_dialog(
-            messageHwnd,
-            Int32(allowMulti),
-            Int32(pickFolders),
-            okPtr,
-            &pathsPtr,
-            &count
-        )
+        let status: Int32 = if let okLabelWide = okLabelWide {
+            okLabelWide.withUnsafeBufferPointer { okBuf in
+                cwin_win32_file_open_dialog(
+                    messageHwnd,
+                    Int32(allowMulti),
+                    Int32(pickFolders),
+                    okBuf.baseAddress,
+                    &pathsPtr,
+                    &count
+                )
+            }
+        } else {
+            cwin_win32_file_open_dialog(
+                messageHwnd,
+                Int32(allowMulti),
+                Int32(pickFolders),
+                nil,
+                &pathsPtr,
+                &count
+            )
+        }
         guard status == 0, let pathsPtr = pathsPtr, count > 0 else { return nil }
         defer { cwin_win32_free_path_list(pathsPtr, count) }
 
@@ -393,16 +429,27 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
     public func promptForNewPath(directory: URL, suggestedName: String?) async throws -> URL? {
         let dirWide = toWideString(directory.path)
         let nameWide = suggestedName.map { toWideString($0) }
-        let dirPtr = dirWide.withUnsafeBufferPointer { $0.baseAddress }
-        let namePtr = nameWide?.withUnsafeBufferPointer { $0.baseAddress }
+        var outPath: UnsafeMutablePointer<uint16_t>? = nil
 
-        var outPath: UnsafeMutablePointer<wchar_t>? = nil
-        let status = cwin_win32_file_save_dialog(
-            messageHwnd,
-            dirPtr,
-            namePtr,
-            &outPath
-        )
+        let status: Int32 = dirWide.withUnsafeBufferPointer { dirBuf in
+            if let nameWide = nameWide {
+                return nameWide.withUnsafeBufferPointer { nameBuf in
+                    cwin_win32_file_save_dialog(
+                        messageHwnd,
+                        dirBuf.baseAddress,
+                        nameBuf.baseAddress,
+                        &outPath
+                    )
+                }
+            } else {
+                return cwin_win32_file_save_dialog(
+                    messageHwnd,
+                    dirBuf.baseAddress,
+                    nil,
+                    &outPath
+                )
+            }
+        }
         guard status == 0, let outPath = outPath else { return nil }
         defer { cwin_win32_cred_free(outPath) }
 
@@ -465,7 +512,9 @@ public final class WindowsPlatform: Platform, @unchecked Sendable {
         guard action >= 0 && action < items.count else { return }
         let item = items[action]
         if let act = item.action {
-            callbacks.appMenuAction.first?(act)
+            MainActor.assumeIsolated {
+                callbacks.appMenuAction.first?(act)
+            }
         }
     }
 

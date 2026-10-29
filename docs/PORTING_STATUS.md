@@ -14,7 +14,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `Taffy` | 47 | 3 | 0 | 44 | 0 | 0 | 18,695 | 98% |
 | `GPUILinux` | 24 | 0 | 0 | 24 | 0 | 0 | 12,710 | 100% |
 | `GPUIExamples` | 40 | 40 | 0 | 0 | 0 | 0 | 12,441 | 0% |
-| `GPUIWindows` | 18 | 11 | 0 | 7 | 0 | 0 | 11,223 | 20% |
+| `GPUIWindows` | 18 | 8 | 0 | 10 | 0 | 0 | 11,223 | 42% |
 | `GPUIMacOS` | 14 | 14 | 0 | 0 | 0 | 0 | 10,175 | 0% |
 | `ZedUtil` | 23 | 0 | 0 | 6 | 0 | 17 | 9,596 | 100% |
 | `GPUIiOS` | 20 | 20 | 0 | 0 | 0 | 0 | 6,168 | 0% |
@@ -32,7 +32,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIPlatform` | 1 | 1 | 0 | 0 | 0 | 0 | 169 | 0% |
 | `GPUIApple` | 19 | 19 | 0 | 0 | 0 | 0 | 168 | 0% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **338** | 121 | 0 | 197 | 0 | 20 | 154,333 | 72% |
+| **Total** | **338** | 118 | 0 | 200 | 0 | 20 | 154,333 | 74% |
 
 ## Files
 
@@ -376,9 +376,9 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/gpui_windows/src/destination_list.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/destination_list.rs) | [Sources/GPUIWindows/destination_list.swift](../Sources/GPUIWindows/destination_list.swift) | source | 213 | not-started |
 | [crates/gpui_windows/src/direct_manipulation.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/direct_manipulation.rs) | [Sources/GPUIWindows/direct_manipulation.swift](../Sources/GPUIWindows/direct_manipulation.swift) | source | 359 | not-started |
 | [crates/gpui_windows/src/direct_write.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/direct_write.rs) | [Sources/GPUIWindows/direct_write.swift](../Sources/GPUIWindows/direct_write.swift) | source | 1920 | not-started |
-| [crates/gpui_windows/src/directx_atlas.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/directx_atlas.rs) | [Sources/GPUIWindows/directx_atlas.swift](../Sources/GPUIWindows/directx_atlas.swift) | source | 320 | not-started |
-| [crates/gpui_windows/src/directx_devices.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/directx_devices.rs) | [Sources/GPUIWindows/directx_devices.swift](../Sources/GPUIWindows/directx_devices.swift) | source | 194 | not-started |
-| [crates/gpui_windows/src/directx_renderer.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/directx_renderer.rs) | [Sources/GPUIWindows/directx_renderer.swift](../Sources/GPUIWindows/directx_renderer.swift) | source | 1951 | not-started |
+| [crates/gpui_windows/src/directx_atlas.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/directx_atlas.rs) | [Sources/GPUIWindows/directx_atlas.swift](../Sources/GPUIWindows/directx_atlas.swift) | source | 320 | ported |
+| [crates/gpui_windows/src/directx_devices.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/directx_devices.rs) | [Sources/GPUIWindows/directx_devices.swift](../Sources/GPUIWindows/directx_devices.swift) | source | 194 | ported |
+| [crates/gpui_windows/src/directx_renderer.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/directx_renderer.rs) | [Sources/GPUIWindows/directx_renderer.swift](../Sources/GPUIWindows/directx_renderer.swift) | source | 1951 | ported |
 | [crates/gpui_windows/src/dispatcher.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/dispatcher.rs) | [Sources/GPUIWindows/dispatcher.swift](../Sources/GPUIWindows/dispatcher.swift) | source | 188 | ported |
 | [crates/gpui_windows/src/display.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/display.rs) | [Sources/GPUIWindows/display.swift](../Sources/GPUIWindows/display.swift) | source | 284 | ported |
 | [crates/gpui_windows/src/events.rs](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_windows/src/events.rs) | [Sources/GPUIWindows/events.swift](../Sources/GPUIWindows/events.swift) | source | 1605 | not-started |

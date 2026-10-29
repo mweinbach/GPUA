@@ -1,6 +1,16 @@
 // Swift-only: C++ implementation of CWinSys COM and Win32 bridge functions
 #if defined(_WIN32)
 
+#ifndef UNICODE
+#define UNICODE
+#endif
+#ifndef _UNICODE
+#define _UNICODE
+#endif
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -21,6 +31,8 @@
 #include <string>
 
 #include "CWinSys.h"
+
+static_assert(sizeof(wchar_t) == sizeof(uint16_t), "wchar_t must be 16-bit on Windows");
 
 // MARK: - Direct3D 11 & DXGI
 
@@ -83,6 +95,62 @@ int cwin_d3d11_create_device(int enable_debug, void** out_device, void** out_con
 
     // Second attempt: WARP software rasterizer fallback for headless CI or environments without GPU
     if (FAILED(hr)) {
+        hr = D3D11CreateDevice(
+            nullptr,
+            D3D_DRIVER_TYPE_WARP,
+            nullptr,
+            flags,
+            feature_levels,
+            sizeof(feature_levels) / sizeof(feature_levels[0]),
+            D3D11_SDK_VERSION,
+            &device,
+            &feature_level,
+            &context
+        );
+    }
+
+    if (FAILED(hr)) return (int)hr;
+
+    *out_device = device;
+    *out_context = context;
+    if (out_feature_level) *out_feature_level = (uint32_t)feature_level;
+    return 0;
+}
+
+int cwin_d3d11_create_device_warp(int enable_debug, void** out_device, void** out_context, uint32_t* out_feature_level) {
+    if (!out_device || !out_context) return (int)E_INVALIDARG;
+
+    static const D3D_FEATURE_LEVEL feature_levels[] = {
+        D3D_FEATURE_LEVEL_11_1,
+        D3D_FEATURE_LEVEL_11_0,
+        D3D_FEATURE_LEVEL_10_1,
+        D3D_FEATURE_LEVEL_10_0,
+    };
+
+    UINT flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+    if (enable_debug) {
+        flags |= D3D11_CREATE_DEVICE_DEBUG;
+    }
+
+    ID3D11Device* device = nullptr;
+    ID3D11DeviceContext* context = nullptr;
+    D3D_FEATURE_LEVEL feature_level = D3D_FEATURE_LEVEL_11_0;
+
+    HRESULT hr = D3D11CreateDevice(
+        nullptr,
+        D3D_DRIVER_TYPE_WARP,
+        nullptr,
+        flags,
+        feature_levels,
+        sizeof(feature_levels) / sizeof(feature_levels[0]),
+        D3D11_SDK_VERSION,
+        &device,
+        &feature_level,
+        &context
+    );
+
+    if (FAILED(hr) && (flags & D3D11_CREATE_DEVICE_DEBUG)) {
+        flags &= ~D3D11_CREATE_DEVICE_DEBUG;
         hr = D3D11CreateDevice(
             nullptr,
             D3D_DRIVER_TYPE_WARP,
@@ -253,6 +321,16 @@ void cwin_d3d11_free_error_string(char* error_string) {
     }
 }
 
+const void* cwin_d3d_blob_get_pointer(void* blob) {
+    if (!blob) return nullptr;
+    return static_cast<ID3DBlob*>(blob)->GetBufferPointer();
+}
+
+size_t cwin_d3d_blob_get_size(void* blob) {
+    if (!blob) return 0;
+    return static_cast<ID3DBlob*>(blob)->GetBufferSize();
+}
+
 int cwin_d3d11_create_vertex_shader(void* device, const void* bytecode, size_t len, void** out_shader) {
     if (!device || !bytecode || !out_shader) return (int)E_INVALIDARG;
     ID3D11Device* dev = static_cast<ID3D11Device*>(device);
@@ -311,6 +389,24 @@ int cwin_d3d11_create_structured_buffer(void* device, uint32_t stride, uint32_t 
     }
 
     *out_buffer = buf;
+    return 0;
+}
+
+int cwin_d3d11_create_buffer_view_range(void* device, void* buffer, uint32_t first_element, uint32_t num_elements, void** out_srv) {
+    if (!device || !buffer || !out_srv) return (int)E_INVALIDARG;
+    ID3D11Device* dev = static_cast<ID3D11Device*>(device);
+    ID3D11Buffer* buf = static_cast<ID3D11Buffer*>(buffer);
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+    srv_desc.Format = DXGI_FORMAT_UNKNOWN;
+    srv_desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+    srv_desc.Buffer.FirstElement = first_element;
+    srv_desc.Buffer.NumElements = num_elements;
+
+    ID3D11ShaderResourceView* srv = nullptr;
+    HRESULT hr = dev->CreateShaderResourceView(buf, &srv_desc, &srv);
+    if (FAILED(hr)) return (int)hr;
+    *out_srv = srv;
     return 0;
 }
 
@@ -497,6 +593,296 @@ void cwin_d3d11_free_pixel_buffer(uint8_t* pixels) {
     }
 }
 
+int cwin_d3d11_create_msaa_render_target(void* device, uint32_t width, uint32_t height, uint32_t sample_count, void** out_texture, void** out_rtv) {
+    if (!device || !out_texture || !out_rtv) return (int)E_INVALIDARG;
+    ID3D11Device* dev = static_cast<ID3D11Device*>(device);
+
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width = width;
+    desc.Height = height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+    desc.SampleDesc.Count = sample_count;
+    desc.SampleDesc.Quality = D3D11_STANDARD_MULTISAMPLE_PATTERN;
+    desc.Usage = D3D11_USAGE_DEFAULT;
+    desc.BindFlags = D3D11_BIND_RENDER_TARGET;
+
+    ID3D11Texture2D* tex = nullptr;
+    HRESULT hr = dev->CreateTexture2D(&desc, nullptr, &tex);
+    if (FAILED(hr)) return (int)hr;
+
+    ID3D11RenderTargetView* rtv = nullptr;
+    hr = dev->CreateRenderTargetView(tex, nullptr, &rtv);
+    if (FAILED(hr)) {
+        tex->Release();
+        return (int)hr;
+    }
+
+    *out_texture = tex;
+    *out_rtv = rtv;
+    return 0;
+}
+
+int cwin_d3d11_resolve_subresource(void* context, void* dst_res, uint32_t dst_subres, void* src_res, uint32_t src_subres, uint32_t format) {
+    if (!context || !dst_res || !src_res) return (int)E_INVALIDARG;
+    ID3D11DeviceContext* ctx = static_cast<ID3D11DeviceContext*>(context);
+    ctx->ResolveSubresource(
+        static_cast<ID3D11Resource*>(dst_res),
+        dst_subres,
+        static_cast<ID3D11Resource*>(src_res),
+        src_subres,
+        static_cast<DXGI_FORMAT>(format)
+    );
+    return 0;
+}
+
+void cwin_d3d11_clear_render_target_view(void* context, void* rtv, const float color[4]) {
+    if (context && rtv) {
+        static_cast<ID3D11DeviceContext*>(context)->ClearRenderTargetView(
+            static_cast<ID3D11RenderTargetView*>(rtv),
+            color
+        );
+    }
+}
+
+void cwin_d3d11_om_set_render_targets(void* context, uint32_t num_views, void* const* rtvs, void* dsv) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->OMSetRenderTargets(
+            num_views,
+            reinterpret_cast<ID3D11RenderTargetView* const*>(rtvs),
+            static_cast<ID3D11DepthStencilView*>(dsv)
+        );
+    }
+}
+
+int cwin_d3d11_create_blend_state(void* device, int blend_mode, void** out_state) {
+    if (!device || !out_state) return (int)E_INVALIDARG;
+    ID3D11Device* dev = static_cast<ID3D11Device*>(device);
+
+    D3D11_BLEND_DESC desc = {};
+    desc.RenderTarget[0].BlendEnable = TRUE;
+    desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+
+    if (blend_mode == 1) {
+        // Subpixel rendering
+        desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC1_COLOR;
+        desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC1_COLOR;
+        desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+        desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL & ~D3D11_COLOR_WRITE_ENABLE_ALPHA;
+    } else if (blend_mode == 2) {
+        // Path rasterization / path sprite (premultiplied alpha)
+        desc.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+        desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+        desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+        desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    } else {
+        // Standard alpha blending (Quad, Shadow, Underline, Mono/Poly sprites)
+        desc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        desc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+        desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ONE;
+        desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    }
+
+    ID3D11BlendState* bs = nullptr;
+    HRESULT hr = dev->CreateBlendState(&desc, &bs);
+    if (FAILED(hr)) return (int)hr;
+    *out_state = bs;
+    return 0;
+}
+
+void cwin_d3d11_om_set_blend_state(void* context, void* blend_state, const float blend_factor[4], uint32_t sample_mask) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->OMSetBlendState(
+            static_cast<ID3D11BlendState*>(blend_state),
+            blend_factor,
+            sample_mask
+        );
+    }
+}
+
+int cwin_d3d11_create_sampler_state(void* device, int filter_linear, int address_clamp, void** out_sampler) {
+    if (!device || !out_sampler) return (int)E_INVALIDARG;
+    ID3D11Device* dev = static_cast<ID3D11Device*>(device);
+
+    D3D11_SAMPLER_DESC desc = {};
+    desc.Filter = filter_linear ? D3D11_FILTER_MIN_MAG_MIP_LINEAR : D3D11_FILTER_MIN_MAG_MIP_POINT;
+    desc.AddressU = address_clamp ? D3D11_TEXTURE_ADDRESS_CLAMP : D3D11_TEXTURE_ADDRESS_WRAP;
+    desc.AddressV = address_clamp ? D3D11_TEXTURE_ADDRESS_CLAMP : D3D11_TEXTURE_ADDRESS_WRAP;
+    desc.AddressW = address_clamp ? D3D11_TEXTURE_ADDRESS_CLAMP : D3D11_TEXTURE_ADDRESS_WRAP;
+    desc.MipLODBias = 0.0f;
+    desc.MaxAnisotropy = 1;
+    desc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+    desc.MinLOD = 0.0f;
+    desc.MaxLOD = D3D11_FLOAT32_MAX;
+
+    ID3D11SamplerState* ss = nullptr;
+    HRESULT hr = dev->CreateSamplerState(&desc, &ss);
+    if (FAILED(hr)) return (int)hr;
+    *out_sampler = ss;
+    return 0;
+}
+
+void cwin_d3d11_ps_set_samplers(void* context, uint32_t start_slot, uint32_t num_samplers, void* const* samplers) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->PSSetSamplers(
+            start_slot,
+            num_samplers,
+            reinterpret_cast<ID3D11SamplerState* const*>(samplers)
+        );
+    }
+}
+
+int cwin_d3d11_create_rasterizer_state(void* device, int scissor_enable, void** out_state) {
+    if (!device || !out_state) return (int)E_INVALIDARG;
+    ID3D11Device* dev = static_cast<ID3D11Device*>(device);
+
+    D3D11_RASTERIZER_DESC desc = {};
+    desc.FillMode = D3D11_FILL_SOLID;
+    desc.CullMode = D3D11_CULL_NONE;
+    desc.FrontCounterClockwise = FALSE;
+    desc.DepthBias = 0;
+    desc.DepthBiasClamp = 0.0f;
+    desc.SlopeScaledDepthBias = 0.0f;
+    desc.DepthClipEnable = TRUE;
+    desc.ScissorEnable = scissor_enable ? TRUE : FALSE;
+    desc.MultisampleEnable = TRUE;
+    desc.AntialiasedLineEnable = FALSE;
+
+    ID3D11RasterizerState* rs = nullptr;
+    HRESULT hr = dev->CreateRasterizerState(&desc, &rs);
+    if (FAILED(hr)) return (int)hr;
+    *out_state = rs;
+    return 0;
+}
+
+void cwin_d3d11_rs_set_state(void* context, void* rasterizer_state) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->RSSetState(
+            static_cast<ID3D11RasterizerState*>(rasterizer_state)
+        );
+    }
+}
+
+void cwin_d3d11_rs_set_viewports(void* context, uint32_t num_viewports, const void* viewports) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->RSSetViewports(
+            num_viewports,
+            static_cast<const D3D11_VIEWPORT*>(viewports)
+        );
+    }
+}
+
+void cwin_d3d11_rs_set_scissor_rects(void* context, uint32_t num_rects, const void* rects) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->RSSetScissorRects(
+            num_rects,
+            static_cast<const D3D11_RECT*>(rects)
+        );
+    }
+}
+
+void cwin_d3d11_ia_set_primitive_topology(void* context, uint32_t topology) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->IASetPrimitiveTopology(
+            static_cast<D3D11_PRIMITIVE_TOPOLOGY>(topology)
+        );
+    }
+}
+
+void cwin_d3d11_vs_set_shader(void* context, void* shader) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->VSSetShader(
+            static_cast<ID3D11VertexShader*>(shader),
+            nullptr,
+            0
+        );
+    }
+}
+
+void cwin_d3d11_ps_set_shader(void* context, void* shader) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->PSSetShader(
+            static_cast<ID3D11PixelShader*>(shader),
+            nullptr,
+            0
+        );
+    }
+}
+
+void cwin_d3d11_vs_set_constant_buffers(void* context, uint32_t start_slot, uint32_t num_buffers, void* const* buffers) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->VSSetConstantBuffers(
+            start_slot,
+            num_buffers,
+            reinterpret_cast<ID3D11Buffer* const*>(buffers)
+        );
+    }
+}
+
+void cwin_d3d11_ps_set_constant_buffers(void* context, uint32_t start_slot, uint32_t num_buffers, void* const* buffers) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->PSSetConstantBuffers(
+            start_slot,
+            num_buffers,
+            reinterpret_cast<ID3D11Buffer* const*>(buffers)
+        );
+    }
+}
+
+void cwin_d3d11_vs_set_shader_resources(void* context, uint32_t start_slot, uint32_t num_views, void* const* views) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->VSSetShaderResources(
+            start_slot,
+            num_views,
+            reinterpret_cast<ID3D11ShaderResourceView* const*>(views)
+        );
+    }
+}
+
+void cwin_d3d11_ps_set_shader_resources(void* context, uint32_t start_slot, uint32_t num_views, void* const* views) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->PSSetShaderResources(
+            start_slot,
+            num_views,
+            reinterpret_cast<ID3D11ShaderResourceView* const*>(views)
+        );
+    }
+}
+
+void cwin_d3d11_draw(void* context, uint32_t vertex_count, uint32_t start_vertex_location) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->Draw(vertex_count, start_vertex_location);
+    }
+}
+
+void cwin_d3d11_draw_instanced(void* context, uint32_t vertex_count_per_instance, uint32_t instance_count, uint32_t start_vertex_location, uint32_t start_instance_location) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->DrawInstanced(
+            vertex_count_per_instance,
+            instance_count,
+            start_vertex_location,
+            start_instance_location
+        );
+    }
+}
+
+void cwin_d3d11_clear_state(void* context) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->ClearState();
+    }
+}
+
+void cwin_d3d11_flush(void* context) {
+    if (context) {
+        static_cast<ID3D11DeviceContext*>(context)->Flush();
+    }
+}
+
 // MARK: - DirectWrite
 
 namespace {
@@ -515,13 +901,13 @@ public:
     MemoryFontFileStream(const void* data, UINT32 size)
         : ref_count_(1), data_(data), size_(size) {}
 
-    ULONG STDMETHODCALLTYPE AddRef() override { return InterlockedIncrement(&ref_count_); }
-    ULONG STDMETHODCALLTYPE Release() override {
+    ULONG STDMETHODCALLTYPE AddRef() noexcept override { return InterlockedIncrement(&ref_count_); }
+    ULONG STDMETHODCALLTYPE Release() noexcept override {
         ULONG count = InterlockedDecrement(&ref_count_);
         if (count == 0) delete this;
         return count;
     }
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) noexcept override {
         if (!ppv) return E_POINTER;
         if (riid == __uuidof(IUnknown) || riid == __uuidof(IDWriteFontFileStream)) {
             *ppv = static_cast<IDWriteFontFileStream*>(this);
@@ -532,19 +918,19 @@ public:
         return E_NOINTERFACE;
     }
 
-    HRESULT STDMETHODCALLTYPE ReadFileFragment(const void** fragmentStart, UINT64 fileOffset, UINT64 fragmentSize, void** fragmentContext) override {
+    HRESULT STDMETHODCALLTYPE ReadFileFragment(const void** fragmentStart, UINT64 fileOffset, UINT64 fragmentSize, void** fragmentContext) noexcept override {
         if (fileOffset + fragmentSize > size_) return E_INVALIDARG;
         *fragmentStart = static_cast<const uint8_t*>(data_) + fileOffset;
         *fragmentContext = nullptr;
         return S_OK;
     }
-    void STDMETHODCALLTYPE ReleaseFileFragment(void* fragmentContext) override {}
-    HRESULT STDMETHODCALLTYPE GetFileSize(UINT64* fileSize) override {
+    void STDMETHODCALLTYPE ReleaseFileFragment(void* fragmentContext) noexcept override {}
+    HRESULT STDMETHODCALLTYPE GetFileSize(UINT64* fileSize) noexcept override {
         if (!fileSize) return E_POINTER;
         *fileSize = size_;
         return S_OK;
     }
-    HRESULT STDMETHODCALLTYPE GetLastWriteTime(UINT64* lastWriteTime) override {
+    HRESULT STDMETHODCALLTYPE GetLastWriteTime(UINT64* lastWriteTime) noexcept override {
         if (!lastWriteTime) return E_POINTER;
         *lastWriteTime = 0;
         return S_OK;
@@ -556,13 +942,13 @@ class MemoryFontFileLoader : public IDWriteFontFileLoader {
 public:
     MemoryFontFileLoader() : ref_count_(1) {}
 
-    ULONG STDMETHODCALLTYPE AddRef() override { return InterlockedIncrement(&ref_count_); }
-    ULONG STDMETHODCALLTYPE Release() override {
+    ULONG STDMETHODCALLTYPE AddRef() noexcept override { return InterlockedIncrement(&ref_count_); }
+    ULONG STDMETHODCALLTYPE Release() noexcept override {
         ULONG count = InterlockedDecrement(&ref_count_);
         if (count == 0) delete this;
         return count;
     }
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) noexcept override {
         if (!ppv) return E_POINTER;
         if (riid == __uuidof(IUnknown) || riid == __uuidof(IDWriteFontFileLoader)) {
             *ppv = static_cast<IDWriteFontFileLoader*>(this);
@@ -573,7 +959,7 @@ public:
         return E_NOINTERFACE;
     }
 
-    HRESULT STDMETHODCALLTYPE CreateStreamFromKey(const void* fontFileReferenceKey, UINT32 fontFileReferenceKeySize, IDWriteFontFileStream** fontFileStream) override {
+    HRESULT STDMETHODCALLTYPE CreateStreamFromKey(const void* fontFileReferenceKey, UINT32 fontFileReferenceKeySize, IDWriteFontFileStream** fontFileStream) noexcept override {
         if (!fontFileStream || fontFileReferenceKeySize != sizeof(FontMemoryPayload)) return E_INVALIDARG;
         const FontMemoryPayload* payload = static_cast<const FontMemoryPayload*>(fontFileReferenceKey);
         *fontFileStream = new MemoryFontFileStream(payload->data, payload->size);
@@ -601,13 +987,13 @@ public:
         if (factory) factory->Release();
     }
 
-    ULONG STDMETHODCALLTYPE AddRef() override { return InterlockedIncrement(&ref_count_); }
-    ULONG STDMETHODCALLTYPE Release() override {
+    ULONG STDMETHODCALLTYPE AddRef() noexcept override { return InterlockedIncrement(&ref_count_); }
+    ULONG STDMETHODCALLTYPE Release() noexcept override {
         ULONG count = InterlockedDecrement(&ref_count_);
         if (count == 0) delete this;
         return count;
     }
-    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) override {
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void** ppv) noexcept override {
         if (!ppv) return E_POINTER;
         if (riid == __uuidof(IUnknown)) {
             *ppv = static_cast<IUnknown*>(this);
@@ -618,6 +1004,7 @@ public:
         return E_NOINTERFACE;
     }
 };
+
 
 } // namespace
 
@@ -706,8 +1093,20 @@ int cwin_dwrite_create_font_file_reference(void* loader, const void* data, size_
 int cwin_dwrite_create_font_set_builder(void* factory, void** out_builder) {
     if (!factory || !out_builder) return (int)E_INVALIDARG;
 
+    IDWriteFactory5* f5 = nullptr;
+    HRESULT hr = static_cast<IUnknown*>(factory)->QueryInterface(__uuidof(IDWriteFactory5), reinterpret_cast<void**>(&f5));
+    if (SUCCEEDED(hr) && f5) {
+        IDWriteFontSetBuilder1* builder1 = nullptr;
+        hr = f5->CreateFontSetBuilder(&builder1);
+        f5->Release();
+        if (SUCCEEDED(hr)) {
+            *out_builder = builder1;
+            return 0;
+        }
+    }
+
     IDWriteFactory3* f3 = nullptr;
-    HRESULT hr = static_cast<IUnknown*>(factory)->QueryInterface(__uuidof(IDWriteFactory3), reinterpret_cast<void**>(&f3));
+    hr = static_cast<IUnknown*>(factory)->QueryInterface(__uuidof(IDWriteFactory3), reinterpret_cast<void**>(&f3));
     if (FAILED(hr)) return (int)hr;
 
     IDWriteFontSetBuilder* builder = nullptr;
@@ -721,11 +1120,12 @@ int cwin_dwrite_create_font_set_builder(void* factory, void** out_builder) {
 
 int cwin_dwrite_font_set_builder_add_file(void* builder, void* font_file) {
     if (!builder || !font_file) return (int)E_INVALIDARG;
-    IDWriteFontSetBuilder* b = static_cast<IDWriteFontSetBuilder*>(builder);
+    IDWriteFontSetBuilder1* b1 = static_cast<IDWriteFontSetBuilder1*>(builder);
     IDWriteFontFile* f = static_cast<IDWriteFontFile*>(font_file);
-    HRESULT hr = b->AddFontFile(f);
+    HRESULT hr = b1->AddFontFile(f);
     return (int)hr;
 }
+
 
 int cwin_dwrite_font_set_builder_create_collection(void* builder, void* factory, void** out_collection) {
     if (!builder || !factory || !out_collection) return (int)E_INVALIDARG;
@@ -752,7 +1152,7 @@ int cwin_dwrite_font_set_builder_create_collection(void* builder, void* factory,
     return 0;
 }
 
-int cwin_dwrite_create_text_format(void* factory, const wchar_t* family_name, void* collection, uint32_t weight, uint32_t style, float font_size, void** out_format) {
+int cwin_dwrite_create_text_format(void* factory, const uint16_t* family_name, void* collection, uint32_t weight, uint32_t style, float font_size, void** out_format) {
     if (!factory || !family_name || !out_format) return (int)E_INVALIDARG;
 
     IDWriteFactory* f = static_cast<IDWriteFactory*>(factory);
@@ -760,7 +1160,7 @@ int cwin_dwrite_create_text_format(void* factory, const wchar_t* family_name, vo
 
     IDWriteTextFormat* tf = nullptr;
     HRESULT hr = f->CreateTextFormat(
-        family_name,
+        reinterpret_cast<const wchar_t*>(family_name),
         col,
         static_cast<DWRITE_FONT_WEIGHT>(weight),
         static_cast<DWRITE_FONT_STYLE>(style),
@@ -775,7 +1175,7 @@ int cwin_dwrite_create_text_format(void* factory, const wchar_t* family_name, vo
     return 0;
 }
 
-int cwin_dwrite_create_text_layout(void* factory, const wchar_t* text, uint32_t text_len, void* format, float max_width, float max_height, void** out_layout) {
+int cwin_dwrite_create_text_layout(void* factory, const uint16_t* text, uint32_t text_len, void* format, float max_width, float max_height, void** out_layout) {
     if (!factory || !text || !format || !out_layout) return (int)E_INVALIDARG;
 
     IDWriteFactory* f = static_cast<IDWriteFactory*>(factory);
@@ -783,7 +1183,7 @@ int cwin_dwrite_create_text_layout(void* factory, const wchar_t* text, uint32_t 
 
     IDWriteTextLayout* tl = nullptr;
     HRESULT hr = f->CreateTextLayout(
-        text,
+        reinterpret_cast<const wchar_t*>(text),
         text_len,
         tf,
         max_width,
@@ -824,7 +1224,7 @@ int cwin_dwrite_layout_get_metrics(void* layout, float* out_width, float* out_he
 
 // MARK: - Win32 Windowing, Dispatcher, Keyboard, Clipboard
 
-int cwin_win32_register_window_class(const wchar_t* class_name, void* wndproc, void** out_atom) {
+int cwin_win32_register_window_class(const uint16_t* class_name, void* wndproc, void** out_atom) {
     if (!class_name || !wndproc) return (int)E_INVALIDARG;
 
     WNDCLASSEXW wc = {};
@@ -838,7 +1238,7 @@ int cwin_win32_register_window_class(const wchar_t* class_name, void* wndproc, v
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     wc.hbrBackground = nullptr;
     wc.lpszMenuName = nullptr;
-    wc.lpszClassName = class_name;
+    wc.lpszClassName = reinterpret_cast<const wchar_t*>(class_name);
     wc.hIconSm = nullptr;
 
     ATOM atom = RegisterClassExW(&wc);
@@ -855,11 +1255,11 @@ int cwin_win32_register_window_class(const wchar_t* class_name, void* wndproc, v
     return 0;
 }
 
-void* cwin_win32_create_window(uint32_t ex_style, const wchar_t* class_name, const wchar_t* title, uint32_t style, int x, int y, int w, int h, void* parent, void* param) {
+void* cwin_win32_create_window(uint32_t ex_style, const uint16_t* class_name, const uint16_t* title, uint32_t style, int x, int y, int w, int h, void* parent, void* param) {
     HWND hwnd = CreateWindowExW(
         static_cast<DWORD>(ex_style),
-        class_name,
-        title ? title : L"",
+        reinterpret_cast<const wchar_t*>(class_name),
+        title ? reinterpret_cast<const wchar_t*>(title) : L"",
         static_cast<DWORD>(style),
         x, y, w, h,
         static_cast<HWND>(parent),
@@ -910,7 +1310,7 @@ int cwin_win32_get_dpi_for_window(void* hwnd, uint32_t* out_dpi) {
     return 0;
 }
 
-int cwin_win32_clipboard_set_text(void* hwnd, const wchar_t* text, size_t len) {
+int cwin_win32_clipboard_set_text(void* hwnd, const uint16_t* text, size_t len) {
     if (!text) return (int)E_INVALIDARG;
     HWND h = static_cast<HWND>(hwnd);
 
@@ -920,7 +1320,7 @@ int cwin_win32_clipboard_set_text(void* hwnd, const wchar_t* text, size_t len) {
 
     EmptyClipboard();
 
-    size_t byte_count = (len + 1) * sizeof(wchar_t);
+    size_t byte_count = (len + 1) * sizeof(uint16_t);
     HGLOBAL h_glob = GlobalAlloc(GMEM_MOVEABLE, byte_count);
     if (!h_glob) {
         CloseClipboard();
@@ -934,7 +1334,7 @@ int cwin_win32_clipboard_set_text(void* hwnd, const wchar_t* text, size_t len) {
         return (int)E_FAIL;
     }
 
-    memcpy(dest, text, len * sizeof(wchar_t));
+    memcpy(dest, text, len * sizeof(uint16_t));
     static_cast<wchar_t*>(dest)[len] = L'\0';
     GlobalUnlock(h_glob);
 
@@ -948,7 +1348,7 @@ int cwin_win32_clipboard_set_text(void* hwnd, const wchar_t* text, size_t len) {
     return 0;
 }
 
-int cwin_win32_clipboard_get_text(void* hwnd, wchar_t** out_text, size_t* out_len) {
+int cwin_win32_clipboard_get_text(void* hwnd, uint16_t** out_text, size_t* out_len) {
     if (!out_text || !out_len) return (int)E_INVALIDARG;
     HWND h = static_cast<HWND>(hwnd);
 
@@ -982,12 +1382,12 @@ int cwin_win32_clipboard_get_text(void* hwnd, wchar_t** out_text, size_t* out_le
     GlobalUnlock(h_data);
     CloseClipboard();
 
-    *out_text = buf;
+    *out_text = reinterpret_cast<uint16_t*>(buf);
     *out_len = len;
     return 0;
 }
 
-void cwin_win32_clipboard_free_text(wchar_t* text) {
+void cwin_win32_clipboard_free_text(uint16_t* text) {
     if (text) {
         free(text);
     }
@@ -1004,11 +1404,11 @@ void cwin_win32_ole_uninitialize(void) {
     OleUninitialize();
 }
 
-void* cwin_win32_create_message_window(const wchar_t* class_name, void* wndproc, void* param) {
+void* cwin_win32_create_message_window(const uint16_t* class_name, void* wndproc, void* param) {
     if (!class_name) return nullptr;
     HWND hwnd = CreateWindowExW(
         0,
-        class_name,
+        reinterpret_cast<const wchar_t*>(class_name),
         L"",
         0,
         0, 0, 0, 0,
@@ -1019,6 +1419,7 @@ void* cwin_win32_create_message_window(const wchar_t* class_name, void* wndproc,
     );
     return static_cast<void*>(hwnd);
 }
+
 
 int cwin_win32_destroy_window(void* hwnd) {
     if (!hwnd) return (int)E_INVALIDARG;
@@ -1337,13 +1738,13 @@ void cwin_win32_set_cursor(void* cursor) {
 
 // MARK: - Win32 Credentials
 
-int cwin_win32_cred_write(const wchar_t* target, const wchar_t* username, const uint8_t* blob, size_t blob_len) {
+int cwin_win32_cred_write(const uint16_t* target, const uint16_t* username, const uint8_t* blob, size_t blob_len) {
     if (!target || !username) return (int)E_INVALIDARG;
 
     CREDENTIALW cred = {};
     cred.Type = CRED_TYPE_GENERIC;
-    cred.TargetName = const_cast<LPWSTR>(target);
-    cred.UserName = const_cast<LPWSTR>(username);
+    cred.TargetName = const_cast<LPWSTR>(reinterpret_cast<const wchar_t*>(target));
+    cred.UserName = const_cast<LPWSTR>(reinterpret_cast<const wchar_t*>(username));
     cred.CredentialBlobSize = static_cast<DWORD>(blob_len);
     cred.CredentialBlob = const_cast<LPBYTE>(blob);
     cred.Persist = CRED_PERSIST_LOCAL_MACHINE;
@@ -1352,11 +1753,11 @@ int cwin_win32_cred_write(const wchar_t* target, const wchar_t* username, const 
     return ok ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
 }
 
-int cwin_win32_cred_read(const wchar_t* target, wchar_t** out_username, uint8_t** out_blob, size_t* out_blob_len) {
+int cwin_win32_cred_read(const uint16_t* target, uint16_t** out_username, uint8_t** out_blob, size_t* out_blob_len) {
     if (!target || !out_username || !out_blob || !out_blob_len) return (int)E_INVALIDARG;
 
     PCREDENTIALW cred = nullptr;
-    if (!CredReadW(target, CRED_TYPE_GENERIC, 0, &cred) || !cred) {
+    if (!CredReadW(reinterpret_cast<const wchar_t*>(target), CRED_TYPE_GENERIC, 0, &cred) || !cred) {
         DWORD err = GetLastError();
         if (err == ERROR_NOT_FOUND) {
             *out_username = nullptr;
@@ -1386,16 +1787,16 @@ int cwin_win32_cred_read(const wchar_t* target, wchar_t** out_username, uint8_t*
         memcpy(bbuf, cred->CredentialBlob, cred->CredentialBlobSize);
     }
 
-    *out_username = ubuf;
+    *out_username = reinterpret_cast<uint16_t*>(ubuf);
     *out_blob = bbuf;
     *out_blob_len = cred->CredentialBlobSize;
     CredFree(cred);
     return 0;
 }
 
-int cwin_win32_cred_delete(const wchar_t* target) {
+int cwin_win32_cred_delete(const uint16_t* target) {
     if (!target) return (int)E_INVALIDARG;
-    BOOL ok = CredDeleteW(target, CRED_TYPE_GENERIC, 0);
+    BOOL ok = CredDeleteW(reinterpret_cast<const wchar_t*>(target), CRED_TYPE_GENERIC, 0);
     return ok ? 0 : (int)HRESULT_FROM_WIN32(GetLastError());
 }
 
@@ -1407,18 +1808,18 @@ void cwin_win32_cred_free(void* ptr) {
 
 // MARK: - Win32 Shell & Dialogs
 
-int cwin_win32_shell_open(const wchar_t* path_or_url) {
+int cwin_win32_shell_open(const uint16_t* path_or_url) {
     if (!path_or_url) return (int)E_INVALIDARG;
-    HINSTANCE h = ShellExecuteW(nullptr, L"open", path_or_url, nullptr, nullptr, SW_SHOWDEFAULT);
+    HINSTANCE h = ShellExecuteW(nullptr, L"open", reinterpret_cast<const wchar_t*>(path_or_url), nullptr, nullptr, SW_SHOWDEFAULT);
     if (reinterpret_cast<intptr_t>(h) <= 32) {
         return (int)HRESULT_FROM_WIN32(GetLastError());
     }
     return 0;
 }
 
-int cwin_win32_shell_reveal(const wchar_t* path) {
+int cwin_win32_shell_reveal(const uint16_t* path) {
     if (!path) return (int)E_INVALIDARG;
-    PIDLIST_ABSOLUTE pidl = ILCreateFromPathW(path);
+    PIDLIST_ABSOLUTE pidl = ILCreateFromPathW(reinterpret_cast<const wchar_t*>(path));
     if (!pidl) {
         return cwin_win32_shell_open(path);
     }
@@ -1427,7 +1828,7 @@ int cwin_win32_shell_reveal(const wchar_t* path) {
     return SUCCEEDED(hr) ? 0 : (int)hr;
 }
 
-int cwin_win32_file_open_dialog(void* hwnd, int allow_multi, int pick_folders, const wchar_t* ok_label, wchar_t*** out_paths, size_t* out_count) {
+int cwin_win32_file_open_dialog(void* hwnd, int allow_multi, int pick_folders, const uint16_t* ok_label, uint16_t*** out_paths, size_t* out_count) {
     if (!out_paths || !out_count) return (int)E_INVALIDARG;
     *out_paths = nullptr;
     *out_count = 0;
@@ -1441,8 +1842,8 @@ int cwin_win32_file_open_dialog(void* hwnd, int allow_multi, int pick_folders, c
     if (pick_folders) options |= FOS_PICKFOLDERS;
     dlg->SetOptions(options);
 
-    if (ok_label && wcslen(ok_label) > 0) {
-        dlg->SetOkButtonLabel(ok_label);
+    if (ok_label && wcslen(reinterpret_cast<const wchar_t*>(ok_label)) > 0) {
+        dlg->SetOkButtonLabel(reinterpret_cast<const wchar_t*>(ok_label));
     }
 
     hr = dlg->Show(static_cast<HWND>(hwnd));
@@ -1494,12 +1895,12 @@ int cwin_win32_file_open_dialog(void* hwnd, int allow_multi, int pick_folders, c
     items->Release();
     dlg->Release();
 
-    *out_paths = paths;
+    *out_paths = reinterpret_cast<uint16_t**>(paths);
     *out_count = actual_count;
     return 0;
 }
 
-int cwin_win32_file_save_dialog(void* hwnd, const wchar_t* initial_dir, const wchar_t* default_name, wchar_t** out_path) {
+int cwin_win32_file_save_dialog(void* hwnd, const uint16_t* initial_dir, const uint16_t* default_name, uint16_t** out_path) {
     if (!out_path) return (int)E_INVALIDARG;
     *out_path = nullptr;
 
@@ -1507,12 +1908,12 @@ int cwin_win32_file_save_dialog(void* hwnd, const wchar_t* initial_dir, const wc
     HRESULT hr = CoCreateInstance(CLSID_FileSaveDialog, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&dlg));
     if (FAILED(hr)) return (int)hr;
 
-    if (default_name && wcslen(default_name) > 0) {
-        dlg->SetFileName(default_name);
+    if (default_name && wcslen(reinterpret_cast<const wchar_t*>(default_name)) > 0) {
+        dlg->SetFileName(reinterpret_cast<const wchar_t*>(default_name));
     }
-    if (initial_dir && wcslen(initial_dir) > 0) {
+    if (initial_dir && wcslen(reinterpret_cast<const wchar_t*>(initial_dir)) > 0) {
         IShellItem* folder = nullptr;
-        if (SUCCEEDED(SHCreateItemFromParsingName(initial_dir, nullptr, IID_PPV_ARGS(&folder)))) {
+        if (SUCCEEDED(SHCreateItemFromParsingName(reinterpret_cast<const wchar_t*>(initial_dir), nullptr, IID_PPV_ARGS(&folder)))) {
             dlg->SetFolder(folder);
             folder->Release();
         }
@@ -1541,14 +1942,14 @@ int cwin_win32_file_save_dialog(void* hwnd, const wchar_t* initial_dir, const wc
         wchar_t* copy = static_cast<wchar_t*>(malloc((len + 1) * sizeof(wchar_t)));
         if (copy) {
             memcpy(copy, pszPath, (len + 1) * sizeof(wchar_t));
-            *out_path = copy;
+            *out_path = reinterpret_cast<uint16_t*>(copy);
         }
         CoTaskMemFree(pszPath);
     }
     return 0;
 }
 
-void cwin_win32_free_path_list(wchar_t** paths, size_t count) {
+void cwin_win32_free_path_list(uint16_t** paths, size_t count) {
     if (paths) {
         for (size_t i = 0; i < count; ++i) {
             if (paths[i]) free(paths[i]);
@@ -1556,6 +1957,7 @@ void cwin_win32_free_path_list(wchar_t** paths, size_t count) {
         free(paths);
     }
 }
+
 
 #else
 

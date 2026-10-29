@@ -20,15 +20,15 @@ public final class WindowsDispatcher: PlatformDispatcher, @unchecked Sendable {
     private var wakePosted: Bool = false
     private let mainThread: Thread
     public let validationNumber: UInt
-    public private(set) var platformWindowHandle: OpaquePointer?
+    public private(set) var platformWindowHandle: WinHandle?
 
-    public init(platformWindowHandle: OpaquePointer? = nil, validationNumber: UInt = 0x8001) {
+    public init(platformWindowHandle: WinHandle? = nil, validationNumber: UInt = 0x8001) {
         self.mainThread = Thread.current
         self.validationNumber = validationNumber
         self.platformWindowHandle = platformWindowHandle
     }
 
-    public func setPlatformWindowHandle(_ handle: OpaquePointer?) {
+    public func setPlatformWindowHandle(_ handle: WinHandle?) {
         lock.lock()
         self.platformWindowHandle = handle
         let shouldWake = wakePosted && handle != nil
@@ -64,7 +64,7 @@ public final class WindowsDispatcher: PlatformDispatcher, @unchecked Sendable {
 
     public func dispatchOnMainThread(_ runnable: @escaping @Sendable () -> Void, priority: Priority) {
         var shouldPost = false
-        var targetHwnd: OpaquePointer?
+        var targetHwnd: WinHandle?
 
         lock.lock()
         switch priority {
