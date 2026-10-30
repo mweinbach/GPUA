@@ -127,7 +127,10 @@ jobs:
           if [ "${ARCH}" = "x86_64" ]; then NODE_ARCH="x64"; else NODE_ARCH="arm64"; fi
           curl -fsSL "https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-${NODE_ARCH}.tar.xz" | tar -xJ -C /usr/local --strip-components=1
           node --version
-          curl -fsSL -o /tmp/swift-wasm-sdk.artifactbundle.tar.gz https://download.swift.org/swift-6.3-release/wasm-sdk/swift-6.3-RELEASE/swift-6.3-RELEASE_wasm.artifactbundle.tar.gz
+          SWIFT_VER="$(swift --version | sed -nE 's/.*Swift version ([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/p' | head -n1)"
+          WASM_URL="https://download.swift.org/swift-${SWIFT_VER}-release/wasm-sdk/swift-${SWIFT_VER}-RELEASE/swift-${SWIFT_VER}-RELEASE_wasm.artifactbundle.tar.gz"
+          echo "Downloading Wasm SDK for Swift ${SWIFT_VER}: ${WASM_URL}"
+          curl -fsSL -o /tmp/swift-wasm-sdk.artifactbundle.tar.gz "${WASM_URL}"
           swift sdk install /tmp/swift-wasm-sdk.artifactbundle.tar.gz
           rm -f /tmp/swift-wasm-sdk.artifactbundle.tar.gz
           swift sdk list
