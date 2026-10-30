@@ -316,11 +316,15 @@ public final class X11Client: LinuxClient, @unchecked Sendable {
                         xkb.updateKey(keycode: keycode, direction: XKB_KEY_DOWN)
                         if let compose = ptr.state.composeState {
                             _ = compose.feed(keysym: keySym)
-                            if compose.status() == XKB_COMPOSE_COMPOSED {
+                            let status = compose.status()
+                            if status == XKB_COMPOSE_COMPOSED {
                                 let composedText = compose.utf8()
                                 if !composedText.isEmpty {
                                     ks.keyChar = composedText
                                 }
+                            } else if status == XKB_COMPOSE_COMPOSING {
+                                ks.keyChar = nil
+                                ref.window.handleImePreedit(compose.utf8())
                             }
                         }
                         keystroke = ks

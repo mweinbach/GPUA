@@ -15,10 +15,15 @@ private final class TestBox: @unchecked Sendable {
 @Suite("GPUIPlatform Tests")
 struct GPUIPlatformTests {
     @Test
-    func testCurrentPlatform() {
+    func testCurrentPlatform() throws {
         let platform = currentPlatform(headless: true)
         let ts = platform.textSystem()
-        #expect(ts.allFontNames().isEmpty || !ts.allFontNames().isEmpty)
+        #if os(macOS) || os(Linux) || os(Windows)
+        #expect(!ts.allFontNames().isEmpty)
+        #endif
+        let defaultFontId = try ts.fontId(descriptor: Font())
+        let metrics = ts.fontMetrics(fontId: defaultFontId)
+        #expect(metrics.unitsPerEm > 0)
     }
 
     @Test
@@ -29,9 +34,16 @@ struct GPUIPlatformTests {
     }
 
     @Test
-    func testBackgroundExecutor() {
-        let exec = backgroundExecutor()
-        #expect(exec == nil || exec != nil)
+    func testBackgroundExecutor() async throws {
+        let exec = try #require(backgroundExecutor())
+        let box = TestBox()
+        let task = exec.spawn {
+            box.ran = true
+            return 42
+        }
+        let value = await task.value
+        #expect(box.ran)
+        #expect(value == 42)
     }
 
     @Test

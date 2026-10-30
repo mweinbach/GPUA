@@ -1,0 +1,92 @@
+[
+  {
+    "item": "mut",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Upstream pub(crate) static mut *_CLASS Objective-C runtime ClassDecl caches (display_link.rs, drag_drop.rs, lifecycle.rs, view.rs) are replaced by native Swift NSObject, UIView, and UIViewController subclasses per ADR-0011"
+  },
+  {
+    "item": "kSecClass",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "kSecClassInternetPassword",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "kSecAttrServer",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "kSecAttrAccount",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "kSecValueData",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "kSecReturnAttributes",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "kSecReturnData",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "SecItemAdd",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "SecItemUpdate",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "SecItemDelete",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "SecItemCopyMatching",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual extern C FFI declaration in lib.rs"
+  },
+  {
+    "item": "errSecSuccess",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual const OSStatus declaration in lib.rs"
+  },
+  {
+    "item": "errSecUserCanceled",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual const OSStatus declaration in lib.rs"
+  },
+  {
+    "item": "errSecItemNotFound",
+    "status": "omitted",
+    "target_batch": "Wave 6 (GPUIiOS)",
+    "reason": "Imported directly from Apple Security framework module in Swift rather than manual const OSStatus declaration in lib.rs"
+  }
+]

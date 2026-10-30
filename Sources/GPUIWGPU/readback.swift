@@ -65,7 +65,11 @@ public struct OffscreenTextureReadbackHelper: Sendable {
             return []
         }
 
-        #if os(Linux)
+        #if os(Linux) || os(Android) || os(WASI)
+        guard device != OpaquePointer(bitPattern: 1), queue != OpaquePointer(bitPattern: 1) else {
+            throw WgpuError.noCompatibleAdapter
+        }
+
         let unalignedBytesPerRow = width * 4
         let alignedBytesPerRow = (unalignedBytesPerRow + copyBytesPerRowAlignment - 1) & ~(copyBytesPerRowAlignment - 1)
         let bufferSize = alignedBytesPerRow * height
@@ -145,9 +149,24 @@ public struct OffscreenTextureReadbackHelper: Sendable {
         _ = wgpuBufferMapAsync(stagingBuffer, WGPUMapMode_Read, 0, bufferSize, callbackInfo)
 
         // Poll device until buffer mapping completes
+        #if os(WASI)
+        var pollCount = 0
+        while !mapContext.completed && pollCount < 64 {
+            _ = wgpuDevicePoll(device, 1, nil)
+            pollCount += 1
+        }
+        if !mapContext.completed {
+            unmanaged.release()
+            throw WgpuError.mapBufferFailed(
+                WGPUMapAsyncStatus_Unknown.rawValue,
+                "Async buffer mapping did not complete synchronously on WASI"
+            )
+        }
+        #else
         while !mapContext.completed {
             _ = wgpuDevicePoll(device, 1, nil)
         }
+        #endif
 
         guard mapContext.status == WGPUMapAsyncStatus_Success else {
             throw WgpuError.mapBufferFailed(mapContext.status.rawValue, mapContext.message)
@@ -171,7 +190,7 @@ public struct OffscreenTextureReadbackHelper: Sendable {
         wgpuBufferUnmap(stagingBuffer)
         return result
         #else
-        // PORT NOTE: WebGPU C runtime calls are gated on os(Linux) because libwgpu_native is linked on Linux, while Windows uses D3D11 in GPUIWindows and Android/WASI backends are deferred per R3.
+        // PORT NOTE: Windows uses DirectXRenderer (D3D11) in GPUIWindows rather than WebGPU C runtime calls.
         throw WgpuError.noCompatibleAdapter
         #endif
     }

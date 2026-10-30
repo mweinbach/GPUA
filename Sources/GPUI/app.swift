@@ -3,9 +3,7 @@
 // Port status: ported
 
 import Foundation
-#if canImport(FoundationNetworking)
-import FoundationNetworking
-#endif
+import HTTPClient
 import Refineable
 import Scheduler
 
@@ -353,16 +351,12 @@ public struct EmptyAssetSource: AssetSource {
     }
 }
 
-/// HTTP client abstraction.
-public protocol HttpClient: Sendable {
-    func send(request: URLRequest) async throws -> (Data, URLResponse)
-}
-
-/// Default null HTTP client that rejects requests.
+/// Default null HTTP client that rejects requests (matches upstream `BlockedHttpClient`).
 public struct NullHttpClient: HttpClient {
     public init() {}
-    public func send(request: URLRequest) async throws -> (Data, URLResponse) {
-        throw URLError(.cancelled)
+    public func send(_ req: HttpRequest) async throws -> HttpResponse {
+        _ = req
+        throw NSError(domain: "GPUI.NullHttpClient", code: -1, userInfo: [NSLocalizedDescriptionKey: "No HttpClient configured"])
     }
 }
 
@@ -550,6 +544,12 @@ public final class DefaultPlatform: Platform, @unchecked Sendable {
 /// A reference to a GPUI application configuration before and during launch.
 @MainActor
 public final class Application: Sendable {
+    #if os(WASI) || os(iOS) || os(visionOS) || os(Android)
+    // PORT NOTE: On host-driven event loop platforms (Web/iOS/Android), `Platform.run` returns
+    // immediately after scheduling launch; retain the active `App` until quit so windows stay alive.
+    private static var activeHostLoopApp: App?
+    #endif
+
     public let app: App
 
     public init(app: App = App()) {
@@ -577,6 +577,14 @@ public final class Application: Sendable {
     }
 
     public func run(_ onFinishLaunching: @escaping (App) -> Void) {
+        #if os(WASI) || os(iOS) || os(visionOS) || os(Android)
+        Self.activeHostLoopApp = app
+        app.platform.onQuit {
+            MainActor.assumeIsolated {
+                Self.activeHostLoopApp = nil
+            }
+        }
+        #endif
         app.platform.run { [weak app] in
             guard let app else { return }
             onFinishLaunching(app)
@@ -675,6 +683,7 @@ public final class App: AppContext, BorrowAppContext, @unchecked Sendable {
 
     private var globals: [ObjectIdentifier: Any] = [:]
     private var windowsById: [WindowId: Window] = [:]
+    private var activeWindowPointers: [WindowId: UnsafeMutablePointer<Window>] = [:]
     private var windowHandles: [WindowId: AnyWindowHandle] = [:]
     private var windowUpdateStack: [WindowId] = []
     private var nextWindowId: WindowId = WindowId(1)
@@ -1151,8 +1160,152 @@ public final class App: AppContext, BorrowAppContext, @unchecked Sendable {
             let rootView = buildRootView(&window, cx)
             cx.windowUpdateStack.removeLast()
             window.root = AnyView(rootView)
+            window.invalidator.setDirty(true)
             cx.windowHandles[id] = anyHandle
             cx.windowsById[id] = window
+
+            let platformWindow = window.platformWindow
+            let invalidator = window.invalidator
+
+            platformWindow.onClose { [weak cx] in
+                MainActor.assumeIsolated {
+                    guard let cx else { return }
+                    _ = try? cx.updateWindow(anyHandle) { _, win, app in
+                        var appMut = app
+                        win.removeWindow(&appMut)
+                    }
+                    cx.windowsById.removeValue(forKey: id)
+                    cx.windowHandles.removeValue(forKey: id)
+                    cx.windowClosedObservers.retain(ObjectIdentifier(App.self)) { observer in
+                        observer(cx, id)
+                        return true
+                    }
+                }
+            }
+
+            platformWindow.onRequestFrame { [weak cx] frameOptions in
+                MainActor.assumeIsolated {
+                    guard let cx else { return }
+                    cx.update { app in
+                        _ = try? app.updateWindow(anyHandle) { _, win, innerApp in
+                            var appMut = innerApp
+                            if !win.nextFrameCallbacks.isEmpty || invalidator.isDirty || frameOptions.forceRender {
+                                win.draw(cx: &appMut)
+                            } else if frameOptions.requirePresentation {
+                                win.platformWindow.draw(scene: win.renderedFrame.scene)
+                            }
+                            win.platformWindow.completedFrame()
+                        }
+                    }
+                }
+            }
+
+            platformWindow.onResize { [weak cx] newSize, newScaleFactor in
+                MainActor.assumeIsolated {
+                    guard let cx else { return }
+                    cx.update { app in
+                        _ = try? app.updateWindow(anyHandle) { _, win, _ in
+                            if newScaleFactor > 0 {
+                                win.scaleFactor = newScaleFactor
+                            }
+                            if newSize.width > px(0) && newSize.height > px(0) {
+                                win.resize(newSize)
+                            } else {
+                                let contentSize = win.platformWindow.contentSize()
+                                if contentSize.width > px(0) && contentSize.height > px(0) {
+                                    win.resize(contentSize)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            platformWindow.onMoved { [weak cx] in
+                MainActor.assumeIsolated {
+                    guard let cx else { return }
+                    cx.update { app in
+                        _ = try? app.updateWindow(anyHandle) { _, win, _ in
+                            win.refresh()
+                        }
+                    }
+                }
+            }
+
+            platformWindow.onAppearanceChanged { [weak cx] in
+                MainActor.assumeIsolated {
+                    guard let cx else { return }
+                    cx.update { app in
+                        _ = try? app.updateWindow(anyHandle) { _, win, _ in
+                            win.appearanceChanged(win.platformWindow.appearance())
+                        }
+                    }
+                }
+            }
+
+            platformWindow.onButtonLayoutChanged { [weak cx] in
+                MainActor.assumeIsolated {
+                    guard let cx else { return }
+                    cx.update { app in
+                        _ = try? app.updateWindow(anyHandle) { _, win, _ in
+                            win.buttonLayoutChanged()
+                        }
+                    }
+                }
+            }
+
+            platformWindow.onActiveStatusChange { [weak cx] _ in
+                MainActor.assumeIsolated {
+                    guard let cx else { return }
+                    cx.update { app in
+                        _ = try? app.updateWindow(anyHandle) { _, win, _ in
+                            win.modifiers = win.platformWindow.modifiers()
+                            win.capslock = win.platformWindow.capslock()
+                            win.refresh()
+                        }
+                    }
+                }
+            }
+
+            platformWindow.onHoverStatusChange { [weak cx] _ in
+                MainActor.assumeIsolated {
+                    guard let cx else { return }
+                    cx.update { app in
+                        _ = try? app.updateWindow(anyHandle) { _, win, _ in
+                            win.refresh()
+                        }
+                    }
+                }
+            }
+
+            platformWindow.onShouldClose { [weak cx] in
+                MainActor.assumeIsolated {
+                    guard let cx else { return true }
+                    return cx.update { app in
+                        (try? app.updateWindow(anyHandle) { _, win, _ in
+                            for cb in win.windowShouldCloseCallbacks {
+                                if !cb() {
+                                    return false
+                                }
+                            }
+                            return true
+                        }) ?? true
+                    }
+                }
+            }
+
+            platformWindow.onInput { [weak cx] event in
+                MainActor.assumeIsolated {
+                    guard let cx else { return DispatchEventResult() }
+                    return cx.update { app in
+                        (try? app.updateWindow(anyHandle) { _, win, innerApp in
+                            var appMut = innerApp
+                            return win.dispatchEvent(event: event, cx: &appMut)
+                        }) ?? DispatchEventResult()
+                    }
+                }
+            }
+
             return handle
         }
     }
@@ -1166,12 +1319,24 @@ public final class App: AppContext, BorrowAppContext, @unchecked Sendable {
         _ update: (AnyView, inout Window, App) throws -> T
     ) throws -> T {
         let id = handle.windowId()
+        if let activePtr = activeWindowPointers[id] {
+            guard let root = activePtr.pointee.root else {
+                throw GPUIError.windowClosed
+            }
+            windowUpdateStack.append(id)
+            defer { windowUpdateStack.removeLast() }
+            return try update(root, &activePtr.pointee, self)
+        }
         guard var window = windowsById[id], let root = window.root else {
             throw GPUIError.windowClosed
         }
         windowUpdateStack.append(id)
         defer { windowUpdateStack.removeLast() }
-        let result = try update(root, &window, self)
+        let result = try withUnsafeMutablePointer(to: &window) { ptr in
+            activeWindowPointers[id] = ptr
+            defer { activeWindowPointers.removeValue(forKey: id) }
+            return try update(root, &ptr.pointee, self)
+        }
         windowsById[id] = window
         return result
     }

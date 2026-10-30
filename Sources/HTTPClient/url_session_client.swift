@@ -5,6 +5,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
+#if !os(WASI)
 /// URLSession-backed implementation of [`HttpClient`].
 /// Replaces upstream reqwest_client with platform-native networking.
 // PORT NOTE: URLSession is thread-safe and internally manages connection pooling and queues.
@@ -86,3 +87,4 @@ public final class URLSessionHttpClient: HttpClient, @unchecked Sendable {
         )
     }
 }
+#endif

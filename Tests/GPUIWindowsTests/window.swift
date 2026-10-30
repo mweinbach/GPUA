@@ -219,5 +219,127 @@ struct WindowsWindowTests {
             update_ime_position(handle: hwnd, x: 50, y: 72, width: 15, height: 24)
         }
     }
+
+    @Test("GPUI.PlatformInputHandler receives Win32 WM_CHAR ASCII, UTF-16 surrogate pairs, and filters control chars")
+    @MainActor
+    func testWindowsWmCharAndPlatformInputHandler() throws {
+        let platform = WindowsPlatform(headless: true)
+        let app = App.newApp(platform: platform)
+        let handle = try app.openWindow(WindowOptions()) { _, cx in
+            cx.new { _ in WindowsInputDummyView() }
+        }
+        let win = try #require(
+            try app.updateWindow(handle.anyHandle) { _, w, _ in w.platformWindow as? WindowsWindow }
+        )
+
+        let recorder = RecordingWindowsInputHandler()
+        let platformHandler = PlatformInputHandler(
+            windowHandle: handle.anyHandle,
+            app: app,
+            handler: recorder
+        )
+        win.setInputHandler(platformHandler)
+
+        let dummyHwnd = UnsafeMutableRawPointer(bitPattern: 0x1000)!
+        let wmChar: UInt32 = 0x0102
+        let wmImeStartComposition: UInt32 = 0x010D
+
+        // 1. Printable ASCII ('A' = 0x0041)
+        #expect(win.handleMsg(hwnd: dummyHwnd, msg: wmChar, wparam: 0x0041, lparam: 0) == 0)
+        #expect(recorder.text == "A")
+
+        // 2. Control characters (BS 0x08, ESC 0x1B, DEL 0x7F, NEL 0x85) are filtered out
+        #expect(win.handleMsg(hwnd: dummyHwnd, msg: wmChar, wparam: 0x0008, lparam: 0) == nil)
+        #expect(win.handleMsg(hwnd: dummyHwnd, msg: wmChar, wparam: 0x001B, lparam: 0) == nil)
+        #expect(win.handleMsg(hwnd: dummyHwnd, msg: wmChar, wparam: 0x007F, lparam: 0) == nil)
+        #expect(win.handleMsg(hwnd: dummyHwnd, msg: wmChar, wparam: 0x0085, lparam: 0) == nil)
+        #expect(recorder.text == "A")
+
+        // 3. Orphan low surrogate without preceding high surrogate is rejected
+        #expect(win.handleMsg(hwnd: dummyHwnd, msg: wmChar, wparam: 0xDE80, lparam: 0) == nil)
+        #expect(recorder.text == "A")
+
+        // 4. UTF-16 surrogate pair ('🚀' = U+1F680 = 0xD83D + 0xDE80)
+        #expect(win.handleMsg(hwnd: dummyHwnd, msg: wmChar, wparam: 0xD83D, lparam: 0) == nil)
+        #expect(recorder.text == "A")
+        #expect(win.handleMsg(hwnd: dummyHwnd, msg: wmChar, wparam: 0xDE80, lparam: 0) == 0)
+        #expect(recorder.text == "A🚀")
+
+        // 5. WM_IME_STARTCOMPOSITION queries caret bounds via PlatformInputHandler without deadlock
+        #expect(win.handleMsg(hwnd: dummyHwnd, msg: wmImeStartComposition, wparam: 0, lparam: 0) == 0)
+        #expect(recorder.boundsQueryCount == 1)
+    }
+}
+
+@MainActor
+private final class RecordingWindowsInputHandler: InputHandler {
+    var text: String = ""
+    var selection: Range<Int> = 0..<0
+    var marked: Range<Int>? = nil
+    var boundsQueryCount: Int = 0
+
+    func selectedTextRange(ignoreDisabledInput: Bool, window: inout Window, cx: inout App) -> UTF16Selection? {
+        UTF16Selection(range: selection, reversed: false)
+    }
+
+    func markedTextRange(window: inout Window, cx: inout App) -> Range<Int>? {
+        marked
+    }
+
+    func textForRange(rangeUtf16: Range<Int>, adjustedRange: inout Range<Int>?, window: inout Window, cx: inout App) -> String? {
+        text
+    }
+
+    func replaceTextInRange(rangeUtf16: Range<Int>?, text replacement: String, window: inout Window, cx: inout App) {
+        let target = rangeUtf16 ?? marked ?? selection
+        if let strRange = IMEBridge.utf16RangeToStringRange(target, in: text) {
+            text.replaceSubrange(strRange, with: replacement)
+            let cursor = target.lowerBound + replacement.utf16.count
+            selection = cursor..<cursor
+        }
+        marked = nil
+    }
+
+    func replaceAndMarkTextInRange(
+        rangeUtf16: Range<Int>?,
+        newText: String,
+        newSelectedRange: Range<Int>?,
+        window: inout Window,
+        cx: inout App
+    ) {
+        let target = rangeUtf16 ?? marked ?? selection
+        if let strRange = IMEBridge.utf16RangeToStringRange(target, in: text) {
+            text.replaceSubrange(strRange, with: newText)
+            let start = target.lowerBound
+            let end = start + newText.utf16.count
+            marked = newText.isEmpty ? nil : (start..<end)
+            selection = end..<end
+        }
+    }
+
+    func unmarkText(window: inout Window, cx: inout App) {
+        marked = nil
+    }
+
+    func setSelectedTextRange(selection: UTF16Selection?, window: inout Window, cx: inout App) {
+        if let selection {
+            self.selection = selection.range
+        }
+    }
+
+    func boundsForRange(rangeUtf16: Range<Int>, window: inout Window, cx: inout App) -> Bounds<Pixels>? {
+        boundsQueryCount += 1
+        return Bounds(origin: point(px(12), px(24)), size: size(px(2), px(18)))
+    }
+
+    func characterIndexForPoint(point: Point<Pixels>, window: inout Window, cx: inout App) -> Int? {
+        0
+    }
+}
+
+private struct WindowsInputDummyView: Render {
+    func render(_ window: inout Window, _ cx: inout Context<WindowsInputDummyView>) -> some IntoElement {
+        div()
+    }
 }
 #endif

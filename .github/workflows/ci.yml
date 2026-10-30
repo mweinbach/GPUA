@@ -28,14 +28,33 @@ jobs:
         run: python3 Scripts/test_parity.py --check
 
   macos:
-    name: macOS
+    name: macOS & iOS Simulator
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - run: swift --version
       - run: swift build --build-tests
       - run: swift test
+      - name: Upload macOS screenshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hello-world-macos
+          path: artifacts/screenshots/hello_world_macos.png
+          if-no-files-found: error
+      - name: Build Hosts/iOS for iOS Simulator
+        run: |
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          (cd Hosts/iOS && xcodegen generate)
+          xcodebuild \
+            -project Hosts/iOS/GPUIiOS.xcodeproj \
+            -scheme GPUIiOS \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
 
   linux:
     name: Linux
@@ -92,3 +111,45 @@ jobs:
           swift-version: "6.3"
           build-tests: false
           run-tests: false
+
+  wasm:
+    name: WebAssembly (WASI + WebGPU)
+    runs-on: ubuntu-latest
+    container: swift:6.3-noble
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Swift Wasm SDK
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends curl ca-certificates nodejs
+          swift sdk install https://download.swift.org/swift-6.3-release/wasm-sdk/swift-6.3-RELEASE/swift-6.3-RELEASE_wasm.artifactbundle.tar.gz
+          swift sdk list
+      - name: Build gpui-examples.wasm
+        run: |
+          SDK_ID="$(swift sdk list | grep -E 'wasm$' | head -n1)"
+          echo "Using Wasm SDK: ${SDK_ID}"
+          swift build --swift-sdk "${SDK_ID}" --product gpui-examples
+      - name: Validate JS runtime, Wasm imports & live WebGPU execution
+        run: |
+          node --check Hosts/web/gpui_web_runtime.js
+          WASM_BIN="$(find .build -name 'gpui-examples.wasm' | head -n1)"
+          test -f "${WASM_BIN}"
+          node --input-type=module -e '
+            import fs from "node:fs";
+            const wasmBytes = fs.readFileSync(process.argv[1]);
+            const mod = await WebAssembly.compile(wasmBytes);
+            const imports = WebAssembly.Module.imports(mod);
+            const runtimeSrc = fs.readFileSync("Hosts/web/gpui_web_runtime.js", "utf8");
+            const missing = [];
+            for (const imp of imports) {
+              if (!runtimeSrc.includes(imp.name)) {
+                missing.push(`${imp.module}.${imp.name} (${imp.kind})`);
+              }
+            }
+            console.log(`Validated ${imports.length} Wasm imports across [${[...new Set(imports.map(i => i.module))].join(", ")}]`);
+            if (missing.length > 0) {
+              console.error("Missing Wasm host imports in gpui_web_runtime.js:", missing);
+              process.exit(1);
+            }
+          ' "${WASM_BIN}"
+          node Scripts/verify_wasm_runtime.mjs "${WASM_BIN}"

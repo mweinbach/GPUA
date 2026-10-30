@@ -91,11 +91,13 @@ extension HttpRequestExt {
     }
 }
 
+#if !os(WASI)
 extension URLRequest: HttpRequestExt {
     public func followRedirects(_ follow: RedirectPolicy) -> URLRequest {
         self
     }
 }
+#endif
 
 /// Core HTTP client protocol.
 public protocol HttpClient: Sendable {

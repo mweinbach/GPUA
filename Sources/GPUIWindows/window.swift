@@ -72,9 +72,15 @@ private let WM_KEYDOWN: UInt32 = 0x0100
 private let WM_KEYUP: UInt32 = 0x0101
 private let WM_CHAR: UInt32 = 0x0102
 private let WM_SYSKEYUP: UInt32 = 0x0105
+private let WM_IME_STARTCOMPOSITION: UInt32 = 0x010D
+private let WM_IME_COMPOSITION: UInt32 = 0x010F
 private let WM_DPICHANGED: UInt32 = 0x02E0
 private let WM_NCDESTROY: UInt32 = 0x0082
 private let DM_POINTERHITTEST: UInt32 = 0x0246
+
+private let GCS_COMPSTR: UInt32 = 0x0008
+private let GCS_CURSORPOS: UInt32 = 0x0080
+private let GCS_RESULTSTR: UInt32 = 0x0800
 
 // MARK: - Window Geometry & Rect Calculations
 
@@ -255,6 +261,8 @@ public final class WindowsWindow: PlatformWindow, @unchecked Sendable {
 
     public let callbacks = WindowCallbacks()
     private var _inputHandler: (any PlatformInputHandlerProtocol)?
+    private var _pendingSurrogate: UInt16?
+    private var _imeEnabled: Bool = true
     public let clickState = ClickState()
     public let systemSettings = WindowsSystemSettings()
     public let directManipulation: DirectManipulationHandler?
@@ -630,6 +638,140 @@ public final class WindowsWindow: PlatformWindow, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return _inputHandler
+    }
+
+    @discardableResult
+    public func withInputHandler<R>(_ body: (any PlatformInputHandlerProtocol) -> R) -> R? {
+        lock.lock()
+        guard let handler = _inputHandler else {
+            lock.unlock()
+            return nil
+        }
+        _inputHandler = nil
+        lock.unlock()
+        defer {
+            lock.lock()
+            if _inputHandler == nil {
+                _inputHandler = handler
+            }
+            lock.unlock()
+        }
+        return body(handler)
+    }
+
+    /// Parses a Win32 `WM_CHAR` message (`wparam` low 16-bit UTF-16 code unit), assembling
+    /// surrogate pairs (`0xD800...0xDBFF` + `0xDC00...0xDFFF`) and filtering Unicode control characters.
+    public func parseCharMessage(_ wparam: UInt) -> String? {
+        let codePoint = UInt16(truncatingIfNeeded: wparam & 0xFFFF)
+        switch codePoint {
+        case 0xD800...0xDBFF:
+            lock.lock()
+            _pendingSurrogate = codePoint
+            lock.unlock()
+            return nil
+        case 0xDC00...0xDFFF:
+            lock.lock()
+            let highSurrogate = _pendingSurrogate
+            _pendingSurrogate = nil
+            lock.unlock()
+            guard let high = highSurrogate else {
+                return nil
+            }
+            var units = [high, codePoint].makeIterator()
+            var decoder = UTF16()
+            if case .scalarValue(let scalar) = decoder.decode(&units) {
+                return String(scalar)
+            }
+            return nil
+        default:
+            lock.lock()
+            _pendingSurrogate = nil
+            lock.unlock()
+            guard let scalar = UnicodeScalar(UInt32(codePoint)),
+                  scalar.value >= 0x20,
+                  !(0x7F...0x9F).contains(scalar.value) else {
+                return nil
+            }
+            return String(scalar)
+        }
+    }
+
+    private func retrieveCaretBounds() -> Bounds<Pixels>? {
+        withInputHandler { handler in
+            guard let caretRange = handler.selectedTextRange(ignoreDisabledInput: false) else {
+                return nil
+            }
+            return handler.boundsForRange(rangeUtf16: caretRange.range)
+        } ?? nil
+    }
+
+    private func updateImeEnabled(handle: WinHandle) {
+        let enabled = withInputHandler { $0.queryAcceptsTextInput() } ?? false
+        lock.lock()
+        let changed = (enabled != _imeEnabled)
+        _imeEnabled = enabled
+        lock.unlock()
+        if changed {
+            _ = cwin_win32_set_ime_enabled(handle, enabled ? 1 : 0)
+        }
+    }
+
+    private func readImeCompositionString(handle: WinHandle, compType: UInt32) -> [UInt16]? {
+        let byteLen = cwin_win32_get_ime_composition_string(handle, compType, nil, 0)
+        guard byteLen >= 0 else { return nil }
+        let unitCount = Int(byteLen) / 2
+        if unitCount == 0 {
+            return []
+        }
+        var buffer = [UInt16](repeating: 0, count: unitCount + 1)
+        let readLen = buffer.withUnsafeMutableBufferPointer { ptr in
+            cwin_win32_get_ime_composition_string(handle, compType, ptr.baseAddress, UInt32(byteLen))
+        }
+        guard readLen >= 0 else { return nil }
+        return Array(buffer.prefix(Int(readLen) / 2))
+    }
+
+    private func handleImeComposition(handle: WinHandle, lparam: Int) -> Int? {
+        let flags = UInt32(truncatingIfNeeded: lparam)
+        if flags == 0 {
+            guard withInputHandler({ $0.replaceTextInRange(rangeUtf16: nil, text: "") }) != nil else {
+                return nil
+            }
+            return 0
+        }
+        if (flags & GCS_RESULTSTR) != 0,
+           let resultUnits = readImeCompositionString(handle: handle, compType: GCS_RESULTSTR) {
+            let committed = String(decoding: resultUnits, as: UTF16.self)
+            guard withInputHandler({ $0.replaceTextInRange(rangeUtf16: nil, text: committed) }) != nil else {
+                return nil
+            }
+        }
+        if (flags & GCS_COMPSTR) != 0,
+           let compUnits = readImeCompositionString(handle: handle, compType: GCS_COMPSTR) {
+            let caretRange: Range<Int>?
+            if !compUnits.isEmpty && (flags & GCS_CURSORPOS) != 0 {
+                var shouldUse: Int32 = 0
+                let rawCursor = Int(cwin_win32_get_ime_cursor_pos(handle, &shouldUse))
+                let pos = (shouldUse != 0) ? min(max(0, rawCursor), compUnits.count) : compUnits.count
+                caretRange = pos..<pos
+            } else {
+                caretRange = nil
+            }
+            let marked = String(decoding: compUnits, as: UTF16.self)
+            guard withInputHandler({
+                $0.replaceAndMarkTextInRange(
+                    rangeUtf16: nil,
+                    newText: marked,
+                    newSelectedRange: caretRange
+                )
+            }) != nil else {
+                return nil
+            }
+        }
+        if (flags & (GCS_RESULTSTR | GCS_COMPSTR)) != 0 {
+            return 0
+        }
+        return nil
     }
 
     // MARK: - Window Title & Appearance
@@ -1099,7 +1241,22 @@ public final class WindowsWindow: PlatformWindow, @unchecked Sendable {
             return 1
 
         case WM_CHAR:
+            guard let input = parseCharMessage(wparam) else {
+                return nil
+            }
+            _ = withInputHandler { handler in
+                handler.replaceTextInRange(rangeUtf16: nil, text: input)
+            }
             return 0
+
+        case WM_IME_STARTCOMPOSITION:
+            if let caretBounds = retrieveCaretBounds() {
+                updateImePosition(bounds: caretBounds)
+            }
+            return 0
+
+        case WM_IME_COMPOSITION:
+            return handleImeComposition(handle: hwnd, lparam: lparam)
 
         case WM_TIMER:
             if wparam == UInt(SIZE_MOVE_LOOP_TIMER_ID) {
@@ -1137,6 +1294,7 @@ public final class WindowsWindow: PlatformWindow, @unchecked Sendable {
             renderer?.markDrawable()
         }
         requestFrame(RequestFrameOptions(requirePresentation: false, forceRender: forceRender))
+        updateImeEnabled(handle: handle)
     }
 }
 #endif

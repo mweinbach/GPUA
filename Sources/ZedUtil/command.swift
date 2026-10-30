@@ -4,6 +4,7 @@
 
 import Foundation
 
+#if !os(WASI) && !os(iOS) && !os(visionOS) && !os(Android)
 // PORT NOTE: Command wraps Foundation.Process configured before execution on a single thread matching upstream std::process::Command.
 public final class Command: @unchecked Sendable {
     private let process: Process
@@ -63,3 +64,4 @@ public func newStdCommand(_ program: String) -> Process {
     process.executableURL = URL(fileURLWithPath: program)
     return process
 }
+#endif

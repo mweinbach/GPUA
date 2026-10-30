@@ -2805,6 +2805,71 @@ int cwin_win32_update_ime_position(void* hwnd, int32_t x, int32_t y) {
     return cwin_win32_set_ime_position(hwnd, x, y, 0, 0);
 }
 
+int32_t cwin_win32_get_ime_composition_string(void* hwnd, uint32_t comp_type, uint16_t* out_utf16, uint32_t out_byte_cap) {
+    if (!hwnd) {
+        return -1;
+    }
+    HWND window_handle = static_cast<HWND>(hwnd);
+    HIMC himc = ImmGetContext(window_handle);
+    if (!himc) {
+        return -1;
+    }
+    LONG byte_len = ImmGetCompositionStringW(himc, static_cast<DWORD>(comp_type), out_utf16, static_cast<DWORD>(out_byte_cap));
+    ImmReleaseContext(window_handle, himc);
+    return static_cast<int32_t>(byte_len);
+}
+
+int32_t cwin_win32_get_ime_cursor_pos(void* hwnd, int* out_should_use_cursor) {
+    if (out_should_use_cursor) {
+        *out_should_use_cursor = 0;
+    }
+    if (!hwnd) {
+        return 0;
+    }
+    HWND window_handle = static_cast<HWND>(hwnd);
+    HIMC himc = ImmGetContext(window_handle);
+    if (!himc) {
+        return 0;
+    }
+    LONG cursor_pos = ImmGetCompositionStringW(himc, GCS_CURSORPOS, nullptr, 0);
+    if (cursor_pos < 0) {
+        cursor_pos = 0;
+    }
+    LONG attrs_size = ImmGetCompositionStringW(himc, GCS_COMPATTR, nullptr, 0);
+    if (attrs_size > 0 && out_should_use_cursor) {
+        std::vector<uint8_t> attrs(static_cast<size_t>(attrs_size), 0);
+        LONG read_attrs = ImmGetCompositionStringW(himc, GCS_COMPATTR, attrs.data(), static_cast<DWORD>(attrs_size));
+        if (read_attrs > 0) {
+            size_t cp = static_cast<size_t>(cursor_pos);
+            bool at_cursor_is_input = cp < attrs.size() && attrs[cp] == static_cast<uint8_t>(ATTR_INPUT);
+            bool before_cursor_is_input = cp > 0 && (cp - 1) < attrs.size() && attrs[cp - 1] == static_cast<uint8_t>(ATTR_INPUT);
+            if (at_cursor_is_input || before_cursor_is_input) {
+                *out_should_use_cursor = 1;
+            }
+        }
+    }
+    ImmReleaseContext(window_handle, himc);
+    return static_cast<int32_t>(cursor_pos);
+}
+
+int cwin_win32_set_ime_enabled(void* hwnd, int enabled) {
+    if (!hwnd) {
+        return (int)E_INVALIDARG;
+    }
+    HWND window_handle = static_cast<HWND>(hwnd);
+    if (enabled != 0) {
+        ImmAssociateContextEx(window_handle, nullptr, IACE_DEFAULT);
+    } else {
+        HIMC himc = ImmGetContext(window_handle);
+        if (himc) {
+            ImmNotifyIME(himc, NI_COMPOSITIONSTR, CPS_COMPLETE, 0);
+            ImmReleaseContext(window_handle, himc);
+        }
+        ImmAssociateContextEx(window_handle, nullptr, 0);
+    }
+    return 0;
+}
+
 // MARK: - Win32 Taskbar Jump List
 
 static constexpr PROPERTYKEY kPKEY_Title = {

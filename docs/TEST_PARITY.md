@@ -5,9 +5,9 @@
 ## Executive Summary
 
 - **Primary Upstream**: Glass-HQ/gpui @ 650aab59d54f & DioxusLabs/taffy @ 599b1b7d7410
-- **Total Upstream Tests**: 373
-- **Total Passing Swift Tests**: 368 (98.7%)
-- **Total Disabled with Technical Reason**: 5 (1.3%)
+- **Total Upstream Tests**: 400
+- **Total Passing Swift Tests**: 395 (98.8%)
+- **Total Disabled with Technical Reason**: 5 (1.2%)
 - **Total Unported Tests**: 0 (0.0%)
 - **Test Parity Status**: ✅ PASSED (>= 95.0% target required for AC5)
 
@@ -18,15 +18,19 @@
 | `GPUI` | 110 | 107 | 3 | 0 | 97.3% |
 | `GPUICollections` | 19 | 19 | 0 | 0 | 100.0% |
 | `GPUILinux` | 3 | 3 | 0 | 0 | 100.0% |
+| `GPUIMacOS` | 13 | 13 | 0 | 0 | 100.0% |
+| `GPUIMetal` | 2 | 2 | 0 | 0 | 100.0% |
 | `GPUIPlatform` | 3 | 1 | 2 | 0 | 33.3% |
 | `GPUIWGPU` | 2 | 2 | 0 | 0 | 100.0% |
+| `GPUIWeb` | 5 | 5 | 0 | 0 | 100.0% |
 | `GPUIWindows` | 5 | 5 | 0 | 0 | 100.0% |
+| `GPUIiOS` | 7 | 7 | 0 | 0 | 100.0% |
 | `HTTPClient` | 1 | 1 | 0 | 0 | 100.0% |
 | `Scheduler` | 16 | 16 | 0 | 0 | 100.0% |
 | `SumTree` | 10 | 10 | 0 | 0 | 100.0% |
 | `Taffy` | 89 | 89 | 0 | 0 | 100.0% |
 | `ZedUtil` | 115 | 115 | 0 | 0 | 100.0% |
-| **Total** | **373** | **368** | **5** | **0** | **98.7%** |
+| **Total** | **400** | **395** | **5** | **0** | **98.8%** |
 
 ## Detailed 1-to-1 Test Mapping
 
@@ -164,16 +168,43 @@
 | `crates/gpui_linux/src/linux/dispatcher.rs` | `calloop_works` | `Tests/GPUILinuxTests/linux/dispatcher.swift` | `calloopWorks()` | ✅ PASS | camel |
 | `crates/gpui_linux/src/linux/platform.rs` | `test_is_within_click_distance` | `Tests/GPUILinuxTests/linux/platform.swift` | `testIsWithinClickDistance()` | ✅ PASS | camel |
 | `crates/gpui_linux/src/linux/x11/event.rs` | `test_get_valuator_axis_index` | `Tests/GPUILinuxTests/linux/x11/event.swift` | `testGetValuatorAxisIndex()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/events.rs` | `test_should_not_prefer_character_input_for_enter` | `Tests/GPUIMacOSTests/events.swift` | `testShouldNotPreferCharacterInputForEnter()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/events.rs` | `test_should_not_prefer_character_input_for_tab` | `Tests/GPUIMacOSTests/events.swift` | `testShouldNotPreferCharacterInputForTab()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/events.rs` | `test_should_prefer_character_input_for_printable_text` | `Tests/GPUIMacOSTests/events.swift` | `testShouldPreferCharacterInputForPrintableText()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/pasteboard.rs` | `test_read_external_path` | `Tests/GPUIMacOSTests/pasteboard.swift` | `testReadExternalPath()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/pasteboard.rs` | `test_read_external_paths_with_spaces` | `Tests/GPUIMacOSTests/pasteboard.swift` | `testReadExternalPathsWithSpaces()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/pasteboard.rs` | `test_read_image` | `Tests/GPUIMacOSTests/pasteboard.swift` | `testReadImage()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/pasteboard.rs` | `test_read_multiple_external_paths` | `Tests/GPUIMacOSTests/pasteboard.swift` | `testReadMultipleExternalPaths()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/pasteboard.rs` | `test_string` | `Tests/GPUIMacOSTests/pasteboard.swift` | `testString()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/text_system.rs` | `test_layout_line_bom_char` | `Tests/GPUIMacOSTests/text_system.swift` | `testLayoutLineBomChar()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/text_system.rs` | `test_layout_line_zwnj_edge_cases` | `Tests/GPUIMacOSTests/text_system.swift` | `testLayoutLineZwnjEdgeCases()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/text_system.rs` | `test_layout_line_zwnj_insertion` | `Tests/GPUIMacOSTests/text_system.swift` | `testLayoutLineZwnjInsertion()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/window.rs` | `field_editor_shortcuts_do_not_treat_general_cmd_shortcuts_as_native` | `Tests/GPUIMacOSTests/window.swift` | `fieldEditorShortcutsDoNotTreatGeneralCmdShortcutsAsNative()` | ✅ PASS | camel |
+| `crates/gpui_macos/src/window.rs` | `field_editor_shortcuts_include_cmd_backspace` | `Tests/GPUIMacOSTests/window.swift` | `fieldEditorShortcutsIncludeCmdBackspace()` | ✅ PASS | camel |
+| `crates/gpui_metal/src/atlas.rs` | `remove_clears_stale_keys` | `Tests/GPUIMetalTests/atlas.swift` | `removeClearsStaleKeys()` | ✅ PASS | camel |
+| `crates/gpui_metal/src/atlas.rs` | `remove_missing_key_is_noop` | `Tests/GPUIMetalTests/atlas.swift` | `removeMissingKeyIsNoop()` | ✅ PASS | camel |
 | `crates/gpui_platform/src/gpui_platform.rs` | `test_advance_clock_triggers_delayed_tasks` | `Tests/GPUIPlatformTests/gpui_platform.swift` | `testAdvanceClockTriggersDelayedTasks()` | ⏸ DISABLED | ledger |
 | `crates/gpui_platform/src/gpui_platform.rs` | `test_foreground_tasks_run_with_run_until_parked` | `Tests/GPUIPlatformTests/gpui_platform.swift` | `testForegroundTasksRunWithRunUntilParked()` | ✅ PASS | camel |
 | `crates/gpui_platform/src/gpui_platform.rs` | `test_window_spawn_uses_test_dispatcher` | `Tests/GPUIPlatformTests/gpui_platform.swift` | `testWindowSpawnUsesTestDispatcher()` | ⏸ DISABLED | ledger |
 | `crates/gpui_wgpu/src/wgpu_atlas.rs` | `before_frame_skips_uploads_for_removed_texture` | `Tests/GPUIWGPUTests/wgpu_atlas.swift` | `before_frame_skips_uploads_for_removed_texture()` | ✅ PASS | exact |
 | `crates/gpui_wgpu/src/wgpu_context.rs` | `test_parse_device_id` | `Tests/GPUIWGPUTests/wgpu_context.swift` | `test_parse_device_id()` | ✅ PASS | exact |
+| `crates/gpui_web/src/window_environment.rs` | `test_reconcile_clamps_drawable_size` | `Tests/GPUIWebTests/window_environment.swift` | `testReconcileClampsDrawableSize()` | ✅ PASS | camel |
+| `crates/gpui_web/src/window_environment.rs` | `test_reconcile_emits_hidden_resize_for_zero_sized_canvas` | `Tests/GPUIWebTests/window_environment.swift` | `testReconcileEmitsHiddenResizeForZeroSizedCanvas()` | ✅ PASS | camel |
+| `crates/gpui_web/src/window_environment.rs` | `test_reconcile_emits_visible_resize_for_first_observation` | `Tests/GPUIWebTests/window_environment.swift` | `testReconcileEmitsVisibleResizeForFirstObservation()` | ✅ PASS | camel |
+| `crates/gpui_web/src/window_environment.rs` | `test_reconcile_skips_duplicate_metrics` | `Tests/GPUIWebTests/window_environment.swift` | `testReconcileSkipsDuplicateMetrics()` | ✅ PASS | camel |
+| `crates/gpui_web/src/window_environment.rs` | `test_reconcile_uses_measured_metrics_after_dpr_change` | `Tests/GPUIWebTests/window_environment.swift` | `testReconcileUsesMeasuredMetricsAfterDprChange()` | ✅ PASS | camel |
 | `crates/gpui_windows/src/direct_write.rs` | `test_cluster_map` | `Tests/GPUIWindowsTests/direct_write.swift` | `test_cluster_map()` | ✅ PASS | exact |
 | `crates/gpui_windows/src/keyboard.rs` | `test_keyboard_mapper` | `Tests/GPUIWindowsTests/keyboard.swift` | `testKeyboardMapper()` | ✅ PASS | camel |
 | `crates/gpui_windows/src/platform.rs` | `test_clipboard` | `Tests/GPUIWindowsTests/platform.swift` | `testClipboard()` | ✅ PASS | camel |
 | `crates/gpui_windows/src/window.rs` | `test_double_click_interval` | `Tests/GPUIWindowsTests/window.swift` | `testDoubleClickInterval()` | ✅ PASS | camel |
 | `crates/gpui_windows/src/window.rs` | `test_double_click_spatial_tolerance` | `Tests/GPUIWindowsTests/window.swift` | `testDoubleClickSpatialTolerance()` | ✅ PASS | camel |
+| `crates/gpui_ios/src/text_input/session.rs` | `sanitize_marked_range_rejects_stale_offsets` | `Tests/GPUIiOSTests/text_input/session.swift` | `sanitizeMarkedRangeRejectsStaleOffsets()` | ✅ PASS | camel |
+| `crates/gpui_ios/src/text_input/session.rs` | `sanitize_selection_clamps_stale_offsets` | `Tests/GPUIiOSTests/text_input/session.swift` | `sanitizeSelectionClampsStaleOffsets()` | ✅ PASS | camel |
+| `crates/gpui_ios/src/text_input/session.rs` | `sanitize_selection_rejects_reversed_offsets` | `Tests/GPUIiOSTests/text_input/session.swift` | `sanitizeSelectionRejectsReversedOffsets()` | ✅ PASS | camel |
+| `crates/gpui_ios/src/text_input/session.rs` | `sanitize_text_state_clamps_selection_and_drops_marked_range` | `Tests/GPUIiOSTests/text_input/session.swift` | `sanitizeTextStateClampsSelectionAndDropsMarkedRange()` | ✅ PASS | camel |
+| `crates/gpui_ios/src/text_input/session.rs` | `selection_from_range_preserves_existing_direction_for_same_range` | `Tests/GPUIiOSTests/text_input/session.swift` | `selectionFromRangePreservesExistingDirectionForSameRange()` | ✅ PASS | camel |
+| `crates/gpui_ios/src/text_input/session.rs` | `text_diff_handles_emoji_utf16` | `Tests/GPUIiOSTests/text_input/session.swift` | `textDiffHandlesEmojiUtf16()` | ✅ PASS | camel |
+| `crates/gpui_ios/src/text_input/session.rs` | `text_diff_handles_middle_replacement` | `Tests/GPUIiOSTests/text_input/session.swift` | `textDiffHandlesMiddleReplacement()` | ✅ PASS | camel |
 | `crates/http_client/src/github.rs` | `test_build_asset_url` | `Tests/HTTPClientTests/github.swift` | `test_build_asset_url()` | ✅ PASS | exact |
 | `crates/scheduler/src/tests.rs` | `test_background_executor_spawn` | `Tests/SchedulerTests/tests.swift` | `test_background_executor_spawn()` | ✅ PASS | exact |
 | `crates/scheduler/src/tests.rs` | `test_background_priority_scheduling` | `Tests/SchedulerTests/tests.swift` | `test_background_priority_scheduling()` | ✅ PASS | exact |

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=0" />
+        <title>GPUA Web: gpui-examples</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                margin: 0;
+                height: 100%;
+                background: #1e1e2e;
+                color: #cdd6f4;
+                font-family: system-ui, -apple-system, sans-serif;
+            }
+            canvas {
+                display: block;
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+                outline: none;
+                -webkit-user-select: none;
+                user-select: none;
+            }
+            #gpui-status {
+                position: fixed;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                pointer-events: none;
+                font-size: 14px;
+                opacity: 0.8;
+            }
+            #gpui-status.hidden {
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="gpui-status">Loading GPUA WebAssembly module…</div>
+        <script type="module">
+            import { runGpuiWebApp } from "./gpui_web_runtime.js";
+
+            const params = new URLSearchParams(window.location.search);
+            const wasmUrl = params.get("wasm") || "./gpui-examples.wasm";
+            const exampleArg = params.get("example") || "hello_world";
+            const statusEl = document.getElementById("gpui-status");
+
+            runGpuiWebApp(wasmUrl, {
+                args: ["gpui-examples", exampleArg],
+                onReady() {
+                    statusEl?.classList.add("hidden");
+                },
+            }).catch((error) => {
+                console.error("Failed to launch GPUA Web:", error);
+                if (statusEl) {
+                    statusEl.textContent = `Failed to launch GPUA Web: ${error?.message || error}`;
+                }
+            });
+        </script>
+    </body>
+</html>

@@ -278,6 +278,9 @@ int cwin_win32_task_dialog(void* hwnd_parent, int level, const uint16_t* instruc
 
 // Win32 Input Method Manager (IMM)
 int cwin_win32_set_ime_position(void* hwnd, int32_t x, int32_t y, int32_t width, int32_t height);
+int32_t cwin_win32_get_ime_composition_string(void* hwnd, uint32_t comp_type, uint16_t* out_utf16, uint32_t out_byte_cap);
+int32_t cwin_win32_get_ime_cursor_pos(void* hwnd, int* out_should_use_cursor);
+int cwin_win32_set_ime_enabled(void* hwnd, int enabled);
 
 // Win32 Taskbar Jump List (ICustomDestinationList & IShellLinkW)
 int cwin_jump_list_create(void** out_dest_list);

@@ -1,0 +1,4 @@
+module CAndroidSys [system] {
+    header "CAndroidSys.h"
+    export *
+}

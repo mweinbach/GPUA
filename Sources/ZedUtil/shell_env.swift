@@ -3,7 +3,9 @@
 // Port status: ported
 
 import Foundation
+#if !os(WASI)
 import Dispatch
+#endif
 
 #if canImport(Darwin)
 import Darwin
@@ -11,6 +13,8 @@ import Darwin
 import Glibc
 #elseif canImport(Android)
 import Android
+#elseif canImport(WASILibc)
+import WASILibc
 #elseif os(Windows)
 import CRT
 #endif
@@ -80,14 +84,19 @@ public func capture(
     args: [String] = [],
     directory: String
 ) async throws -> [String: String] {
-    #if os(Windows)
+    #if os(WASI) || os(iOS) || os(visionOS) || os(Android)
+    _ = shellPath
+    _ = args
+    _ = directory
+    return ProcessInfo.processInfo.environment
+    #elseif os(Windows)
     return try await captureWindows(shellPath: shellPath, args: args, directory: directory)
     #else
     return try await captureUnix(shellPath: shellPath, args: args, directory: directory)
     #endif
 }
 
-#if !os(Windows)
+#if !os(Windows) && !os(WASI) && !os(iOS) && !os(visionOS) && !os(Android)
 private func captureUnix(
     shellPath: String,
     args: [String],
@@ -173,6 +182,7 @@ private func captureUnix(
 }
 #endif
 
+#if !os(WASI) && !os(iOS) && !os(visionOS) && !os(Android)
 public func captureWindows(
     shellPath: String,
     args: [String],
@@ -247,3 +257,4 @@ public func captureWindows(
         }
     }
 }
+#endif

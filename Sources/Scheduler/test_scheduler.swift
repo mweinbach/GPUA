@@ -17,6 +17,10 @@ import WinSDK
 private typealias NativeThreadId = DWORD
 private func currentThreadId() -> NativeThreadId { GetCurrentThreadId() }
 private func threadIdEqual(_ a: NativeThreadId, _ b: NativeThreadId) -> Bool { a == b }
+#elseif os(WASI)
+private typealias NativeThreadId = UInt32
+private func currentThreadId() -> NativeThreadId { 1 }
+private func threadIdEqual(_ a: NativeThreadId, _ b: NativeThreadId) -> Bool { a == b }
 #else
 private typealias NativeThreadId = pthread_t
 private func currentThreadId() -> NativeThreadId { pthread_self() }
@@ -705,9 +709,13 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
     }
 
     public func spawnRealtime(closure: @escaping @Sendable () -> Void) {
+        #if os(WASI)
+        closure()
+        #else
         Thread.detachNewThread {
             closure()
         }
+        #endif
     }
 
     public func timer(timeout: Duration) -> Timer {
@@ -822,7 +830,9 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                 if Date() >= hardDeadline {
                     fatalError("Test timed out after 15 seconds while parking. This may indicate a deadlock or missing waker.")
                 }
+                #if !os(WASI)
                 Thread.sleep(forTimeInterval: 0.01)
+                #endif
                 clockInstance.advance(by: .milliseconds(10))
             } else if timeout != nil {
                 token.cancel()
@@ -1080,7 +1090,9 @@ public final class TestScheduler: Scheduler, @unchecked Sendable {
                 if Date() >= hardDeadline {
                     throw SchedulerError("Test timed out after 15 seconds while parking in blockOnForeground. This may indicate a deadlock.")
                 }
+                #if !os(WASI)
                 Thread.sleep(forTimeInterval: 0.01)
+                #endif
                 clockInstance.advance(by: .milliseconds(10))
             } else {
                 token.cancel()

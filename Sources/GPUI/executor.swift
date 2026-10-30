@@ -11,10 +11,17 @@ public final class MainThreadDispatcher: PlatformDispatcher, @unchecked Sendable
     public init() {}
 
     public func isMainThread() -> Bool {
-        Thread.isMainThread
+        #if os(WASI)
+        return true
+        #else
+        return Thread.isMainThread
+        #endif
     }
 
     public func dispatch(_ runnable: @escaping @Sendable () -> Void, priority: Priority) {
+        #if os(WASI)
+        runnable()
+        #else
         let qos: DispatchQoS.QoSClass
         switch priority {
         case .high: qos = .userInitiated
@@ -23,22 +30,36 @@ public final class MainThreadDispatcher: PlatformDispatcher, @unchecked Sendable
         case .realtimeAudio: qos = .userInteractive
         }
         DispatchQueue.global(qos: qos).async(execute: runnable)
+        #endif
     }
 
     public func dispatchOnMainThread(_ runnable: @escaping @Sendable () -> Void, priority: Priority) {
+        #if os(WASI)
+        runnable()
+        #else
         if Thread.isMainThread {
             runnable()
         } else {
             DispatchQueue.main.async(execute: runnable)
         }
+        #endif
     }
 
     public func dispatchAfter(duration: TimeInterval, _ runnable: @escaping @Sendable () -> Void) {
+        #if os(WASI)
+        _ = duration
+        runnable()
+        #else
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: runnable)
+        #endif
     }
 
     public func spawnRealtime(_ f: @escaping @Sendable () -> Void) {
+        #if os(WASI)
+        f()
+        #else
         DispatchQueue.global(qos: .userInteractive).async(execute: f)
+        #endif
     }
 
     public func now() -> Date {

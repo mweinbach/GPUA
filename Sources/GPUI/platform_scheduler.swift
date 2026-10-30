@@ -53,6 +53,14 @@ public final class PlatformScheduler: Scheduler, @unchecked Sendable {
         timeout: Duration?,
         operation: @Sendable @escaping () async -> Void
     ) -> Bool {
+        #if os(WASI)
+        _ = sessionId
+        _ = timeout
+        _Concurrency.Task {
+            await operation()
+        }
+        return false
+        #else
         let semaphore = DispatchSemaphore(value: 0)
         _Concurrency.Task {
             await operation()
@@ -66,6 +74,7 @@ public final class PlatformScheduler: Scheduler, @unchecked Sendable {
             semaphore.wait()
             return true
         }
+        #endif
     }
 
     public func scheduleForeground(sessionId: SessionId, runnable: Runnable) {

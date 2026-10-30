@@ -1397,11 +1397,57 @@ public enum InputModality: Sendable, Equatable {
 
 public protocol PlatformInputHandlerProtocol: AnyObject {
     func acceptsTextInput(window: Window, cx: App) -> Bool
+    func queryAcceptsTextInput() -> Bool
+    func textInputConfig() -> TextInputConfig
+    func submitTextInput()
     func dispatchInput(_ text: String, _ window: inout Window, _ cx: inout App)
+    func selectedTextRange(ignoreDisabledInput: Bool) -> UTF16Selection?
+    func markedTextRange() -> Range<Int>?
+    func queryPrefersImeForPrintableKeys() -> Bool
+    func textForRange(rangeUtf16: Range<Int>, adjustedRange: inout Range<Int>?) -> String?
+    func replaceTextInRange(rangeUtf16: Range<Int>?, text: String)
+    func deleteBackward()
+    func replaceAndMarkTextInRange(
+        rangeUtf16: Range<Int>?,
+        newText: String,
+        newSelectedRange: Range<Int>?
+    )
+    func unmarkText()
+    func setSelectedTextRange(selection: UTF16Selection?)
+    func boundsForRange(rangeUtf16: Range<Int>) -> Bounds<Pixels>?
+    func selectedBounds() -> Bounds<Pixels>?
+    func characterIndexForPoint(point: Point<Pixels>) -> Int?
+    func applePressAndHoldEnabled() -> Bool
 }
 
 extension PlatformInputHandlerProtocol {
     public func acceptsTextInput(window: Window, cx: App) -> Bool { true }
+    public func queryAcceptsTextInput() -> Bool { true }
+    public func textInputConfig() -> TextInputConfig { TextInputConfig() }
+    public func submitTextInput() {}
+    public func selectedTextRange(ignoreDisabledInput: Bool) -> UTF16Selection? { nil }
+    public func markedTextRange() -> Range<Int>? { nil }
+    public func queryPrefersImeForPrintableKeys() -> Bool { false }
+    public func textForRange(rangeUtf16: Range<Int>, adjustedRange: inout Range<Int>?) -> String? { nil }
+    public func replaceTextInRange(rangeUtf16: Range<Int>?, text: String) {}
+    public func deleteBackward() { replaceTextInRange(rangeUtf16: nil, text: "") }
+    public func replaceAndMarkTextInRange(
+        rangeUtf16: Range<Int>?,
+        newText: String,
+        newSelectedRange: Range<Int>?
+    ) {}
+    public func unmarkText() {}
+    public func setSelectedTextRange(selection: UTF16Selection?) {}
+    public func boundsForRange(rangeUtf16: Range<Int>) -> Bounds<Pixels>? { nil }
+    public func selectedBounds() -> Bounds<Pixels>? {
+        guard let selection = selectedTextRange(ignoreDisabledInput: true) else { return nil }
+        let caret = selection.reversed
+            ? selection.range.lowerBound..<selection.range.lowerBound
+            : selection.range.upperBound..<selection.range.upperBound
+        return boundsForRange(rangeUtf16: caret)
+    }
+    public func characterIndexForPoint(point: Point<Pixels>) -> Int? { nil }
+    public func applePressAndHoldEnabled() -> Bool { true }
 }
 
 // MARK: - PlatformWindow Protocol
@@ -1424,17 +1470,39 @@ public protocol PlatformWindow: AnyObject, Sendable {
     func zoom()
     func toggleFullScreen()
     func draw(scene: Scene)
+    func completedFrame()
     func spriteAtlas() -> any PlatformAtlas
     func setInputHandler(_ handler: any PlatformInputHandlerProtocol)
     func takeInputHandler() -> (any PlatformInputHandlerProtocol)?
     func activeInputHandler() -> (any PlatformInputHandlerProtocol)?
+    func onRequestFrame(_ callback: @escaping (RequestFrameOptions) -> Void)
+    func onInput(_ callback: @escaping (PlatformInput) -> DispatchEventResult)
+    func onActiveStatusChange(_ callback: @escaping (Bool) -> Void)
+    func onHoverStatusChange(_ callback: @escaping (Bool) -> Void)
+    func onResize(_ callback: @escaping (Size<Pixels>, Float) -> Void)
+    func onMoved(_ callback: @escaping () -> Void)
+    func onShouldClose(_ callback: @escaping () -> Bool)
+    func onClose(_ callback: @escaping () -> Void)
+    func onAppearanceChanged(_ callback: @escaping () -> Void)
+    func onButtonLayoutChanged(_ callback: @escaping () -> Void)
 }
 
 extension PlatformWindow {
+    public func completedFrame() {}
     public func spriteAtlas() -> any PlatformAtlas { TestAtlas.new() }
     public func takeInputHandler() -> (any PlatformInputHandlerProtocol)? { nil }
     public func setInputHandler(_ handler: any PlatformInputHandlerProtocol) {}
     public func activeInputHandler() -> (any PlatformInputHandlerProtocol)? { nil }
+    public func onRequestFrame(_ callback: @escaping (RequestFrameOptions) -> Void) {}
+    public func onInput(_ callback: @escaping (PlatformInput) -> DispatchEventResult) {}
+    public func onActiveStatusChange(_ callback: @escaping (Bool) -> Void) {}
+    public func onHoverStatusChange(_ callback: @escaping (Bool) -> Void) {}
+    public func onResize(_ callback: @escaping (Size<Pixels>, Float) -> Void) {}
+    public func onMoved(_ callback: @escaping () -> Void) {}
+    public func onShouldClose(_ callback: @escaping () -> Bool) {}
+    public func onClose(_ callback: @escaping () -> Void) {}
+    public func onAppearanceChanged(_ callback: @escaping () -> Void) {}
+    public func onButtonLayoutChanged(_ callback: @escaping () -> Void) {}
     public func rawNativeViewPtr() -> UnsafeMutableRawPointer? { nil }
     public func nativeToolbarItemBounds() -> [String: Bounds<Pixels>] { [:] }
     public func requestDecorations(_ decorations: WindowDecorations) {}
@@ -2100,6 +2168,9 @@ public struct Window: @unchecked Sendable {
             nextFrame.dispatchTree.keymap = cx.keymap
             // Stage 1 & 2: Entity Invalidation & Setup
             dirtyViews.formUnion(invalidator.takeViews())
+            if let prevInputHandler = platformWindow.takeInputHandler() {
+                renderedFrame.inputHandlers.append(prevInputHandler)
+            }
 
             // Drain next-frame callbacks
             let callbacks = nextFrameCallbacks
@@ -2136,6 +2207,8 @@ public struct Window: @unchecked Sendable {
                 root.paint(&self, &cx)
             }
 
+            let requestedInputHandler = nextFrame.inputHandlers.popLast()
+
             // Stage 6: Finalize Layout & Text
             layoutEngine?.clear()
 
@@ -2146,6 +2219,10 @@ public struct Window: @unchecked Sendable {
 
             invalidator.setPhase(.none)
             invalidator.setDirty(false)
+
+            if let requestedInputHandler {
+                platformWindow.setInputHandler(requestedInputHandler)
+            }
 
             // Present completed scene to display backend
             platformWindow.draw(scene: renderedFrame.scene)
@@ -2802,7 +2879,28 @@ public struct Window: @unchecked Sendable {
     ) {
         invalidator.debugAssertPaint()
         if focusHandle.isFocused(self) {
-            nextFrame.inputHandlers.append(inputHandler)
+            if inputHandler is PlatformInputHandler {
+                nextFrame.inputHandlers.append(inputHandler)
+            } else if let rich = inputHandler as? any InputHandler {
+                nextFrame.inputHandlers.append(
+                    PlatformInputHandler(windowHandle: self.windowHandle(), app: cx, handler: rich)
+                )
+            } else {
+                nextFrame.inputHandlers.append(inputHandler)
+            }
+        }
+    }
+
+    public mutating func handleInput(
+        _ focusHandle: FocusHandle,
+        _ inputHandler: any InputHandler,
+        _ cx: App
+    ) {
+        invalidator.debugAssertPaint()
+        if focusHandle.isFocused(self) {
+            nextFrame.inputHandlers.append(
+                PlatformInputHandler(windowHandle: self.windowHandle(), app: cx, handler: inputHandler)
+            )
         }
     }
 

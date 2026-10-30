@@ -85,7 +85,11 @@ public final class TestDispatcher: PlatformDispatcher, @unchecked Sendable {
     // MARK: - PlatformDispatcher
 
     public func isMainThread() -> Bool {
-        Thread.isMainThread
+        #if os(WASI)
+        return true
+        #else
+        return Thread.isMainThread
+        #endif
     }
 
     public func now() -> Date {

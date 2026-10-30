@@ -116,6 +116,16 @@ let package = Package(
             path: "Sources/CWinSys",
             publicHeadersPath: "include"
         ),
+        .target(
+            name: "CAndroidSys",
+            path: "Sources/CAndroidSys",
+            publicHeadersPath: "include"
+        ),
+        .target(
+            name: "CWebSys",
+            path: "Sources/CWebSys",
+            publicHeadersPath: "include"
+        ),
 
         // ---- Core ----------------------------------------------------------
         crate(                                                      // crates/gpui
@@ -192,8 +202,36 @@ let package = Package(
                 .linkedLibrary("winmm", .when(platforms: [.windows])),
             ]
         ),
-        crate("GPUIWeb", ["GPUI", "GPUIWGPU", "HTTPClient"]),                                 // crates/gpui_web
-        crate("GPUIAndroid", ["GPUI", "GPUIWGPU", "GPUICollections"]),                        // Swift-only (no upstream crate)
+        crate(
+            "GPUIWeb",
+            [
+                "GPUI",
+                "GPUIWGPU",
+                "GPUICollections",
+                "GPUIUtil",
+                "HTTPClient",
+                "ZedUtil",
+                "CWebGPU",
+                .target(name: "CWebSys", condition: .when(platforms: [.wasi])),
+            ]
+        ),                                                                                      // crates/gpui_web
+        crate(
+            "GPUIAndroid",
+            [
+                "GPUI",
+                "GPUIWGPU",
+                "GPUICollections",
+                "GPUIUtil",
+                "HTTPClient",
+                "ZedUtil",
+                "CWebGPU",
+                .target(name: "CAndroidSys", condition: .when(platforms: [.android])),
+            ],
+            linkerSettings: [
+                .linkedLibrary("android", .when(platforms: [.android])),
+                .linkedLibrary("log", .when(platforms: [.android])),
+            ]
+        ),                                                                                      // Swift-only (no upstream crate)
 
         crate(                                                      // crates/gpui_platform
             "GPUIPlatform",
@@ -233,7 +271,8 @@ let package = Package(
         crateTests("GPUIiOS"),
         crateTests("GPUILinux", ["GPUIUtil"]),
         crateTests("GPUIWindows", ["GPUIUtil"]),
-        crateTests("GPUIWeb"),
+        crateTests("GPUIWeb", ["GPUIUtil"]),
+        crateTests("GPUIAndroid", ["GPUIUtil"]),
         crateTests("GPUIPlatform"),
     ]
 )

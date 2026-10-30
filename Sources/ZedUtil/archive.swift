@@ -855,7 +855,11 @@ private enum ZipWriter {
         zipData.appendUInt32(cdOffset)
         zipData.appendUInt16(0) // comment length
 
+        #if os(WASI)
+        try zipData.write(to: destinationZip)
+        #else
         try zipData.write(to: destinationZip, options: .atomic)
+        #endif
     }
 
     private static func createDeflateStoredBlocks(_ bytes: [UInt8]) -> [UInt8] {

@@ -462,6 +462,11 @@ public final class ForegroundExecutor: @unchecked Sendable {
         if let testScheduler = scheduler.asTest() {
             return try testScheduler.blockOnForeground(sessionId: sessionId, future: future)
         } else {
+            #if os(WASI)
+            // PORT NOTE: Single-threaded WASI cannot block the host browser event loop synchronously,
+            // matching upstream scheduler::ForegroundExecutor::block_on panic on target_family = "wasm".
+            preconditionFailure("ForegroundExecutor.blockOn is not supported on single-threaded WASI")
+            #else
             let group = DispatchGroup()
             group.enter()
             let box = TaskBox<Result<T, any Error>>()
@@ -476,6 +481,7 @@ public final class ForegroundExecutor: @unchecked Sendable {
             }
             group.wait()
             return try box.syncValue!.get()
+            #endif
         }
     }
 
@@ -486,6 +492,10 @@ public final class ForegroundExecutor: @unchecked Sendable {
         if let testScheduler = scheduler.asTest() {
             return testScheduler.blockWithTimeoutForeground(sessionId: sessionId, timeout: timeout, future: future)
         } else {
+            #if os(WASI)
+            let task = spawn(future)
+            return .timeout(task)
+            #else
             let task = spawn(future)
             let group = DispatchGroup()
             group.enter()
@@ -502,6 +512,7 @@ public final class ForegroundExecutor: @unchecked Sendable {
             } else {
                 return .timeout(task)
             }
+            #endif
         }
     }
 

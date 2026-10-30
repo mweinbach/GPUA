@@ -21,3 +21,6 @@ Copy [0000-template.md](0000-template.md), take the next number, and open it as 
 | [0008](0008-features-as-traits.md) | Cargo features → SwiftPM package traits | Accepted |
 | [0009](0009-linux-windowing-deps.md) | Linux windowing, input, and system library dependencies | Accepted |
 | [0010](0010-windows-com-interop.md) | Windows COM, Direct3D 11, and DirectWrite C bridge (CWinSys) | Accepted |
+| [0011](0011-apple-native-and-ios-host.md) | Apple native backends (`GPUIMetal`, `GPUIApple`, `GPUIMacOS`, `GPUIiOS`) and iOS host shell | Accepted |
+| [0012](0012-android-platform-and-jni.md) | Android platform backend (`GPUIAndroid`), NDK C bridge (`CAndroidSys`), and `wgpu-native` dynamic dispatch | Accepted |
+| [0013](0013-web-wasm-bridge.md) | Web / Wasm backend (`GPUIWeb`), zero-dependency WASI host bridge (`CWebSys`), and browser WebGPU | Accepted |

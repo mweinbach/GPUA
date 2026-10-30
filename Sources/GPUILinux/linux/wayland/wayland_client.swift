@@ -311,7 +311,7 @@ public final class WaylandClientStatePtr: @unchecked Sendable {
     public func disableIme() {
         state.composing = false
         if let focused = state.keyboardFocusedWindow {
-            focused.state.inputHandler?.unmarkText()
+            focused.handleIme(.unmarkText)
         }
     }
 

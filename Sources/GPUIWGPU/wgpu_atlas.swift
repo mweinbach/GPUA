@@ -162,9 +162,13 @@ final class WgpuAtlasTexture: @unchecked Sendable {
     }
 
     func destroy() {
-        #if os(Linux)
-        wgpuTextureViewRelease(view)
-        wgpuTextureRelease(texture)
+        #if os(Linux) || os(Android) || os(WASI)
+        if view != OpaquePointer(bitPattern: 1) {
+            wgpuTextureViewRelease(view)
+        }
+        if texture != OpaquePointer(bitPattern: 1) {
+            wgpuTextureRelease(texture)
+        }
         #endif
     }
 }
@@ -222,8 +226,9 @@ struct WgpuAtlasState {
 
         var limits = WGPULimits()
         self.maxTextureSize = 8192
-        #if os(Linux)
-        if wgpuDeviceGetLimits(device, &limits) == WGPUStatus_Success {
+        #if os(Linux) || os(Android) || os(WASI)
+        if device != OpaquePointer(bitPattern: 1),
+           wgpuDeviceGetLimits(device, &limits) == WGPUStatus_Success {
             self.maxTextureSize = max(limits.maxTextureDimension2D, 2048)
         }
         #endif
@@ -270,12 +275,17 @@ struct WgpuAtlasState {
         desc.dimension = WGPUTextureDimension_2D
         desc.format = format
         desc.usage = WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst
-        #if os(Linux)
-        let texture = wgpuDeviceCreateTexture(device, &desc)!
-        let view = wgpuTextureCreateView(texture, nil)!
+        #if os(Linux) || os(Android) || os(WASI)
+        let createdTexture = (device != OpaquePointer(bitPattern: 1)) ? wgpuDeviceCreateTexture(device, &desc) : nil
+        // PORT NOTE: Non-null sentinel handle fallback when headless tests construct WgpuAtlas without an active GPU device.
+        let texture = createdTexture ?? OpaquePointer(bitPattern: 1)!
+        let createdView = createdTexture.flatMap { wgpuTextureCreateView($0, nil) }
+        // PORT NOTE: Non-null sentinel view handle fallback when headless tests run without an active GPU device.
+        let view = createdView ?? OpaquePointer(bitPattern: 1)!
         #else
-        // PORT NOTE: WebGPU C runtime calls are gated on os(Linux) because libwgpu_native is linked on Linux, while Windows uses D3D11 in GPUIWindows and Android/WASI backends are deferred per R3.
+        // PORT NOTE: Windows uses DirectXRenderer (D3D11) in GPUIWindows rather than WebGPU C runtime calls.
         let texture = OpaquePointer(bitPattern: 1)!
+        // PORT NOTE: Non-null sentinel view handle on Windows where GPUIWindows uses D3D11.
         let view = OpaquePointer(bitPattern: 1)!
         #endif
 
@@ -338,13 +348,16 @@ struct WgpuAtlasState {
 
             var extent = WGPUExtent3D(width: width, height: height, depthOrArrayLayers: 1)
 
-            #if os(Linux)
+            #if os(Linux) || os(Android) || os(WASI)
+            guard queue != OpaquePointer(bitPattern: 1), texture.texture != OpaquePointer(bitPattern: 1) else {
+                continue
+            }
             upload.data.withUnsafeBytes { rawBytes in
                 guard let basePtr = rawBytes.baseAddress else { return }
                 wgpuQueueWriteTexture(queue, &destCopy, basePtr, rawBytes.count, &layout, &extent)
             }
             #else
-            // PORT NOTE: WebGPU C runtime calls are gated on os(Linux) because libwgpu_native is linked on Linux, while Windows uses D3D11 in GPUIWindows and Android/WASI backends are deferred per R3.
+            // PORT NOTE: Windows uses DirectXRenderer (D3D11) in GPUIWindows rather than WebGPU C runtime calls.
             #endif
         }
     }

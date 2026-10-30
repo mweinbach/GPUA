@@ -187,12 +187,20 @@ public func createDirectories(at url: URL) throws {
 /// Helper: atomic file write via temporary file and atomic rename.
 public func atomicWrite(data: Data, to destinationPath: String) throws {
     let destinationURL = URL(fileURLWithPath: destinationPath)
+    #if os(WASI)
+    try data.write(to: destinationURL)
+    #else
     try data.write(to: destinationURL, options: .atomic)
+    #endif
 }
 
 /// Helper: atomic file write via URL.
 public func atomicWrite(data: Data, to destinationURL: URL) throws {
+    #if os(WASI)
+    try data.write(to: destinationURL)
+    #else
     try data.write(to: destinationURL, options: .atomic)
+    #endif
 }
 
 /// Helper: set POSIX permissions if on Unix.

@@ -12,6 +12,7 @@ import Glibc
 @Suite("WaylandIntegrationTests")
 struct WaylandIntegrationTests {
     @Test
+    @MainActor
     func testHeadlessWestonWindowAndRenderingSmoke() throws {
         if ProcessInfo.processInfo.environment["CI"] != nil {
             #expect(FileManager.default.isExecutableFile(atPath: "/usr/bin/weston"), "Weston binary must be installed on Linux CI")
@@ -203,6 +204,55 @@ struct WaylandIntegrationTests {
         client.writeToPrimary(primaryItem)
         let readPrimary = client.readFromPrimary()
         #expect(readPrimary?.text == "Hello Wayland Primary 📝")
+
+        // Verify GPUI.PlatformInputHandler end-to-end on WaylandWindow (setInputHandler, keyDown, zwp_text_input_v3 IME)
+        let app = App.newApp(platform: LinuxPlatform(inner: client))
+        let appWinHandle = try app.openWindow(
+            WindowOptions(
+                windowBounds: .windowed(Bounds(origin: .zero, size: Size(width: px(200), height: px(150)))),
+                kind: .normal
+            )
+        ) { _, cx in
+            cx.new { _ in LinuxInputDummyView() }
+        }
+        let appWaylandWindow = try #require(
+            try app.updateWindow(appWinHandle.anyHandle) { _, win, _ in win.platformWindow as? WaylandWindow }
+        )
+        let recorder = RecordingLinuxInputHandler()
+        let platformHandler = PlatformInputHandler(
+            windowHandle: appWinHandle.anyHandle,
+            app: app,
+            handler: recorder
+        )
+        appWaylandWindow.setInputHandler(platformHandler)
+        #expect(appWaylandWindow.activeInputHandler() != nil)
+        appWaylandWindow.onInput { _ in
+            DispatchEventResult(propagate: true, defaultPrevented: false)
+        }
+
+        _ = appWaylandWindow.ptr.handleInput(.keyDown(KeyDownEvent(keystroke: Keystroke(key: "w", keyChar: "w"))))
+        #expect(recorder.text == "w")
+
+        appWaylandWindow.ptr.handleIme(.setMarkedText("にほ"))
+        #expect(recorder.text == "wにほ")
+        #expect(recorder.marked == 1..<3)
+        #expect(appWaylandWindow.ptr.getImeArea() == Bounds(origin: point(px(14), px(28)), size: size(px(2), px(20))))
+
+        appWaylandWindow.ptr.handleIme(.deleteText)
+        #expect(recorder.text == "w")
+        #expect(recorder.marked == nil)
+
+        appWaylandWindow.ptr.handleIme(.setMarkedText("かん"))
+        appWaylandWindow.ptr.handleIme(.insertText("漢"))
+        #expect(recorder.text == "w漢")
+        #expect(recorder.marked == nil)
+
+        appWaylandWindow.ptr.handleIme(.setMarkedText("かな"))
+        appWaylandWindow.ptr.handleIme(.unmarkText)
+        #expect(recorder.marked == nil)
+        #expect(recorder.unmarkCount == 1)
+        #expect(appWaylandWindow.takeInputHandler() != nil)
+        #expect(appWaylandWindow.activeInputHandler() == nil)
     }
 }
 #endif

@@ -605,5 +605,134 @@ struct LinuxPlatformTests {
         #expect(keybinding.key == "c")
         #expect(keybinding.modifiers.control == true)
     }
+
+    @Test("GPUI.PlatformInputHandler receives X11 keyDown printable characters and IME preedit/commit/delete/unmark")
+    @MainActor
+    func testX11PlatformInputHandlerEndToEnd() throws {
+        guard let displayEnv = ProcessInfo.processInfo.environment["DISPLAY"], !displayEnv.isEmpty else {
+            return
+        }
+        let client = try X11Client.new()
+        let platform = LinuxPlatform(inner: client)
+        let app = App.newApp(platform: platform)
+        let handle = try app.openWindow(WindowOptions()) { _, cx in
+            cx.new { _ in LinuxInputDummyView() }
+        }
+        let x11Window = try #require(
+            try app.updateWindow(handle.anyHandle) { _, win, _ in win.platformWindow as? X11Window }
+        )
+
+        let recorder = RecordingLinuxInputHandler()
+        let platformHandler = PlatformInputHandler(
+            windowHandle: handle.anyHandle,
+            app: app,
+            handler: recorder
+        )
+        x11Window.setInputHandler(platformHandler)
+        x11Window.onInput { _ in
+            DispatchEventResult(propagate: true, defaultPrevented: false)
+        }
+
+        // 1. Printable keyDown (plain + Shift) routes into PlatformInputHandler
+        _ = x11Window.ptr.handleInput(.keyDown(KeyDownEvent(keystroke: Keystroke(key: "h", keyChar: "h"))))
+        _ = x11Window.ptr.handleInput(.keyDown(KeyDownEvent(keystroke: Keystroke(modifiers: .shift(), key: "i", keyChar: "I"))))
+        // Control-modified keystroke must NOT insert text
+        _ = x11Window.ptr.handleInput(.keyDown(KeyDownEvent(keystroke: Keystroke(modifiers: .control(), key: "c", keyChar: "c"))))
+        #expect(recorder.text == "hI")
+
+        // 2. XIM preedit -> getImeArea -> delete marked -> preedit + commit -> unmark
+        x11Window.ptr.handleImePreedit("にほ")
+        #expect(recorder.text == "hIにほ")
+        #expect(recorder.marked == 2..<4)
+        let imeArea = x11Window.ptr.getImeArea()
+        #expect(imeArea == Bounds(origin: point(px(14), px(28)), size: size(px(2), px(20))))
+
+        x11Window.ptr.handleImeDelete()
+        #expect(recorder.text == "hI")
+        #expect(recorder.marked == nil)
+
+        x11Window.ptr.handleImePreedit("かん")
+        x11Window.ptr.handleImeCommit("漢")
+        #expect(recorder.text == "hI漢")
+        #expect(recorder.marked == nil)
+
+        x11Window.ptr.handleImePreedit("かな")
+        x11Window.ptr.handleImeUnmark()
+        #expect(recorder.text == "hI漢かな")
+        #expect(recorder.marked == nil)
+        #expect(recorder.unmarkCount == 1)
+    }
+}
+
+@MainActor
+final class RecordingLinuxInputHandler: InputHandler {
+    var text: String = ""
+    var selection: Range<Int> = 0..<0
+    var marked: Range<Int>? = nil
+    var unmarkCount: Int = 0
+
+    func selectedTextRange(ignoreDisabledInput: Bool, window: inout GPUI.Window, cx: inout App) -> UTF16Selection? {
+        UTF16Selection(range: selection, reversed: false)
+    }
+
+    func markedTextRange(window: inout GPUI.Window, cx: inout App) -> Range<Int>? {
+        marked
+    }
+
+    func textForRange(rangeUtf16: Range<Int>, adjustedRange: inout Range<Int>?, window: inout GPUI.Window, cx: inout App) -> String? {
+        text
+    }
+
+    func replaceTextInRange(rangeUtf16: Range<Int>?, text replacement: String, window: inout GPUI.Window, cx: inout App) {
+        let target = rangeUtf16 ?? marked ?? selection
+        if let strRange = IMEBridge.utf16RangeToStringRange(target, in: text) {
+            text.replaceSubrange(strRange, with: replacement)
+            let cursor = target.lowerBound + replacement.utf16.count
+            selection = cursor..<cursor
+        }
+        marked = nil
+    }
+
+    func replaceAndMarkTextInRange(
+        rangeUtf16: Range<Int>?,
+        newText: String,
+        newSelectedRange: Range<Int>?,
+        window: inout GPUI.Window,
+        cx: inout App
+    ) {
+        let target = rangeUtf16 ?? marked ?? selection
+        if let strRange = IMEBridge.utf16RangeToStringRange(target, in: text) {
+            text.replaceSubrange(strRange, with: newText)
+            let start = target.lowerBound
+            let end = start + newText.utf16.count
+            marked = newText.isEmpty ? nil : (start..<end)
+            selection = end..<end
+        }
+    }
+
+    func unmarkText(window: inout GPUI.Window, cx: inout App) {
+        marked = nil
+        unmarkCount += 1
+    }
+
+    func setSelectedTextRange(selection: UTF16Selection?, window: inout GPUI.Window, cx: inout App) {
+        if let selection {
+            self.selection = selection.range
+        }
+    }
+
+    func boundsForRange(rangeUtf16: Range<Int>, window: inout GPUI.Window, cx: inout App) -> Bounds<Pixels>? {
+        Bounds(origin: point(px(14), px(28)), size: size(px(2), px(20)))
+    }
+
+    func characterIndexForPoint(point: Point<Pixels>, window: inout GPUI.Window, cx: inout App) -> Int? {
+        0
+    }
+}
+
+struct LinuxInputDummyView: Render {
+    func render(_ window: inout GPUI.Window, _ cx: inout Context<LinuxInputDummyView>) -> some IntoElement {
+        div()
+    }
 }
 #endif

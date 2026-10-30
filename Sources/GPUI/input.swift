@@ -3,6 +3,9 @@
 // Port status: ported
 
 import Foundation
+#if canImport(Dispatch)
+import Dispatch
+#endif
 
 // MARK: - UTF-16 Selection & Text Input Configuration
 
@@ -20,14 +23,42 @@ public struct UTF16Selection: Sendable, Equatable {
     }
 }
 
+/// Return key behavior for platform-backed text input controls.
+public enum TextInputSubmitBehavior: Sendable, Equatable {
+    /// Insert a newline into the document.
+    case insertNewline
+    /// Notify the input handler that the field was submitted.
+    case submit
+    /// Notify the input handler, then blur the control.
+    case submitAndBlur
+}
+
+/// Controls whether the platform should present the software keyboard.
+public enum TextInputSoftKeyboardPolicy: Sendable, Equatable {
+    case automatic
+    case hidden
+}
+
 /// Configuration for a platform-backed text input control.
 public struct TextInputConfig: Sendable, Equatable {
     public var multiline: Bool
     public var secureEntry: Bool
+    public var submitBehavior: TextInputSubmitBehavior
+    public var enablesReturnKeyAutomatically: Bool
+    public var softKeyboard: TextInputSoftKeyboardPolicy
 
-    public init(multiline: Bool = false, secureEntry: Bool = false) {
+    public init(
+        multiline: Bool = false,
+        secureEntry: Bool = false,
+        submitBehavior: TextInputSubmitBehavior = .submit,
+        enablesReturnKeyAutomatically: Bool = false,
+        softKeyboard: TextInputSoftKeyboardPolicy = .automatic
+    ) {
         self.multiline = multiline
         self.secureEntry = secureEntry
+        self.submitBehavior = submitBehavior
+        self.enablesReturnKeyAutomatically = enablesReturnKeyAutomatically
+        self.softKeyboard = softKeyboard
     }
 }
 
@@ -80,6 +111,7 @@ public protocol InputHandler: AnyObject {
     func characterIndexForPoint(point: Point<Pixels>, window: inout Window, cx: inout App) -> Int?
     func acceptsTextInput(window: inout Window, cx: inout App) -> Bool
     func prefersImeForPrintableKeys(window: inout Window, cx: inout App) -> Bool
+    nonisolated func applePressAndHoldEnabled() -> Bool
     func textInputConfig(window: inout Window, cx: inout App) -> TextInputConfig
     func submitTextInput(window: inout Window, cx: inout App)
 }
@@ -95,6 +127,10 @@ extension InputHandler {
 
     public func prefersImeForPrintableKeys(window: inout Window, cx: inout App) -> Bool {
         acceptsTextInput(window: &window, cx: &cx)
+    }
+
+    nonisolated public func applePressAndHoldEnabled() -> Bool {
+        true
     }
 
     public func textInputConfig(window: inout Window, cx: inout App) -> TextInputConfig {
@@ -358,6 +394,10 @@ public final class ElementInputHandler<V: EntityInputHandler>: InputHandler, @un
         }
         window = win
     }
+
+    nonisolated public func applePressAndHoldEnabled() -> Bool {
+        true
+    }
 }
 
 // MARK: - PlatformInputHandlerProtocol Conformance
@@ -369,6 +409,201 @@ extension ElementInputHandler: @preconcurrency PlatformInputHandlerProtocol {
 
     public func dispatchInput(_ text: String, _ window: inout Window, _ cx: inout App) {
         replaceTextInRange(rangeUtf16: nil, text: text, window: &window, cx: &cx)
+    }
+}
+
+// MARK: - PlatformInputHandler
+
+private struct TextRangeResult: Sendable {
+    let text: String?
+    let adjustedRange: Range<Int>?
+}
+
+#if canImport(Dispatch) && !os(WASI)
+// PORT NOTE: DispatchSpecificKey is an immutable opaque pointer key for libdispatch queue-specific storage; wrapping it makes static storage Sendable across Apple and swift-corelibs-libdispatch SDKs.
+private final class MainQueueKeyBox: @unchecked Sendable {
+    let key = DispatchSpecificKey<Bool>()
+
+    init() {
+        DispatchQueue.main.setSpecific(key: key, value: true)
+    }
+}
+#endif
+
+/// Context-bound wrapper pairing an `InputHandler` with its owning `App` and `AnyWindowHandle`,
+/// matching upstream `gpui::PlatformInputHandler` (`crates/gpui/src/platform.rs`).
+// PORT NOTE: PlatformInputHandler hops onto MainActor before touching `app` or `handler`, matching upstream's main-thread `AsyncWindowContext` invariant.
+public final class PlatformInputHandler: PlatformInputHandlerProtocol, @unchecked Sendable {
+    #if canImport(Dispatch) && !os(WASI)
+    private static let mainQueueMarker = MainQueueKeyBox()
+
+    private static func runOnMain<R: Sendable>(_ work: @Sendable () -> R) -> R {
+        if Thread.isMainThread || DispatchQueue.getSpecific(key: mainQueueMarker.key) == true {
+            return work()
+        }
+        return DispatchQueue.main.sync(execute: work)
+    }
+    #endif
+
+    public let windowHandle: AnyWindowHandle
+    public weak var app: App?
+    public let handler: any InputHandler
+
+    public init(windowHandle: AnyWindowHandle, app: App?, handler: any InputHandler) {
+        self.windowHandle = windowHandle
+        self.app = app
+        self.handler = handler
+    }
+
+    private func withWindowAndApp<R: Sendable>(_ body: @MainActor (any InputHandler, inout Window, inout App) -> R) -> R? {
+        withoutActuallyEscaping(body) { escapingBody in
+            let work: @Sendable () -> R? = {
+                MainActor.assumeIsolated {
+                    guard let app = self.app else { return nil }
+                    return try? app.updateWindow(self.windowHandle) { _, window, cx in
+                        var mutableApp = cx
+                        return escapingBody(self.handler, &window, &mutableApp)
+                    }
+                }
+            }
+            #if canImport(Dispatch) && !os(WASI)
+            return Self.runOnMain(work)
+            #else
+            return work()
+            #endif
+        }
+    }
+
+    public func acceptsTextInput(window: Window, cx: App) -> Bool {
+        withWindowAndApp { handler, win, app in
+            handler.acceptsTextInput(window: &win, cx: &app)
+        } ?? true
+    }
+
+    public func queryAcceptsTextInput() -> Bool {
+        withWindowAndApp { handler, win, app in
+            handler.acceptsTextInput(window: &win, cx: &app)
+        } ?? true
+    }
+
+    public func textInputConfig() -> TextInputConfig {
+        withWindowAndApp { handler, win, app in
+            handler.textInputConfig(window: &win, cx: &app)
+        } ?? TextInputConfig()
+    }
+
+    public func submitTextInput() {
+        _ = withWindowAndApp { handler, win, app -> Bool in
+            handler.submitTextInput(window: &win, cx: &app)
+            return true
+        }
+    }
+
+    public func dispatchInput(_ text: String, _ window: inout Window, _ cx: inout App) {
+        MainActor.assumeIsolated {
+            handler.replaceTextInRange(rangeUtf16: nil, text: text, window: &window, cx: &cx)
+        }
+    }
+
+    public func selectedTextRange(ignoreDisabledInput: Bool) -> UTF16Selection? {
+        withWindowAndApp { handler, win, app in
+            handler.selectedTextRange(ignoreDisabledInput: ignoreDisabledInput, window: &win, cx: &app)
+        } ?? nil
+    }
+
+    public func markedTextRange() -> Range<Int>? {
+        withWindowAndApp { handler, win, app in
+            handler.markedTextRange(window: &win, cx: &app)
+        } ?? nil
+    }
+
+    public func queryPrefersImeForPrintableKeys() -> Bool {
+        withWindowAndApp { handler, win, app in
+            handler.prefersImeForPrintableKeys(window: &win, cx: &app)
+        } ?? false
+    }
+
+    public func textForRange(rangeUtf16: Range<Int>, adjustedRange: inout Range<Int>?) -> String? {
+        let initialAdjusted = adjustedRange
+        guard let result = withWindowAndApp({ handler, win, app -> TextRangeResult in
+            var localAdjusted = initialAdjusted
+            let text = handler.textForRange(rangeUtf16: rangeUtf16, adjustedRange: &localAdjusted, window: &win, cx: &app)
+            return TextRangeResult(text: text, adjustedRange: localAdjusted)
+        }) else {
+            return nil
+        }
+        adjustedRange = result.adjustedRange
+        return result.text
+    }
+
+    public func replaceTextInRange(rangeUtf16: Range<Int>?, text: String) {
+        _ = withWindowAndApp { handler, win, app -> Bool in
+            handler.replaceTextInRange(rangeUtf16: rangeUtf16, text: text, window: &win, cx: &app)
+            return true
+        }
+    }
+
+    public func deleteBackward() {
+        _ = withWindowAndApp { handler, win, app -> Bool in
+            handler.deleteBackward(window: &win, cx: &app)
+            return true
+        }
+    }
+
+    public func replaceAndMarkTextInRange(
+        rangeUtf16: Range<Int>?,
+        newText: String,
+        newSelectedRange: Range<Int>?
+    ) {
+        _ = withWindowAndApp { handler, win, app -> Bool in
+            handler.replaceAndMarkTextInRange(
+                rangeUtf16: rangeUtf16,
+                newText: newText,
+                newSelectedRange: newSelectedRange,
+                window: &win,
+                cx: &app
+            )
+            return true
+        }
+    }
+
+    public func unmarkText() {
+        _ = withWindowAndApp { handler, win, app -> Bool in
+            handler.unmarkText(window: &win, cx: &app)
+            return true
+        }
+    }
+
+    public func setSelectedTextRange(selection: UTF16Selection?) {
+        _ = withWindowAndApp { handler, win, app -> Bool in
+            handler.setSelectedTextRange(selection: selection, window: &win, cx: &app)
+            return true
+        }
+    }
+
+    public func boundsForRange(rangeUtf16: Range<Int>) -> Bounds<Pixels>? {
+        withWindowAndApp { handler, win, app in
+            handler.boundsForRange(rangeUtf16: rangeUtf16, window: &win, cx: &app)
+        } ?? nil
+    }
+
+    public func characterIndexForPoint(point: Point<Pixels>) -> Int? {
+        withWindowAndApp { handler, win, app in
+            handler.characterIndexForPoint(point: point, window: &win, cx: &app)
+        } ?? nil
+    }
+
+    public func applePressAndHoldEnabled() -> Bool {
+        let query: @Sendable () -> Bool = {
+            MainActor.assumeIsolated {
+                self.handler.applePressAndHoldEnabled()
+            }
+        }
+        #if canImport(Dispatch) && !os(WASI)
+        return Self.runOnMain(query)
+        #else
+        return query()
+        #endif
     }
 }
 

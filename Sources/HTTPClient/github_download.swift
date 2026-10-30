@@ -33,7 +33,11 @@ public struct GithubBinaryMetadata: Codable, Sendable, Equatable {
 
     public func writeToFile(metadataPath: URL) async throws {
         let data = try JSONEncoder().encode(self)
+        #if os(WASI)
+        try data.write(to: metadataPath)
+        #else
         try data.write(to: metadataPath, options: .atomic)
+        #endif
     }
 }
 
@@ -67,7 +71,11 @@ public func downloadServerBinary(
             }
         }
 
+        #if os(WASI)
+        try bodyData.write(to: staging)
+        #else
         try bodyData.write(to: staging, options: .atomic)
+        #endif
         try finalizeDownload(stagingPath: staging, destinationPath: destinationPath)
     } catch {
         cleanupStagingPath(stagingPath: staging, assetKind: assetKind)

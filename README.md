@@ -1,9 +1,9 @@
 # GPUA
 
-**A file-for-file Swift port of [GPUI](https://github.com/Glass-HQ/gpui).** GPUI is the GPU-accelerated UI framework behind the [Zed](https://zed.dev) editor. GPUA ships it as a SwiftPM package, so Swift apps get one native, GPU-rendered UI SDK for **macOS, iOS, Windows, Linux, Android**, and later **the web**.
+**A file-for-file Swift port of [GPUI](https://github.com/Glass-HQ/gpui).** GPUI is the GPU-accelerated UI framework behind the [Zed](https://zed.dev) editor. GPUA ships it as a zero-dependency SwiftPM package, giving Swift apps one native, GPU-rendered UI SDK across **macOS, iOS / visionOS, Windows, Linux, Android, and the Web (WebAssembly + WebGPU)**.
 
-> [!WARNING]
-> **Pre-alpha. Nothing renders yet.** The repo is set up for the port: every upstream Rust file has a Swift stub at the same path. The porting rules and tooling are written and checked in. See [docs/PORTING_STATUS.md](docs/PORTING_STATUS.md) for live progress.
+> [!NOTE]
+> All 429 mapped upstream files (`Glass-HQ/gpui` @ `650aab59d54f` + `DioxusLabs/taffy` `v0.9.0`) and all six native platform backends are ported and verified in CI. See [docs/PORTING_STATUS.md](docs/PORTING_STATUS.md) and [docs/TEST_PARITY.md](docs/TEST_PARITY.md) for per-file and per-test parity reports.
 
 ## Why
 
@@ -11,7 +11,7 @@
 - **Swift runs everywhere now.** Swift 6 has official toolchains for macOS, Linux, Windows, Android (the Swift SDK for Android), and Wasm. What it doesn't have is a native, GPU-rendered UI framework that works on all of them. GPUA aims to fill that gap.
 - **A faithful port keeps up with upstream.** Each Swift file maps to exactly one upstream Rust file, so upstream changes turn into a mechanical diff to re-port. That's better than a rewrite that drifts away.
 
-## What it will look like
+## Quick example
 
 ```swift
 import GPUI
@@ -47,16 +47,16 @@ application().run { cx in
 
 Compare that with the Rust [`hello_world.rs`](https://github.com/Glass-HQ/gpui/blob/650aab59d54f4f6f85d42c965831935568ac1162/crates/gpui_examples/examples/hello_world.rs). The Swift API faithfully ports GPUI's logic and behavior into idiomatic Swift. See [docs/API_DESIGN.md](docs/API_DESIGN.md).
 
-## Platform plan
+## Supported platforms
 
 | Platform | Window/input backend | Renderer | Text | Upstream crate |
 |---|---|---|---|---|
 | macOS | AppKit | Metal | CoreText | `gpui_macos`, `gpui_metal` |
-| iOS / iPadOS / visionOS | UIKit | Metal | CoreText | `gpui_ios`, `gpui_metal` |
-| Linux | Wayland + X11 | WebGPU (wgpu-native → Vulkan) | FreeType + HarfBuzz | `gpui_linux`, `gpui_wgpu` |
-| Windows | Win32 | Direct3D 11 (port of upstream) | DirectWrite | `gpui_windows` |
-| Android | NDK `ANativeActivity` / `GameActivity` | WebGPU (wgpu-native → Vulkan) | FreeType + HarfBuzz | *none (new: `GPUIAndroid`)* |
-| Web | Browser DOM via JavaScriptKit | WebGPU | Canvas / swash-equivalent | `gpui_web`, `gpui_wgpu` |
+| iOS / iPadOS / visionOS | UIKit (`Hosts/iOS`) | Metal | CoreText | `gpui_ios`, `gpui_metal` |
+| Linux | Wayland + X11 (`CLinuxSys`) | WebGPU (`wgpu-native` → Vulkan) | FreeType + HarfBuzz + Fontconfig | `gpui_linux`, `gpui_wgpu` |
+| Windows | Win32 (`CWinSys`) | Direct3D 11 + DirectComposition | DirectWrite | `gpui_windows` |
+| Android | NDK `ALooper` / `AChoreographer` / `ANativeWindow` + JNI (`CAndroidSys`, `Hosts/android`) | WebGPU (`wgpu-native` → Vulkan) | NDK `AFontMatcher` + TrueType/OpenType rasterizer | *none (new: `GPUIAndroid`)* |
+| Web (Wasm) | Browser DOM via zero-dependency WASI C-ABI bridge (`CWebSys`, `Hosts/web`) | Browser WebGPU (`navigator.gpu`) | Pure-Swift TrueType/OpenType rasterizer | `gpui_web`, `gpui_wgpu` |
 
 Details: [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
@@ -90,11 +90,12 @@ The mapping lives in [`porting.json`](porting.json) and is enforced by [`Scripts
 
 ```sh
 git clone https://github.com/mweinbach/GPUA && cd GPUA
-Scripts/port.py fetch          # pinned upstream checkout → .upstream/gpui (gitignored)
-swift build                    # everything compiles (stubs are empty)
-Scripts/port.py todo --target SumTree   # what's left, smallest files first
-Scripts/port.py map crates/gpui/src/geometry.rs
-Scripts/port.py check          # CI gate: mapping, headers, status doc
+Scripts/port.py fetch                    # pinned upstream checkout → .upstream/gpui (gitignored)
+swift build                              # build all targets
+swift test                               # run the test suite
+swift run gpui-examples hello_world      # run a ported example
+Scripts/port.py check                    # CI gate: mapping, headers, status doc
+Scripts/test_parity.py --check           # CI gate: upstream #[test] / #[gpui::test] parity
 ```
 
 Then read, in order:

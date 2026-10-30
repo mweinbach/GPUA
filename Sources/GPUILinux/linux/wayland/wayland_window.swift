@@ -189,15 +189,6 @@ public enum Decorations: Sendable, Hashable {
     case client(tiling: Tiling)
 }
 
-public typealias PlatformInputHandler = any PlatformInputHandlerProtocol
-
-extension PlatformInputHandlerProtocol {
-    public func replaceTextIn(range: Range<Int>?, newText: String) {}
-    public func replaceAndMarkTextIn(range: Range<Int>?, newText: String, newSelectedRange: Range<Int>?) {}
-    public func unmarkText() {}
-    public func selectedBounds() -> Bounds<Pixels>? { nil }
-}
-
 // MARK: - InProgressConfigure
 
 public struct InProgressConfigure: Sendable {
@@ -242,7 +233,7 @@ public final class WaylandWindowState: @unchecked Sendable {
     public var renderer: WgpuRenderer
     public var bounds: Bounds<Pixels>
     public var scale: Float
-    public var inputHandler: PlatformInputHandler?
+    public var inputHandler: (any PlatformInputHandlerProtocol)?
     public var decorations: WindowDecorations
     public var backgroundAppearance: WindowBackgroundAppearance
     public var fullscreen: Bool
@@ -514,22 +505,46 @@ public final class WaylandWindowStatePtr: @unchecked Sendable {
         frame()
     }
 
+    @discardableResult
+    public func withInputHandler<R>(_ body: (any PlatformInputHandlerProtocol) -> R) -> R? {
+        guard let handler = state.inputHandler else { return nil }
+        state.inputHandler = nil
+        defer {
+            if state.inputHandler == nil {
+                state.inputHandler = handler
+            }
+        }
+        return body(handler)
+    }
+
     public func handleIme(_ input: ImeInput) {
-        switch input {
-        case .insertText(let text):
-            state.inputHandler?.replaceTextIn(range: 0..<0, newText: text)
-        case .setMarkedText(let text):
-            state.inputHandler?.replaceAndMarkTextIn(range: 0..<0, newText: text, newSelectedRange: 0..<text.count)
-        case .unmarkText:
-            state.inputHandler?.unmarkText()
-        case .deleteText:
-            state.inputHandler?.replaceTextIn(range: 0..<0, newText: "")
+        guard !isBlocked() else { return }
+        withInputHandler { handler in
+            switch input {
+            case .insertText(let text):
+                handler.replaceTextInRange(rangeUtf16: nil, text: text)
+            case .setMarkedText(let text):
+                handler.replaceAndMarkTextInRange(rangeUtf16: nil, newText: text, newSelectedRange: nil)
+            case .unmarkText:
+                handler.unmarkText()
+            case .deleteText:
+                if let marked = handler.markedTextRange() {
+                    handler.replaceTextInRange(rangeUtf16: marked, text: "")
+                }
+            }
         }
     }
 
     public func getImeArea() -> Bounds<Pixels>? {
-        guard let selection = state.inputHandler?.selectedBounds() else { return nil }
-        return selection
+        withInputHandler { handler in
+            if let marked = handler.markedTextRange() {
+                return handler.boundsForRange(rangeUtf16: marked.lowerBound..<marked.lowerBound)
+            }
+            if let selection = handler.selectedTextRange(ignoreDisabledInput: true) {
+                return handler.boundsForRange(rangeUtf16: selection.range)
+            }
+            return nil
+        } ?? nil
     }
 
     public func setSizeAndScale(_ size: Size<Pixels>, _ scale: Float) {
@@ -558,8 +573,24 @@ public final class WaylandWindowStatePtr: @unchecked Sendable {
         }
     }
 
+    @discardableResult
     public func handleInput(_ input: PlatformInput) -> DispatchEventResult {
-        callbacks.input?(input) ?? DispatchEventResult()
+        if isBlocked() {
+            return DispatchEventResult(propagate: false, defaultPrevented: false)
+        }
+        let result = callbacks.input?(input) ?? DispatchEventResult()
+        if !result.propagate {
+            return result
+        }
+        if case .keyDown(let event) = input,
+           event.keystroke.modifiers.isSubset(of: .shift()),
+           let keyChar = event.keystroke.keyChar,
+           !keyChar.isEmpty {
+            withInputHandler { handler in
+                handler.replaceTextInRange(rangeUtf16: nil, text: keyChar)
+            }
+        }
+        return result
     }
 
     public func setFocused(_ focused: Bool) {
@@ -780,6 +811,20 @@ public final class WaylandWindow: PlatformWindow, WgpuWindowHandleProvider, @unc
         if let surface = ptr.state.surface {
             wl_surface_commit(surface)
         }
+    }
+
+    public func setInputHandler(_ handler: any PlatformInputHandlerProtocol) {
+        ptr.state.inputHandler = handler
+    }
+
+    public func takeInputHandler() -> (any PlatformInputHandlerProtocol)? {
+        let handler = ptr.state.inputHandler
+        ptr.state.inputHandler = nil
+        return handler
+    }
+
+    public func activeInputHandler() -> (any PlatformInputHandlerProtocol)? {
+        ptr.state.inputHandler
     }
 
     public func spriteAtlas() -> any PlatformAtlas {

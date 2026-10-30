@@ -1,0 +1,362 @@
+[
+  {
+    "item": "CVDisplayLink",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI declaration in upstream display_link::sys; Swift imports CoreVideo.CVDisplayLink natively via `import CoreVideo`"
+  },
+  {
+    "item": "CVTimeStamp",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI struct in upstream display_link::sys; Swift imports CoreVideo.CVTimeStamp natively"
+  },
+  {
+    "item": "CVTimeStampFlags",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI typealias in upstream display_link::sys; Swift imports CoreVideo.CVTimeStampFlags natively"
+  },
+  {
+    "item": "kCVTimeStampVideoTimeValid",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVTimeStampHostTimeValid",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVTimeStampSMPTETimeValid",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVTimeStampVideoRefreshPeriodValid",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVTimeStampRateScalarValid",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVTimeStampTopField",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVTimeStampBottomField",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVTimeStampVideoHostTimeValid",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVTimeStampIsInterlaced",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "CVSMPTETime",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI struct in upstream display_link::sys; Swift imports CoreVideo.CVSMPTETime natively"
+  },
+  {
+    "item": "CVSMPTETimeType",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI typealias in upstream display_link::sys; Swift imports CoreVideo.CVSMPTETimeType natively"
+  },
+  {
+    "item": "kCVSMPTETimeType24",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVSMPTETimeType25",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVSMPTETimeType30Drop",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVSMPTETimeType30",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVSMPTETimeType2997",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVSMPTETimeType2997Drop",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVSMPTETimeType60",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVSMPTETimeType5994",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "CVSMPTETimeFlags",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI typealias in upstream display_link::sys; Swift imports CoreVideo.CVSMPTETimeFlags natively"
+  },
+  {
+    "item": "kCVSMPTETimeValid",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "kCVSMPTETimeRunning",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI constant in upstream display_link::sys; imported natively from CoreVideo"
+  },
+  {
+    "item": "CVDisplayLinkOutputCallback",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI callback typedef in upstream display_link::sys; Swift imports CoreVideo.CVDisplayLinkOutputCallback natively"
+  },
+  {
+    "item": "CVDisplayLinkCreateWithActiveCGDisplays",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI extern fn in upstream display_link::sys; called directly via `import CoreVideo` in Swift"
+  },
+  {
+    "item": "CVDisplayLinkSetCurrentCGDisplay",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI extern fn in upstream display_link::sys; called directly via `import CoreVideo` in Swift"
+  },
+  {
+    "item": "CVDisplayLinkSetOutputCallback",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI extern fn in upstream display_link::sys; called directly via `import CoreVideo` in Swift"
+  },
+  {
+    "item": "CVDisplayLinkStart",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI extern fn in upstream display_link::sys; called directly via `import CoreVideo` in Swift"
+  },
+  {
+    "item": "CVDisplayLinkStop",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI extern fn in upstream display_link::sys; called directly via `import CoreVideo` in Swift"
+  },
+  {
+    "item": "CVDisplayLinkRelease",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI extern fn in upstream display_link::sys; ARC manages CoreVideo CVDisplayLink references automatically in Swift"
+  },
+  {
+    "item": "CVDisplayLinkRetain",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw CoreVideo C FFI extern fn in upstream display_link::sys; ARC manages CoreVideo CVDisplayLink references automatically in Swift"
+  },
+  {
+    "item": "NSPasteboardNameFind",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw AppKit extern static in upstream pasteboard.rs; Swift uses AppKit's `NSPasteboard.Name.find` directly"
+  },
+  {
+    "item": "UTType",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Objective-C msg_send shim struct for UniformTypeIdentifiers.UTType in upstream pasteboard.rs; Swift imports `UniformTypeIdentifiers.UTType` natively"
+  },
+  {
+    "item": "UTType::png",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Swift uses `UniformTypeIdentifiers.UTType.png` natively"
+  },
+  {
+    "item": "UTType::jpeg",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Swift uses `UniformTypeIdentifiers.UTType.jpeg` natively"
+  },
+  {
+    "item": "UTType::gif",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Swift uses `UniformTypeIdentifiers.UTType.gif` natively"
+  },
+  {
+    "item": "UTType::webp",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Swift uses `UniformTypeIdentifiers.UTType.webP` natively"
+  },
+  {
+    "item": "UTType::bmp",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Swift uses `UniformTypeIdentifiers.UTType.bmp` natively"
+  },
+  {
+    "item": "UTType::svg",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Swift uses `UniformTypeIdentifiers.UTType.svg` natively"
+  },
+  {
+    "item": "UTType::ico",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Swift uses `UniformTypeIdentifiers.UTType.ico` natively"
+  },
+  {
+    "item": "UTType::tiff",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Swift uses `UniformTypeIdentifiers.UTType.tiff` natively"
+  },
+  {
+    "item": "UTType::inner_mut",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Objective-C `id` pointer accessor for upstream UTType FFI wrapper; unnecessary with native Swift `UniformTypeIdentifiers.UTType`"
+  },
+  {
+    "item": "kSecClass",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework extern static in upstream platform.rs; Swift imports `Security.kSecClass` natively"
+  },
+  {
+    "item": "kSecClassInternetPassword",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework extern static in upstream platform.rs; Swift imports `Security.kSecClassInternetPassword` natively"
+  },
+  {
+    "item": "kSecAttrServer",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework extern static in upstream platform.rs; Swift imports `Security.kSecAttrServer` natively"
+  },
+  {
+    "item": "kSecAttrAccount",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework extern static in upstream platform.rs; Swift imports `Security.kSecAttrAccount` natively"
+  },
+  {
+    "item": "kSecValueData",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework extern static in upstream platform.rs; Swift imports `Security.kSecValueData` natively"
+  },
+  {
+    "item": "kSecReturnAttributes",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework extern static in upstream platform.rs; Swift imports `Security.kSecReturnAttributes` natively"
+  },
+  {
+    "item": "kSecReturnData",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework extern static in upstream platform.rs; Swift imports `Security.kSecReturnData` natively"
+  },
+  {
+    "item": "SecItemAdd",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework C extern fn in upstream platform.rs; called directly via `import Security` in Swift"
+  },
+  {
+    "item": "SecItemUpdate",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework C extern fn in upstream platform.rs; called directly via `import Security` in Swift"
+  },
+  {
+    "item": "SecItemDelete",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework C extern fn in upstream platform.rs; called directly via `import Security` in Swift"
+  },
+  {
+    "item": "SecItemCopyMatching",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework C extern fn in upstream platform.rs; called directly via `import Security` in Swift"
+  },
+  {
+    "item": "errSecSuccess",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework OSStatus constant in upstream platform.rs; Swift imports `Security.errSecSuccess` natively"
+  },
+  {
+    "item": "errSecUserCanceled",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework OSStatus constant in upstream platform.rs; Swift imports `Security.errSecUserCanceled` natively"
+  },
+  {
+    "item": "errSecItemNotFound",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw Security.framework OSStatus constant in upstream platform.rs; Swift imports `Security.errSecItemNotFound` natively"
+  },
+  {
+    "item": "NSAppearanceNameAqua",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw AppKit extern static in upstream window_appearance.rs; Swift uses `NSAppearance.Name.aqua` natively"
+  },
+  {
+    "item": "NSAppearanceNameDarkAqua",
+    "status": "omitted",
+    "target_batch": "Milestone 5 (GPUIMacOS)",
+    "reason": "Raw AppKit extern static in upstream window_appearance.rs; Swift uses `NSAppearance.Name.darkAqua` natively"
+  }
+]

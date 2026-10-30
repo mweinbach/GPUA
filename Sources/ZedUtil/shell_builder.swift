@@ -129,6 +129,7 @@ public struct ShellBuilder: Sendable {
         return (program, resultArgs)
     }
 
+    #if !os(WASI) && !os(iOS) && !os(visionOS) && !os(Android)
     /// Builds a Foundation `Process` with the given task command and arguments.
     public func buildStdCommand(
         taskCommand: String?,
@@ -143,6 +144,7 @@ public struct ShellBuilder: Sendable {
         process.arguments = builtArgs
         return process
     }
+    #endif
 
     public var shellKind: ShellKind {
         kind

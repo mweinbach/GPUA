@@ -69,7 +69,7 @@ struct AdapterPriorityKey: Comparable {
 // MARK: - WgpuContext
 
 // PORT NOTE: WgpuContext encapsulates WebGPU instance, adapter, device, and queue pointers.
-// Device and queue are thread-safe and reference-counted by wgpu-native.
+// Device and queue are thread-safe and reference-counted by wgpu-native / WebGPU runtime.
 public final class WgpuContext: @unchecked Sendable {
     public let instance: WGPUInstance
     public let adapter: WGPUAdapter
@@ -100,10 +100,14 @@ public final class WgpuContext: @unchecked Sendable {
         compositorGpu: CompositorGpuHint? = nil
     ) throws -> WgpuContext {
         let deviceIdFilter: UInt32? = {
+            #if os(WASI)
+            return nil
+            #else
             guard let val = ProcessInfo.processInfo.environment["ZED_DEVICE_ID"] else {
                 return nil
             }
             return try? parsePciId(val)
+            #endif
         }()
 
         let (adapter, device, queue, dualSourceBlending) = try selectAdapterAndDevice(
@@ -125,9 +129,30 @@ public final class WgpuContext: @unchecked Sendable {
     }
 
     public static func newWeb() async throws -> WgpuContext {
-        #if os(Linux)
+        #if os(WASI)
         var desc = WGPUInstanceDescriptor()
-        let instance = wgpuCreateInstance(&desc)!
+        guard let instance = wgpuCreateInstance(&desc) else {
+            throw WgpuError.noCompatibleAdapter
+        }
+        let adapter = try await requestAdapterAsync(instance: instance)
+        let (device, queue, dualSourceBlending) = try await createDeviceAsync(
+            instance: instance,
+            adapter: adapter
+        )
+        let deviceLost = DeviceLostBox(isLost: false)
+        return WgpuContext(
+            instance: instance,
+            adapter: adapter,
+            device: device,
+            queue: queue,
+            dualSourceBlending: dualSourceBlending,
+            deviceLostBox: deviceLost
+        )
+        #elseif os(Linux) || os(Android)
+        var desc = WGPUInstanceDescriptor()
+        guard let instance = wgpuCreateInstance(&desc) else {
+            throw WgpuError.noCompatibleAdapter
+        }
         let (adapter, device, queue, dualSourceBlending) = try selectAdapterAndDevice(
             instance: instance,
             deviceIdFilter: nil,
@@ -144,23 +169,44 @@ public final class WgpuContext: @unchecked Sendable {
             deviceLostBox: deviceLost
         )
         #else
-        // PORT NOTE: WebGPU C runtime calls are gated on os(Linux) because libwgpu_native is linked on Linux, while Windows uses D3D11 in GPUIWindows and Android/WASI backends are deferred per R3.
+        // PORT NOTE: Windows uses DirectXRenderer (D3D11) in GPUIWindows rather than WebGPU C runtime calls.
         throw WgpuError.noCompatibleAdapter
         #endif
     }
 
     public static func instance(display: Any? = nil) -> WGPUInstance {
-        #if os(Linux)
+        #if os(Linux) || os(Android) || os(WASI)
         var desc = WGPUInstanceDescriptor()
-        return wgpuCreateInstance(&desc)!
+        if let inst = wgpuCreateInstance(&desc) {
+            return inst
+        }
+        // PORT NOTE: Return a non-null sentinel handle when libwgpu_native.so is absent in headless tests; subsequent adapter selection throws WgpuError.noCompatibleAdapter.
+        return OpaquePointer(bitPattern: 1)!
         #else
-        // PORT NOTE: WebGPU C runtime calls are gated on os(Linux) because libwgpu_native is linked on Linux, while Windows uses D3D11 in GPUIWindows and Android/WASI backends are deferred per R3.
+        // PORT NOTE: Windows uses DirectXRenderer (D3D11) in GPUIWindows rather than WebGPU C runtime calls.
         return OpaquePointer(bitPattern: 1)!
         #endif
     }
 
+    #if os(Android)
+    public static func createAndroidSurface(instance: WGPUInstance, window: UnsafeMutableRawPointer) -> WGPUSurface? {
+        guard instance != OpaquePointer(bitPattern: 1) else { return nil }
+        return cwebgpu_create_surface_android(instance, window)
+    }
+    #endif
+
+    #if os(WASI)
+    public static func createCanvasSurface(instance: WGPUInstance, selector: String) -> WGPUSurface? {
+        guard instance != OpaquePointer(bitPattern: 1) else { return nil }
+        let length = selector.utf8.count
+        return selector.withCString { cStr in
+            cwebgpu_create_surface_canvas(instance, cStr, length)
+        }
+    }
+    #endif
+
     public func checkCompatibleWithSurface(_ surface: WGPUSurface) throws {
-        #if os(Linux)
+        #if os(Linux) || os(Android) || os(WASI)
         var caps = WGPUSurfaceCapabilities()
         let status = wgpuSurfaceGetCapabilities(surface, adapter, &caps)
         if status != WGPUStatus_Success || caps.formatCount == 0 {
@@ -169,7 +215,7 @@ public final class WgpuContext: @unchecked Sendable {
             throw WgpuError.noCompatibleAdapter
         }
         #else
-        // PORT NOTE: WebGPU C runtime calls are gated on os(Linux) because libwgpu_native is linked on Linux, while Windows uses D3D11 in GPUIWindows and Android/WASI backends are deferred per R3.
+        // PORT NOTE: Windows uses DirectXRenderer (D3D11) in GPUIWindows rather than WebGPU C runtime calls.
         #endif
     }
 
@@ -193,12 +239,18 @@ public final class WgpuContext: @unchecked Sendable {
         surface: WGPUSurface?,
         compositorGpu: CompositorGpuHint?
     ) throws -> (WGPUAdapter, WGPUDevice, WGPUQueue, Bool) {
-        #if os(Linux)
+        #if os(Linux) || os(Android) || os(WASI)
+        guard instance != OpaquePointer(bitPattern: 1) else {
+            throw WgpuError.noCompatibleAdapter
+        }
+
         var adapters = enumerateAdapters(instance: instance)
 
         if adapters.isEmpty {
-            // If enumeration returned 0, try requesting a default adapter (fallback to CPU/Lavapipe)
-            if let fallback = requestFallbackAdapter(instance: instance) {
+            // Try requesting a hardware adapter first, then software/Lavapipe fallback
+            if let primary = requestDefaultAdapter(instance: instance, surface: surface) {
+                adapters = [primary]
+            } else if let fallback = requestFallbackAdapter(instance: instance) {
                 adapters = [fallback]
             } else {
                 throw WgpuError.noCompatibleAdapter
@@ -238,8 +290,10 @@ public final class WgpuContext: @unchecked Sendable {
 
             let backendPriority: UInt8 = {
                 switch info.backendType {
-                case WGPUBackendType_Vulkan, WGPUBackendType_Metal, WGPUBackendType_D3D12: return 0
-                default: return 1
+                case WGPUBackendType_Vulkan, WGPUBackendType_Metal, WGPUBackendType_D3D12, WGPUBackendType_WebGPU:
+                    return 0
+                default:
+                    return 1
                 }
             }()
 
@@ -273,12 +327,137 @@ public final class WgpuContext: @unchecked Sendable {
 
         throw WgpuError.noCompatibleAdapter
         #else
-        // PORT NOTE: WebGPU C runtime calls are gated on os(Linux) because libwgpu_native is linked on Linux, while Windows uses D3D11 in GPUIWindows and Android/WASI backends are deferred per R3.
+        // PORT NOTE: Windows uses DirectXRenderer (D3D11) in GPUIWindows rather than WebGPU C runtime calls.
         throw WgpuError.noCompatibleAdapter
         #endif
     }
 
-    #if os(Linux)
+    #if os(WASI)
+    private static func requestAdapterAsync(instance: WGPUInstance) async throws -> WGPUAdapter {
+        // PORT NOTE: Continuation box bridges WebGPU C async adapter callback on single-threaded WASI.
+        final class AsyncAdapterContext: @unchecked Sendable {
+            var resumed = false
+            var continuation: CheckedContinuation<Int, any Error>?
+        }
+        let ctx = AsyncAdapterContext()
+        let rawAdapter: Int = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Int, any Error>) in
+            ctx.continuation = cont
+            let unmanaged = Unmanaged.passRetained(ctx)
+
+            var options = WGPURequestAdapterOptions()
+            options.powerPreference = WGPUPowerPreference_HighPerformance
+            options.forceFallbackAdapter = 0
+
+            var cbInfo = WGPURequestAdapterCallbackInfo()
+            cbInfo.mode = WGPUCallbackMode_AllowSpontaneous
+            cbInfo.userdata1 = unmanaged.toOpaque()
+            cbInfo.callback = { status, adapter, _, u1, _ in
+                guard let u1 = u1 else { return }
+                let c = Unmanaged<AsyncAdapterContext>.fromOpaque(u1).takeRetainedValue()
+                guard !c.resumed else { return }
+                c.resumed = true
+                let k = c.continuation
+                c.continuation = nil
+                if status == WGPURequestAdapterStatus_Success, let adapter = adapter {
+                    k?.resume(returning: Int(bitPattern: adapter))
+                } else {
+                    k?.resume(throwing: WgpuError.noCompatibleAdapter)
+                }
+            }
+
+            _ = wgpuInstanceRequestAdapter(instance, &options, cbInfo)
+            wgpuInstanceProcessEvents(instance)
+        }
+        guard let adapter = WGPUAdapter(bitPattern: rawAdapter) else {
+            throw WgpuError.noCompatibleAdapter
+        }
+        return adapter
+    }
+
+    private static func createDeviceAsync(
+        instance: WGPUInstance,
+        adapter: WGPUAdapter
+    ) async throws -> (WGPUDevice, WGPUQueue, Bool) {
+        var features = WGPUSupportedFeatures()
+        wgpuAdapterGetFeatures(adapter, &features)
+        var hasDualSourceBlending = false
+        if features.featureCount > 0, let feats = features.features {
+            for i in 0..<Int(features.featureCount) {
+                if feats[i] == WGPUFeatureName_DualSourceBlending {
+                    hasDualSourceBlending = true
+                    break
+                }
+            }
+        }
+
+        var requiredFeatures: [WGPUFeatureName] = []
+        if hasDualSourceBlending {
+            requiredFeatures.append(WGPUFeatureName_DualSourceBlending)
+        }
+
+        // PORT NOTE: Continuation box bridges WebGPU C async device callback on single-threaded WASI.
+        final class AsyncDeviceContext: @unchecked Sendable {
+            var resumed = false
+            var continuation: CheckedContinuation<Int, any Error>?
+        }
+        let ctx = AsyncDeviceContext()
+
+        let rawDevice: Int = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Int, any Error>) in
+            ctx.continuation = cont
+            let unmanaged = Unmanaged.passRetained(ctx)
+
+            requiredFeatures.withUnsafeBufferPointer { buffer in
+                var desc = WGPUDeviceDescriptor()
+                desc.label = WGPUStringView(data: nil, length: 0)
+                desc.requiredFeatureCount = buffer.count
+                desc.requiredFeatures = buffer.baseAddress
+                desc.uncapturedErrorCallbackInfo = WGPUUncapturedErrorCallbackInfo(
+                    nextInChain: nil,
+                    callback: { _, type, msg, _, _ in
+                        let msgStr: String
+                        if let ptr = msg.data, msg.length > 0 {
+                            let buf = UnsafeRawBufferPointer(start: ptr, count: Int(msg.length))
+                            msgStr = String(decoding: buf, as: UTF8.self)
+                        } else {
+                            msgStr = "unknown"
+                        }
+                        print("[WGPU Error \(type)]: \(msgStr)")
+                    },
+                    userdata1: nil,
+                    userdata2: nil
+                )
+
+                var cbInfo = WGPURequestDeviceCallbackInfo()
+                cbInfo.mode = WGPUCallbackMode_AllowSpontaneous
+                cbInfo.userdata1 = unmanaged.toOpaque()
+                cbInfo.callback = { status, dev, _, u1, _ in
+                    guard let u1 = u1 else { return }
+                    let c = Unmanaged<AsyncDeviceContext>.fromOpaque(u1).takeRetainedValue()
+                    guard !c.resumed else { return }
+                    c.resumed = true
+                    let k = c.continuation
+                    c.continuation = nil
+                    if status == WGPURequestDeviceStatus_Success, let dev = dev {
+                        k?.resume(returning: Int(bitPattern: dev))
+                    } else {
+                        k?.resume(throwing: WgpuError.noCompatibleAdapter)
+                    }
+                }
+
+                _ = wgpuAdapterRequestDevice(adapter, &desc, cbInfo)
+                wgpuInstanceProcessEvents(instance)
+            }
+        }
+
+        guard let device = WGPUDevice(bitPattern: rawDevice),
+              let queue = wgpuDeviceGetQueue(device) else {
+            throw WgpuError.noCompatibleAdapter
+        }
+        return (device, queue, hasDualSourceBlending)
+    }
+    #endif
+
+    #if os(Linux) || os(Android) || os(WASI)
     private static func enumerateAdapters(instance: WGPUInstance) -> [WGPUAdapter] {
         let count = wgpuInstanceEnumerateAdapters(instance, nil, nil)
         guard count > 0 else { return [] }
@@ -286,6 +465,53 @@ public final class WgpuContext: @unchecked Sendable {
         var rawAdapters = [WGPUAdapter?](repeating: nil, count: count)
         let actualCount = wgpuInstanceEnumerateAdapters(instance, nil, &rawAdapters)
         return rawAdapters.prefix(actualCount).compactMap { $0 }
+    }
+
+    private static func requestDefaultAdapter(
+        instance: WGPUInstance,
+        surface: WGPUSurface?
+    ) -> WGPUAdapter? {
+        // PORT NOTE: Synchronous adapter request context for primary GPU adapter discovery.
+        final class AdapterReqContext: @unchecked Sendable {
+            var completed = false
+            var adapter: WGPUAdapter?
+        }
+        let ctx = AdapterReqContext()
+        let unmanaged = Unmanaged.passRetained(ctx)
+
+        var options = WGPURequestAdapterOptions()
+        options.powerPreference = WGPUPowerPreference_HighPerformance
+        options.compatibleSurface = surface
+        options.forceFallbackAdapter = 0
+
+        var cbInfo = WGPURequestAdapterCallbackInfo()
+        cbInfo.mode = WGPUCallbackMode_AllowProcessEvents
+        cbInfo.userdata1 = unmanaged.toOpaque()
+        cbInfo.callback = { status, adapter, _, u1, _ in
+            guard let u1 = u1 else { return }
+            let c = Unmanaged<AdapterReqContext>.fromOpaque(u1).takeRetainedValue()
+            if status == WGPURequestAdapterStatus_Success {
+                c.adapter = adapter
+            }
+            c.completed = true
+        }
+
+        _ = wgpuInstanceRequestAdapter(instance, &options, cbInfo)
+        #if os(WASI)
+        var spins = 0
+        while !ctx.completed && spins < 64 {
+            wgpuInstanceProcessEvents(instance)
+            spins += 1
+        }
+        if !ctx.completed {
+            unmanaged.release()
+        }
+        #else
+        while !ctx.completed {
+            wgpuInstanceProcessEvents(instance)
+        }
+        #endif
+        return ctx.adapter
     }
 
     private static func requestFallbackAdapter(instance: WGPUInstance) -> WGPUAdapter? {
@@ -314,9 +540,20 @@ public final class WgpuContext: @unchecked Sendable {
         }
 
         _ = wgpuInstanceRequestAdapter(instance, &options, cbInfo)
+        #if os(WASI)
+        var spins = 0
+        while !ctx.completed && spins < 64 {
+            wgpuInstanceProcessEvents(instance)
+            spins += 1
+        }
+        if !ctx.completed {
+            unmanaged.release()
+        }
+        #else
         while !ctx.completed {
             wgpuInstanceProcessEvents(instance)
         }
+        #endif
         return ctx.adapter
     }
 
@@ -365,7 +602,11 @@ public final class WgpuContext: @unchecked Sendable {
                     } else {
                         msgStr = "unknown"
                     }
+                    #if os(WASI)
+                    print("[WGPU Error \(type)]: \(msgStr)")
+                    #else
                     FileHandle.standardError.write(Data("[WGPU Error \(type)]: \(msgStr)\n".utf8))
+                    #endif
                 },
                 userdata1: nil,
                 userdata2: nil
@@ -383,15 +624,29 @@ public final class WgpuContext: @unchecked Sendable {
             }
 
             _ = wgpuAdapterRequestDevice(adapter, &desc, cbInfo)
+            #if os(WASI)
+            var spins = 0
+            while !ctx.completed && spins < 64 {
+                wgpuInstanceProcessEvents(instance)
+                spins += 1
+            }
+            if !ctx.completed {
+                unmanaged.release()
+                throw WgpuError.noCompatibleAdapter
+            }
+            #else
             while !ctx.completed {
                 wgpuInstanceProcessEvents(instance)
             }
+            #endif
 
             guard let device = ctx.device, ctx.status == WGPURequestDeviceStatus_Success else {
                 throw WgpuError.noCompatibleAdapter
             }
 
-            let queue = wgpuDeviceGetQueue(device)!
+            guard let queue = wgpuDeviceGetQueue(device) else {
+                throw WgpuError.noCompatibleAdapter
+            }
             return (device, queue, hasDualSourceBlending)
         }
     }
@@ -403,7 +658,11 @@ public final class WgpuContext: @unchecked Sendable {
     ) throws -> (WGPUAdapter, WGPUDevice, WGPUQueue, Bool) {
         var caps = WGPUSurfaceCapabilities()
         let status = wgpuSurfaceGetCapabilities(surface, adapter, &caps)
-        guard status == WGPUStatus_Success, caps.formatCount > 0, caps.alphaModeCount > 0 else {
+        guard status == WGPUStatus_Success,
+              caps.formatCount > 0,
+              let formats = caps.formats,
+              caps.alphaModeCount > 0,
+              let alphaModes = caps.alphaModes else {
             throw WgpuError.noCompatibleAdapter
         }
 
@@ -411,11 +670,11 @@ public final class WgpuContext: @unchecked Sendable {
 
         var config = WGPUSurfaceConfiguration()
         config.device = device
-        config.format = caps.formats[0]
+        config.format = formats[0]
         config.usage = WGPUTextureUsage_RenderAttachment
         config.width = 64
         config.height = 64
-        config.alphaMode = caps.alphaModes[0]
+        config.alphaMode = alphaModes[0]
         config.presentMode = WGPUPresentMode_Fifo
 
         wgpuSurfaceConfigure(surface, &config)

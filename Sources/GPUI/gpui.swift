@@ -3,6 +3,7 @@
 // Port status: ported
 
 import Foundation
+@_exported import HTTPClient
 
 // MARK: - GPUI Crate Root Declarations
 

@@ -611,28 +611,75 @@ public final class X11WindowStatePtr: @unchecked Sendable {
         callbacks.requestFrame?(RequestFrameOptions())
     }
 
+    @discardableResult
+    public func withInputHandler<R>(_ body: (any PlatformInputHandlerProtocol) -> R) -> R? {
+        guard let handler = state.inputHandler else { return nil }
+        state.inputHandler = nil
+        defer {
+            if state.inputHandler == nil {
+                state.inputHandler = handler
+            }
+        }
+        return body(handler)
+    }
+
+    @discardableResult
     public func handleInput(_ input: PlatformInput) -> DispatchEventResult {
-        callbacks.input?(input) ?? DispatchEventResult()
+        if isBlocked() {
+            return DispatchEventResult(propagate: false, defaultPrevented: false)
+        }
+        let result = callbacks.input?(input) ?? DispatchEventResult()
+        if !result.propagate {
+            return result
+        }
+        if case .keyDown(let event) = input,
+           event.keystroke.modifiers.isSubset(of: .shift()),
+           let keyChar = event.keystroke.keyChar,
+           !keyChar.isEmpty {
+            withInputHandler { handler in
+                handler.replaceTextInRange(rangeUtf16: nil, text: keyChar)
+            }
+        }
+        return result
     }
 
     public func handleImeCommit(_ text: String) {
-        _ = handleInput(.keyDown(KeyDownEvent(keystroke: Keystroke(key: text))))
+        guard !isBlocked() else { return }
+        withInputHandler { handler in
+            handler.replaceTextInRange(rangeUtf16: nil, text: text)
+        }
     }
 
     public func handleImePreedit(_ text: String) {
-        _ = handleInput(.keyDown(KeyDownEvent(keystroke: Keystroke(key: text))))
+        guard !isBlocked() else { return }
+        withInputHandler { handler in
+            handler.replaceAndMarkTextInRange(rangeUtf16: nil, newText: text, newSelectedRange: nil)
+        }
     }
 
     public func handleImeUnmark() {
-        state.inputHandler?.unmarkText()
+        guard !isBlocked() else { return }
+        withInputHandler { handler in
+            handler.unmarkText()
+        }
     }
 
     public func handleImeDelete() {
-        _ = handleInput(.keyDown(KeyDownEvent(keystroke: Keystroke(key: "backspace"))))
+        guard !isBlocked() else { return }
+        withInputHandler { handler in
+            if let marked = handler.markedTextRange() {
+                handler.replaceTextInRange(rangeUtf16: marked, text: "")
+            }
+        }
     }
 
     public func getImeArea() -> Bounds<Pixels>? {
-        state.bounds
+        withInputHandler { handler in
+            guard let selection = handler.selectedTextRange(ignoreDisabledInput: true) else {
+                return nil
+            }
+            return handler.boundsForRange(rangeUtf16: selection.range)
+        } ?? nil
     }
 
     public func setBounds(_ bounds: Bounds<Pixels>) {
@@ -926,6 +973,10 @@ public final class X11Window: PlatformWindow, WgpuWindowHandleProvider, @uncheck
 
     public func onActiveStatusChange(_ callback: @escaping (Bool) -> Void) {
         ptr.callbacks.activeStatusChange = callback
+    }
+
+    public func onHoverStatusChange(_ callback: @escaping (Bool) -> Void) {
+        ptr.callbacks.hoveredStatusChange = callback
     }
 
     public func onHoveredStatusChange(_ callback: @escaping (Bool) -> Void) {
