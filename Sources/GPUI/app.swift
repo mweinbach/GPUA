@@ -1146,7 +1146,7 @@ public final class App: AppContext, BorrowAppContext, @unchecked Sendable {
             cx.nextWindowId = WindowId(cx.nextWindowId.rawValue + 1)
             let anyHandle = AnyWindowHandle(id: id.rawValue)
             let handle = WindowHandle<V>(anyHandle: anyHandle)
-            var window = Window(handle: anyHandle)
+            var window = Window(handle: anyHandle, options: options, cx: cx)
             cx.windowUpdateStack.append(id)
             let rootView = buildRootView(&window, cx)
             cx.windowUpdateStack.removeLast()

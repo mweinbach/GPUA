@@ -1,0 +1,62 @@
+[
+  {
+    "upstream_crate": "sum_tree",
+    "upstream_file": "crates/sum_tree/src/sum_tree.rs",
+    "upstream_test": "test_random",
+    "swift_target": "SumTreeTests",
+    "swift_file": "Tests/SumTreeTests/sum_tree.swift",
+    "swift_func": "test_random_operations",
+    "status": "passed",
+    "reason": "Renamed in Swift to test_random_operations to clarify multi-iteration random seek and edit operations"
+  },
+  {
+    "upstream_crate": "gpui",
+    "upstream_file": "crates/gpui/src/arena.rs",
+    "upstream_test": "test_arena_use_after_clear",
+    "swift_target": "GPUITests",
+    "swift_file": "Tests/GPUITests/arena.swift",
+    "swift_func": "test_arena_use_after_clear",
+    "status": "disabled",
+    "reason": "Upstream #[should_panic]: tests assertion failure on use-after-clear"
+  },
+  {
+    "upstream_crate": "gpui",
+    "upstream_file": "crates/gpui/src/key_dispatch.rs",
+    "upstream_test": "test_pending_input_observers_notified_on_focus_change",
+    "swift_target": "GPUITests",
+    "swift_file": "Tests/GPUITests/key_dispatch.swift",
+    "swift_func": "test_pending_input_observers_notified_on_focus_change",
+    "status": "disabled",
+    "reason": "Requires TestAppContext and interactive Window lifecycle event loop, deferred until integration harness is ready"
+  },
+  {
+    "upstream_crate": "gpui",
+    "upstream_file": "crates/gpui/src/key_dispatch.rs",
+    "upstream_test": "test_input_handler_pending",
+    "swift_target": "GPUITests",
+    "swift_file": "Tests/GPUITests/key_dispatch.swift",
+    "swift_func": "test_input_handler_pending",
+    "status": "disabled",
+    "reason": "Requires TestAppContext and interactive Window lifecycle event loop, deferred until integration harness is ready"
+  },
+  {
+    "upstream_crate": "gpui_platform",
+    "upstream_file": "crates/gpui_platform/src/gpui_platform.rs",
+    "upstream_test": "test_advance_clock_triggers_delayed_tasks",
+    "swift_target": "GPUIPlatformTests",
+    "swift_file": "Tests/GPUIPlatformTests/gpui_platform.swift",
+    "swift_func": "testAdvanceClockTriggersDelayedTasks",
+    "status": "disabled",
+    "reason": "Upstream #[ignore]: Requires macOS main thread"
+  },
+  {
+    "upstream_crate": "gpui_platform",
+    "upstream_file": "crates/gpui_platform/src/gpui_platform.rs",
+    "upstream_test": "test_window_spawn_uses_test_dispatcher",
+    "swift_target": "GPUIPlatformTests",
+    "swift_file": "Tests/GPUIPlatformTests/gpui_platform.swift",
+    "swift_func": "testWindowSpawnUsesTestDispatcher",
+    "status": "disabled",
+    "reason": "Upstream #[ignore]: Requires macOS main thread - window creation fails on test threads"
+  }
+]

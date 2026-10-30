@@ -454,7 +454,7 @@ struct KeymapTests {
     }
 
     @Test("Test bindings for action keeps binding for narrower targeted unbind")
-    func testBindingsForActionKeepsNarrowerUnbind() {
+    func test_bindings_for_action_keeps_binding_for_narrower_targeted_unbind() {
         let bindings = [
             KeyBinding(keystrokes: "tab", action: ActionAlpha(), context: "Editor"),
             KeyBinding(
@@ -478,7 +478,7 @@ struct KeymapTests {
     }
 
     @Test("Test bindings for action removes binding for broader targeted unbind")
-    func testBindingsForActionRemovesBroaderUnbind() {
+    func test_bindings_for_action_removes_binding_for_broader_targeted_unbind() {
         let bindings = [
             KeyBinding(keystrokes: "tab", action: ActionAlpha(), context: "Editor && edit_prediction"),
             KeyBinding(

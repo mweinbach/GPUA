@@ -153,6 +153,12 @@ public struct TextRun: Sendable, Equatable {
         self.underline = underline
         self.strikethrough = strikethrough
     }
+
+    public func withLen(_ len: Int) -> TextRun {
+        var copy = self
+        copy.len = len
+        return copy
+    }
 }
 
 /// An identifier for a specific glyph, as returned by the text system.

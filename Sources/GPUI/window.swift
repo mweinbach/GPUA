@@ -1424,12 +1424,14 @@ public protocol PlatformWindow: AnyObject, Sendable {
     func zoom()
     func toggleFullScreen()
     func draw(scene: Scene)
+    func spriteAtlas() -> any PlatformAtlas
     func setInputHandler(_ handler: any PlatformInputHandlerProtocol)
     func takeInputHandler() -> (any PlatformInputHandlerProtocol)?
     func activeInputHandler() -> (any PlatformInputHandlerProtocol)?
 }
 
 extension PlatformWindow {
+    public func spriteAtlas() -> any PlatformAtlas { TestAtlas.new() }
     public func takeInputHandler() -> (any PlatformInputHandlerProtocol)? { nil }
     public func setInputHandler(_ handler: any PlatformInputHandlerProtocol) {}
     public func activeInputHandler() -> (any PlatformInputHandlerProtocol)? { nil }
@@ -1687,24 +1689,40 @@ public struct Window: @unchecked Sendable {
         )
     }
 
+    @MainActor
     public init(
         handle: AnyWindowHandle,
         options: WindowOptions,
-        cx: inout App
+        cx: App
     ) {
         let bounds = options.windowBounds?.bounds ?? Bounds(origin: .zero, size: DEFAULT_WINDOW_SIZE)
+        let platWin = cx.platform.openWindow(handle: handle, options: options)
+        let scale = platWin.scaleFactor()
+        let contentSize = platWin.contentSize()
+        let vpSize = (contentSize.width > px(0) && contentSize.height > px(0)) ? contentSize : bounds.size
         self.init(
             handle: handle,
-            platformWindow: DefaultPlatformWindow(bounds: bounds),
-            scaleFactor: 1.0,
-            viewportSize: bounds.size,
+            platformWindow: platWin,
+            scaleFactor: scale > 0 ? scale : 1.0,
+            viewportSize: vpSize,
             remSize: px(16.0)
         )
+        self.spriteAtlas = platWin.spriteAtlas()
+        self.windowTextSystem = WindowTextSystem(textSystem: cx.textSystem())
         self.backgroundAppearance = options.windowBackground
         self.displayId = options.displayId
         if let title = options.titlebar?.title {
             self.windowTitle = title
         }
+    }
+
+    @MainActor
+    public init(
+        handle: AnyWindowHandle,
+        options: WindowOptions,
+        cx: inout App
+    ) {
+        self.init(handle: handle, options: options, cx: cx as App)
     }
 
     // MARK: - Focus Operations
@@ -2075,6 +2093,9 @@ public struct Window: @unchecked Sendable {
     /// 7. Swap `next_frame` into `rendered_frame` and present scene to `platform_window.draw()`.
     @MainActor
     public mutating func draw(cx: inout App) {
+        if windowTextSystem == nil {
+            windowTextSystem = WindowTextSystem(textSystem: cx.textSystem())
+        }
         withElementArena {
             nextFrame.dispatchTree.keymap = cx.keymap
             // Stage 1 & 2: Entity Invalidation & Setup

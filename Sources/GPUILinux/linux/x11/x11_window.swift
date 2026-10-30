@@ -877,6 +877,19 @@ public final class X11Window: PlatformWindow, WgpuWindowHandleProvider, @uncheck
         ptr.state.inputHandler
     }
 
+    public func spriteAtlas() -> any PlatformAtlas {
+        ptr.state.renderer.spriteAtlas()
+    }
+
+    public var captureFrames: Bool {
+        get { ptr.state.renderer.captureFrames }
+        set { ptr.state.renderer.captureFrames = newValue }
+    }
+
+    public var lastCapturedFrame: (width: UInt32, height: UInt32, rgba: [UInt8])? {
+        ptr.state.renderer.lastCapturedFrame
+    }
+
     public func draw(scene: Scene) {
         ptr.state.renderer.draw(scene)
     }

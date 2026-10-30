@@ -95,9 +95,9 @@ public struct TaffyTree<NodeContext: Sendable>: Sendable {
 
     public init(capacity: Int = 16) {
         self.nodes = SlotMap<NodeData>(capacity: capacity)
-        self.nodeContextData = [:]
-        self.children = [:]
-        self.parents = [:]
+        self.nodeContextData = [NodeId: NodeContext](minimumCapacity: capacity)
+        self.children = [NodeId: [NodeId]](minimumCapacity: capacity)
+        self.parents = [NodeId: NodeId](minimumCapacity: capacity)
         self.config = TaffyConfig(useRounding: true)
         self.measureFunction = nil
     }
@@ -271,6 +271,25 @@ public struct TaffyTree<NodeContext: Sendable>: Sendable {
         return removeChildAtIndex(parent, index)
     }
 
+    /// Removes children in the specified range from the `parent`
+    public mutating func removeChildrenRange<R: RangeExpression>(_ parent: NodeId, _ range: R) -> Result<Void, TaffyError> where R.Bound == Int {
+        guard nodes.contains(parent) else {
+            return .failure(.invalidParentNode(parent))
+        }
+        guard var childList = children[parent] else {
+            return .failure(.invalidParentNode(parent))
+        }
+        let relativeRange = range.relative(to: childList)
+        for i in relativeRange {
+            let child = childList[i]
+            parents.removeValue(forKey: child)
+        }
+        childList.removeSubrange(relativeRange)
+        children[parent] = childList
+        _ = markDirty(node: parent)
+        return .success(())
+    }
+
     /// Removes the child at the given `index` from the `parent`
     public mutating func removeChildAtIndex(_ parent: NodeId, _ childIndex: Int) -> Result<NodeId, TaffyError> {
         guard nodes.contains(parent) else {
@@ -394,6 +413,12 @@ public struct TaffyTree<NodeContext: Sendable>: Sendable {
         }
         markDirtyRecursive(nodes: &nodes, parents: parents, current: node)
         return .success(())
+    }
+
+    /// Marks the layout of this node and its ancestors as outdated (unlabeled)
+    @inlinable
+    public mutating func markDirty(_ node: NodeId) -> Result<Void, TaffyError> {
+        markDirty(node: node)
     }
 
     /// Indicates whether the layout of this node needs to be recomputed

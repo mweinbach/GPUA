@@ -28,10 +28,21 @@ public enum ArcCow<T: Sendable>: Sendable {
         }
     }
 
+    public var isBorrowed: Bool {
+        if case .borrowed = self { return true }
+        return false
+    }
+
+    public var isOwned: Bool {
+        if case .owned = self { return true }
+        return false
+    }
+
     public func asRef() -> T {
         value
     }
 }
+
 
 extension ArcCow: CustomStringConvertible where T: CustomStringConvertible {
     public var description: String {

@@ -7,6 +7,25 @@ import Testing
 
 @Suite("KeymapContextTests")
 struct KeymapContextTests {
+    @Test("Test actions definition")
+    func test_actions_definition() {
+        struct ActionA: Action, Equatable {
+            static let name = "test_only::A"
+            static func build(json: [String: Any]) throws -> any Action { ActionA() }
+            func isEqual(to other: any Action) -> Bool { (other as? ActionA) == self }
+        }
+        struct ActionB: Action, Equatable {
+            static let name = "test_only::B"
+            static func build(json: [String: Any]) throws -> any Action { ActionB() }
+            func isEqual(to other: any Action) -> Bool { (other as? ActionB) == self }
+        }
+
+        #expect(ActionA.name == "test_only::A")
+        #expect(ActionB.name == "test_only::B")
+        #expect(ActionA().isEqual(to: ActionA()))
+        #expect(!ActionA().isEqual(to: ActionB()))
+    }
+
     @Test("Parse context strings")
     func testParseContext() throws {
         var expected = KeyContext()

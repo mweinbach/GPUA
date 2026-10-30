@@ -538,4 +538,47 @@ struct LineWrapperTests {
         )
         #expect(layout2.width == layout1.width)
     }
+
+    @Test("test_wrap_shaped_line")
+    @MainActor
+    func test_wrap_shaped_line() throws {
+        let textSystem = WindowTextSystem(textSystem: TextSystem(platformTextSystem: NoopTextSystem()))
+        let normal = TextRun(
+            len: 0,
+            font: font(".ZedMono"),
+            color: black(),
+            backgroundColor: nil,
+            underline: nil,
+            strikethrough: nil
+        )
+        let bold = TextRun(
+            len: 0,
+            font: font(".ZedMono").bold(),
+            color: black(),
+            backgroundColor: nil,
+            underline: nil,
+            strikethrough: nil
+        )
+
+        let text = SharedString("aa bbb cccc ddddd eeee")
+        let lines = try textSystem.shapeText(
+            text: text,
+            fontSize: px(16.0),
+            runs: [
+                normal.withLen(4),
+                bold.withLen(5),
+                normal.withLen(6),
+                bold.withLen(1),
+                normal.withLen(7),
+            ],
+            wrapWidth: px(72.0)
+        )
+
+        #expect(lines[0].layout.wrapBoundaries == [
+            WrapBoundary(runIx: 0, glyphIx: 7),
+            WrapBoundary(runIx: 0, glyphIx: 12),
+            WrapBoundary(runIx: 0, glyphIx: 18)
+        ])
+    }
 }
+

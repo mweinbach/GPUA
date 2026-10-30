@@ -277,6 +277,11 @@ public struct Size<T: Sendable>: Sendable {
         case .vertical: return height
         }
     }
+
+    @inlinable
+    public func getAbs(_ axis: AbsoluteAxis) -> T {
+        getAbs(axis: axis)
+    }
 }
 
 extension Size: Equatable where T: Equatable {}

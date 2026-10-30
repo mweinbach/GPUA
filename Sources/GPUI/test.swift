@@ -4,9 +4,7 @@
 
 import Foundation
 import GPUIMacros
-#if canImport(Testing)
-import Testing
-#endif
+
 
 /// Strategy injected into tests to control the seed given to the scheduler.
 public func seedStrategy() -> [UInt64] {
@@ -150,19 +148,3 @@ public func observe<T>(entity: Entity<T>, cx: inout TestAppContext) -> Observati
     return observation
 }
 
-#if canImport(Testing)
-/// Swift Testing trait for deterministic GPUI execution per ADR-0007.
-public struct GPUITestTrait: TestTrait, SuiteTrait {
-    public var config: GPUITestConfig
-
-    public init(iterations: Int = 1, seed: UInt64? = nil, maxRetries: Int = 0) {
-        self.config = GPUITestConfig(iterations: iterations, seed: seed, maxRetries: maxRetries)
-    }
-}
-
-extension Trait where Self == GPUITestTrait {
-    public static func gpui(iterations: Int = 1, seed: UInt64? = nil, maxRetries: Int = 0) -> Self {
-        GPUITestTrait(iterations: iterations, seed: seed, maxRetries: maxRetries)
-    }
-}
-#endif

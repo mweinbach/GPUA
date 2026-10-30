@@ -42,4 +42,20 @@ struct TaffyStyleTests {
         #expect(style.size.width.intoOption() == 100.0)
         #expect(style.size.height.value == .percent(0.5))
     }
+
+    @Test func style_sizes() {
+        #expect(MemoryLayout<Display>.size == 1)
+        #expect(MemoryLayout<BoxSizing>.size == 1)
+        #expect(MemoryLayout<Position>.size == 1)
+        #expect(MemoryLayout<Overflow>.size == 1)
+        #expect(MemoryLayout<Float>.size == 4)
+        #expect(MemoryLayout<LengthPercentage>.size == 5)
+        #expect(MemoryLayout<LengthPercentageAuto>.size == 5)
+        #expect(MemoryLayout<Dimension>.size == 5)
+        #expect(MemoryLayout<AlignContent>.size == 1)
+        #expect(MemoryLayout<AlignItems>.size == 1)
+        #expect(MemoryLayout<FlexDirection>.size == 1)
+        #expect(MemoryLayout<FlexWrap>.size == 1)
+        #expect(MemoryLayout<GridAutoFlow>.size == 1)
+    }
 }

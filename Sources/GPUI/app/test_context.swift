@@ -36,13 +36,17 @@ public final class TestAppContext: @unchecked Sendable {
         self.fnName = fnName
     }
 
-    public static func build(dispatcher: TestDispatcher, fnName: String? = nil) -> TestAppContext {
+    public static func build(
+        dispatcher: TestDispatcher,
+        textSystem: (any PlatformTextSystem)? = nil,
+        fnName: String? = nil
+    ) -> TestAppContext {
         let bg = BackgroundExecutor(scheduler: dispatcher.schedulerInstance)
         let fg = ForegroundExecutor(sessionId: dispatcher.sessionId, scheduler: dispatcher.schedulerInstance)
         let platform = TestPlatform(
             executor: bg,
             foregroundExecutor: fg,
-            textSystem: NoopTextSystem()
+            textSystem: textSystem ?? NoopTextSystem()
         )
         let ts = TextSystem(platformTextSystem: platform.textSystem())
         let app = App.newApp(platform: platform)
@@ -63,9 +67,9 @@ public final class TestAppContext: @unchecked Sendable {
         app.mode = .test(skipDrawing: true)
     }
 
-    public static func single() -> TestAppContext {
+    public static func single(textSystem: (any PlatformTextSystem)? = nil) -> TestAppContext {
         let dispatcher = TestDispatcher.new(seed: 0)
-        return TestAppContext.build(dispatcher: dispatcher, fnName: nil)
+        return TestAppContext.build(dispatcher: dispatcher, textSystem: textSystem, fnName: nil)
     }
 
     public func testFunctionName() -> String? {
@@ -145,7 +149,14 @@ public final class TestAppContext: @unchecked Sendable {
     public func addWindowView<V: Render>(
         _ buildWindow: @escaping (inout Window, inout Context<V>) -> V
     ) -> (Entity<V>, VisualTestContext) {
-        let options = WindowOptions(windowBounds: .windowed(Bounds(origin: .zero, size: Size(width: px(1920), height: px(1080)))))
+        addWindowView(windowSize: Size(width: px(1920), height: px(1080)), buildWindow)
+    }
+
+    public func addWindowView<V: Render>(
+        windowSize: Size<Pixels>,
+        _ buildWindow: @escaping (inout Window, inout Context<V>) -> V
+    ) -> (Entity<V>, VisualTestContext) {
+        let options = WindowOptions(windowBounds: .windowed(Bounds(origin: .zero, size: windowSize)))
         var visualCx: VisualTestContext?
         var viewEntity: Entity<V>?
         let handle = try! app.openWindow(options) { window, cx in

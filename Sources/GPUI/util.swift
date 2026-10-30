@@ -3,6 +3,9 @@
 // Port status: ported
 
 import Foundation
+import GPUIUtil
+
+public typealias PNGEncoder = GPUIUtil.PNGEncoder
 
 /// A helper protocol for building complex objects with imperative conditionals in a fluent style.
 public protocol FluentBuilder {}

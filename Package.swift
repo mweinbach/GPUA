@@ -151,7 +151,7 @@ let package = Package(
         crate("GPUIiOS", ["GPUI", "GPUIApple", "GPUIMetal", "GPUICollections"]),              // crates/gpui_ios
         crate(
             "GPUILinux",
-            ["GPUI", "GPUIWGPU", "GPUICollections", "HTTPClient", "ZedUtil", "CWebGPU", "CLinuxSys"],
+            ["GPUI", "GPUIWGPU", "GPUICollections", "GPUIUtil", "HTTPClient", "ZedUtil", "CWebGPU", "CLinuxSys"],
             linkerSettings: [
                 .linkedLibrary("wayland-client", .when(platforms: [.linux])),
                 .linkedLibrary("wayland-cursor", .when(platforms: [.linux])),
@@ -231,8 +231,8 @@ let package = Package(
         crateTests("GPUIWGPU"),
         crateTests("GPUIMacOS"),
         crateTests("GPUIiOS"),
-        crateTests("GPUILinux"),
-        crateTests("GPUIWindows"),
+        crateTests("GPUILinux", ["GPUIUtil"]),
+        crateTests("GPUIWindows", ["GPUIUtil"]),
         crateTests("GPUIWeb"),
         crateTests("GPUIPlatform"),
     ]

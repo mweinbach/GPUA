@@ -100,4 +100,12 @@ struct ArenaTests {
         }
         #expect(mappedInner.pointee.value == 99)
     }
+
+    @Test(.disabled("Upstream #[should_panic]: tests assertion failure on use-after-clear"))
+    func test_arena_use_after_clear() {
+        var arena = Arena.new(16)
+        let value = arena.alloc { UInt64(1) }
+        arena.clear()
+        _ = value.pointee
+    }
 }

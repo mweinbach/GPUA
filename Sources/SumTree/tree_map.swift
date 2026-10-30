@@ -205,6 +205,75 @@ public struct TreeMap<Key: Comparable & Sendable, Value: Sendable>: Sendable {
             insert(k, v)
         }
     }
+
+    public mutating func removeRange<Target1: MapSeekTarget, Target2: MapSeekTarget>(
+        _ start: Target1,
+        _ end: Target2
+    ) where Target1.Key == Key, Target2.Key == Key {
+        var cursor = tree.cursor(()) as Cursor<MapEntry<Key, Value>, KeyDimension<MapEntry<Key, Value>>>
+        var newTree = cursor.slice(to: MapSeekTargetAdapter<Target1, Value>(start), bias: .left)
+        cursor.seek(to: MapSeekTargetAdapter<Target2, Value>(end), bias: .left)
+        newTree.append(cursor.suffix(), ())
+        self.tree = newTree
+        var newCount = 0
+        var c = newTree.cursor(()) as Cursor<MapEntry<Key, Value>, KeyDimension<MapEntry<Key, Value>>>
+        while c.item() != nil {
+            newCount += 1
+            c.next()
+        }
+        self.count = newCount
+    }
+
+    public mutating func removeRange<End: MapSeekTarget>(
+        _ start: Key,
+        _ end: End
+    ) where End.Key == Key {
+        removeRange(KeyTarget(start), end)
+    }
+}
+
+public protocol MapSeekTarget<Key> {
+    associatedtype Key
+    func cmpCursor(_ key: Key) -> Ordering
+}
+
+public struct KeyTarget<Key: Comparable & Sendable>: MapSeekTarget {
+    public let key: Key
+
+    public init(_ key: Key) {
+        self.key = key
+    }
+
+    public func cmpCursor(_ cursorLocation: Key) -> Ordering {
+        if key < cursorLocation {
+            return .less
+        } else if key > cursorLocation {
+            return .greater
+        } else {
+            return .equal
+        }
+    }
+}
+
+public struct MapSeekTargetAdapter<Target: MapSeekTarget, Value: Sendable>: SeekTarget
+    where Target.Key: Comparable & Sendable
+{
+    public typealias SummaryType = MapKey<Target.Key>
+    public typealias D = KeyDimension<MapEntry<Target.Key, Value>>
+
+    public let target: Target
+
+    public init(_ target: Target) {
+        self.target = target
+    }
+
+    public func cmp(cursorLocation: D, cx: Void) -> Ordering {
+        if let key = cursorLocation.key {
+            return target.cmpCursor(key)
+        } else {
+            return .greater
+        }
+    }
 }
 
 /// A cheaply-cloneable ordered set based on `TreeMap`.

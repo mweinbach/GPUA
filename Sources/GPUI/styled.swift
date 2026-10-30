@@ -148,23 +148,6 @@ extension Styled {
         withStyle { $0.overflow.y = .hidden }
     }
 
-    /// Sets overflow on both axes to scroll.
-    public func overflowScroll() -> Self {
-        withStyle {
-            $0.overflow.x = .scroll
-            $0.overflow.y = .scroll
-        }
-    }
-
-    /// Sets overflow on the X axis to scroll.
-    public func overflowXScroll() -> Self {
-        withStyle { $0.overflow.x = .scroll }
-    }
-
-    /// Sets overflow on the Y axis to scroll.
-    public func overflowYScroll() -> Self {
-        withStyle { $0.overflow.y = .scroll }
-    }
 
     // MARK: - Text & Typography
 
@@ -1045,6 +1028,7 @@ extension Styled {
     public func mb2() -> Self { mb(.definite(.rems(GPUI.rems(0.5)))) }
     public func mb3() -> Self { mb(.definite(.rems(GPUI.rems(0.75)))) }
     public func mb4() -> Self { mb(.definite(.rems(GPUI.rems(1.0)))) }
+    public func mb5() -> Self { mb(.definite(.rems(GPUI.rems(1.25)))) }
     public func mb6() -> Self { mb(.definite(.rems(GPUI.rems(1.5)))) }
     public func mb8() -> Self { mb(.definite(.rems(GPUI.rems(2.0)))) }
 

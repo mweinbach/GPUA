@@ -187,6 +187,8 @@ public final class WgpuRenderer: @unchecked Sendable {
     private var deviceName: String = "WebGPU Adapter"
     private var driverName: String = "wgpu-native"
     private var driverInfo: String = ""
+    public var captureFrames: Bool = false
+    public private(set) var lastCapturedFrame: (width: UInt32, height: UInt32, rgba: [UInt8])?
 
     #if os(Linux)
     public static func createSurface(instance: WGPUInstance, handle: WgpuRawWindowHandle) -> WGPUSurface? {
@@ -359,7 +361,16 @@ public final class WgpuRenderer: @unchecked Sendable {
         sConf.format = surfaceFormat
         sConf.width = UInt32(max(config.size.width.value, 1))
         sConf.height = UInt32(max(config.size.height.value, 1))
-        sConf.usage = WGPUTextureUsage_RenderAttachment
+        var usage = WGPUTextureUsage_RenderAttachment
+        if status == WGPUStatus_Success {
+            if (caps.usages & WGPUTextureUsage_CopySrc) != 0 {
+                usage |= WGPUTextureUsage_CopySrc
+            }
+        }
+        if caps.usages == 0 || (caps.usages & WGPUTextureUsage_CopySrc) != 0 {
+            usage |= WGPUTextureUsage_CopySrc
+        }
+        sConf.usage = usage
         sConf.presentMode = presentMode
         sConf.alphaMode = alphaMode
 
@@ -565,8 +576,10 @@ public final class WgpuRenderer: @unchecked Sendable {
 
         let targetView: WGPUTextureView
         let isFromSurface: Bool
+        var surfaceTextureForCapture: WGPUTexture? = nil
         if let offscreenView = res.offscreenView {
             targetView = offscreenView
+            surfaceTextureForCapture = res.offscreenTexture
             isFromSurface = false
         } else if let surface = res.surface {
             var surfTex = WGPUSurfaceTexture()
@@ -578,6 +591,7 @@ public final class WgpuRenderer: @unchecked Sendable {
                     return
                 }
                 targetView = view
+                surfaceTextureForCapture = surfTex.texture
                 isFromSurface = true
             case WGPUSurfaceGetCurrentTextureStatus_Outdated,
                  WGPUSurfaceGetCurrentTextureStatus_Lost:
@@ -589,6 +603,7 @@ public final class WgpuRenderer: @unchecked Sendable {
                         return
                     }
                     targetView = view
+                    surfaceTextureForCapture = surfTex.texture
                     isFromSurface = true
                 } else {
                     return
@@ -731,6 +746,27 @@ public final class WgpuRenderer: @unchecked Sendable {
 
             wgpuCommandBufferRelease(cmdBuffer)
             wgpuCommandEncoderRelease(encoder)
+
+            if captureFrames, let tex = surfaceTextureForCapture {
+                if let rawBytes = try? OffscreenTextureReadbackHelper.readbackRGBA(
+                    device: res.device,
+                    queue: res.queue,
+                    texture: tex,
+                    width: Int(surfaceConfig.width),
+                    height: Int(surfaceConfig.height)
+                ) {
+                    var rgba = rawBytes
+                    if surfaceConfig.format == WGPUTextureFormat_BGRA8Unorm || surfaceConfig.format == WGPUTextureFormat_BGRA8UnormSrgb {
+                        for i in stride(from: 0, to: rgba.count, by: 4) {
+                            let b = rgba[i]
+                            let r = rgba[i + 2]
+                            rgba[i] = r
+                            rgba[i + 2] = b
+                        }
+                    }
+                    self.lastCapturedFrame = (width: surfaceConfig.width, height: surfaceConfig.height, rgba: rgba)
+                }
+            }
 
             if let surface = res.surface {
                 _ = wgpuSurfacePresent(surface)
@@ -1119,10 +1155,17 @@ public final class WgpuRenderer: @unchecked Sendable {
             return nil
         }()
 
-        let blend = WGPUBlendState(
+        let premultipliedBlend = WGPUBlendState(
             color: WGPUBlendComponent(operation: WGPUBlendOperation_Add, srcFactor: WGPUBlendFactor_One, dstFactor: WGPUBlendFactor_OneMinusSrcAlpha),
             alpha: WGPUBlendComponent(operation: WGPUBlendOperation_Add, srcFactor: WGPUBlendFactor_One, dstFactor: WGPUBlendFactor_OneMinusSrcAlpha)
         )
+
+        let alphaBlend = WGPUBlendState(
+            color: WGPUBlendComponent(operation: WGPUBlendOperation_Add, srcFactor: WGPUBlendFactor_SrcAlpha, dstFactor: WGPUBlendFactor_OneMinusSrcAlpha),
+            alpha: WGPUBlendComponent(operation: WGPUBlendOperation_Add, srcFactor: WGPUBlendFactor_One, dstFactor: WGPUBlendFactor_OneMinusSrcAlpha)
+        )
+
+        let blend = (alphaMode == WGPUCompositeAlphaMode_Premultiplied) ? premultipliedBlend : alphaBlend
 
         let pathsBlend = WGPUBlendState(
             color: WGPUBlendComponent(operation: WGPUBlendOperation_Add, srcFactor: WGPUBlendFactor_One, dstFactor: WGPUBlendFactor_OneMinusSrcAlpha),
@@ -1131,7 +1174,7 @@ public final class WgpuRenderer: @unchecked Sendable {
 
         let quads = createPipeline(device: device, name: "quads", vs: "vs_quad", fs: "fs_quad", layouts: [layouts.globals, layouts.instances], format: surfaceFormat, blend: blend, topology: WGPUPrimitiveTopology_TriangleStrip, module: shaderModule)
         let shadows = createPipeline(device: device, name: "shadows", vs: "vs_shadow", fs: "fs_shadow", layouts: [layouts.globals, layouts.instances], format: surfaceFormat, blend: blend, topology: WGPUPrimitiveTopology_TriangleStrip, module: shaderModule)
-        let pathRaster = createPipeline(device: device, name: "path_raster", vs: "vs_path_rasterization", fs: "fs_path_rasterization", layouts: [layouts.globals, layouts.instances], format: surfaceFormat, blend: blend, topology: WGPUPrimitiveTopology_TriangleList, module: shaderModule)
+        let pathRaster = createPipeline(device: device, name: "path_raster", vs: "vs_path_rasterization", fs: "fs_path_rasterization", layouts: [layouts.globals, layouts.instances], format: surfaceFormat, blend: premultipliedBlend, topology: WGPUPrimitiveTopology_TriangleList, module: shaderModule)
         let paths = createPipeline(device: device, name: "paths", vs: "vs_path", fs: "fs_path", layouts: [layouts.globals, layouts.instancesWithTexture], format: surfaceFormat, blend: pathsBlend, topology: WGPUPrimitiveTopology_TriangleStrip, module: shaderModule)
         let underlines = createPipeline(device: device, name: "underlines", vs: "vs_underline", fs: "fs_underline", layouts: [layouts.globals, layouts.instances], format: surfaceFormat, blend: blend, topology: WGPUPrimitiveTopology_TriangleStrip, module: shaderModule)
         let monoSprites = createPipeline(device: device, name: "mono_sprites", vs: "vs_mono_sprite", fs: "fs_mono_sprite", layouts: [layouts.globals, layouts.instancesWithTexture], format: surfaceFormat, blend: blend, topology: WGPUPrimitiveTopology_TriangleStrip, module: shaderModule)

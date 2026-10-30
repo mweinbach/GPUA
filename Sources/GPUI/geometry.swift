@@ -576,7 +576,18 @@ extension Bounds where T == Pixels {
             size: size.toDevicePixels(factor)
         )
     }
+
+    @MainActor
+    public static func centered(_ displayId: DisplayId? = nil, size: Size<Pixels>, _ cx: App) -> Bounds<Pixels> {
+        let display = displayId.flatMap { cx.findDisplay($0) } ?? cx.primaryDisplay()
+        if let display {
+            return Bounds(center: display.visibleBounds().center(), size: size)
+        } else {
+            return Bounds(origin: Point(x: px(0), y: px(0)), size: size)
+        }
+    }
 }
+
 
 extension Bounds where T == ScaledPixels {
     public func toDevicePixels() -> Bounds<DevicePixels> {

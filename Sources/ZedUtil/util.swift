@@ -32,12 +32,9 @@ public func truncateAndRemoveFront(_ s: String, _ maxChars: Int) -> String {
 }
 
 public func truncateLinesAndTrailoff(_ s: String, _ maxLines: Int) -> String {
-    var lines = s.components(separatedBy: "\n")
-    if lines.count > maxLines {
-        lines = Array(lines.prefix(maxLines))
-        if !lines.isEmpty {
-            lines.removeLast()
-        }
+    var lines = s.components(separatedBy: "\n").prefix(maxLines).map { String($0) }
+    if lines.count > maxLines - 1 {
+        lines.removeLast()
         return lines.joined(separator: "\n") + "\n…"
     } else {
         return lines.joined(separator: "\n")
@@ -119,4 +116,165 @@ public func truncateToBottomNSortedBy<T>(
     if vec.count > n {
         vec.removeSubrange(n..<vec.count)
     }
+}
+
+@inlinable
+public func maybe<T>(_ block: () throws -> T?) -> T? {
+    try? block()
+}
+
+public struct NumericPrefixWithSuffix: Equatable, Comparable, Sendable {
+    public let prefix: UInt64?
+    public let suffix: String
+
+    public init(_ prefix: UInt64?, _ suffix: String) {
+        self.prefix = prefix
+        self.suffix = suffix
+    }
+
+    public static func fromNumericPrefixedStr(_ str: String) -> NumericPrefixWithSuffix {
+        var digits = ""
+        var remainderStart = str.startIndex
+        for idx in str.indices {
+            let ch = str[idx]
+            if ch.isASCII && ch.isNumber {
+                digits.append(ch)
+                remainderStart = str.index(after: idx)
+            } else {
+                break
+            }
+        }
+        let prefix = UInt64(digits)
+        let remainder = String(str[remainderStart...])
+        return NumericPrefixWithSuffix(prefix, remainder)
+    }
+
+    public static func < (lhs: NumericPrefixWithSuffix, rhs: NumericPrefixWithSuffix) -> Bool {
+        switch (lhs.prefix, rhs.prefix) {
+        case (nil, nil):
+            let c = lhs.suffix.caseInsensitiveCompare(rhs.suffix)
+            if c == .orderedSame {
+                return lhs.suffix > rhs.suffix
+            }
+            return c == .orderedAscending
+        case (nil, _?):
+            return false
+        case (_?, nil):
+            return true
+        case let (l?, r?):
+            if l < r { return true }
+            if l > r { return false }
+            let c = lhs.suffix.caseInsensitiveCompare(rhs.suffix)
+            if c == .orderedSame {
+                return lhs.suffix > rhs.suffix
+            }
+            return c == .orderedAscending
+        }
+    }
+}
+
+public func wordConsistsOfEmojis(_ s: String) -> Bool {
+    guard !s.isEmpty else { return false }
+    for scalar in s.unicodeScalars {
+        if scalar.properties.isEmoji && !scalar.isASCII {
+            continue
+        }
+        if scalar.value == 0x200D || scalar.value == 0xFE0F {
+            continue
+        }
+        return false
+    }
+    return true
+}
+
+public func expandedAndWrappedUsizeRange(
+    _ range: Range<Int>,
+    _ additionalBefore: Int,
+    _ additionalAfter: Int,
+    _ wrapLength: Int
+) -> [Int] {
+    let startWraps = range.lowerBound < additionalBefore
+    let endWraps = wrapLength < range.upperBound + additionalAfter
+    if startWraps && endWraps {
+        return Array(0..<wrapLength)
+    } else if startWraps {
+        let wrappedStart = max(0, (range.lowerBound + wrapLength) - additionalBefore)
+        if wrappedStart <= range.upperBound {
+            return Array(0..<wrapLength)
+        } else {
+            return Array(0..<(range.upperBound + additionalAfter)) + Array(wrappedStart..<wrapLength)
+        }
+    } else if endWraps {
+        let wrappedEnd = range.upperBound + additionalAfter - wrapLength
+        if range.lowerBound <= wrappedEnd {
+            return Array(0..<wrapLength)
+        } else {
+            return Array(0..<wrappedEnd) + Array((range.lowerBound - additionalBefore)..<wrapLength)
+        }
+    } else {
+        return Array((range.lowerBound - additionalBefore)..<(range.upperBound + additionalAfter))
+    }
+}
+
+public func wrappedUsizeOutwardFrom(
+    _ start: Int,
+    _ additionalBefore: Int,
+    _ additionalAfter: Int,
+    _ wrapLength: Int
+) -> [Int] {
+    if wrapLength == 0 { return [] }
+    var count = 0
+    var afterOffset = 1
+    var beforeOffset = 1
+    var result: [Int] = []
+
+    while count < wrapLength {
+        count += 1
+        if count == 1 {
+            result.append(start % wrapLength)
+        } else if afterOffset <= additionalAfter && afterOffset <= beforeOffset {
+            let value = (start + afterOffset) % wrapLength
+            afterOffset += 1
+            result.append(value)
+        } else if beforeOffset <= additionalBefore {
+            let value = (start + wrapLength - (beforeOffset % wrapLength)) % wrapLength
+            beforeOffset += 1
+            result.append(value)
+        } else if afterOffset <= additionalAfter {
+            let value = (start + afterOffset) % wrapLength
+            afterOffset += 1
+            result.append(value)
+        } else {
+            break
+        }
+    }
+    return result
+}
+
+public func splitStrWithRanges(_ s: String, where pat: (Character) -> Bool) -> [(Range<Int>, String)] {
+    var result: [(Range<Int>, String)] = []
+    let utf8 = Array(s.utf8)
+    var byteOffset = 0
+    var segmentStartByte = 0
+    var segmentChars = ""
+
+    for ch in s {
+        let chLen = String(ch).utf8.count
+        if pat(ch) {
+            if byteOffset > segmentStartByte {
+                result.append((segmentStartByte..<byteOffset, segmentChars))
+            }
+            segmentChars = ""
+            segmentStartByte = byteOffset + chLen
+        } else {
+            segmentChars.append(ch)
+        }
+        byteOffset += chLen
+    }
+
+    if utf8.count > segmentStartByte {
+        result.append((segmentStartByte..<utf8.count, segmentChars))
+    }
+
+    return result
 }

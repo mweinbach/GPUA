@@ -98,4 +98,72 @@ struct TreeMapTests {
         #expect(!set.contains(10))
         #expect(set.iter() == [5, 20])
     }
+
+    @Test func test_remove_between_and_path_successor() {
+        struct PathDescendants: MapSeekTarget {
+            typealias Key = String
+            let path: String
+
+            init(_ path: String) { self.path = path }
+
+            func cmpCursor(_ cursorLocation: String) -> Ordering {
+                if cursorLocation == path || cursorLocation.hasPrefix(path + "/") {
+                    return .greater
+                } else {
+                    if path < cursorLocation {
+                        return .less
+                    } else if path > cursorLocation {
+                        return .greater
+                    } else {
+                        return .equal
+                    }
+                }
+            }
+        }
+
+        var map = TreeMap<String, Int>()
+
+        map.insert("a", 1)
+        map.insert("a/a", 1)
+        map.insert("b", 2)
+        map.insert("b/a/a", 3)
+        map.insert("b/a/a/a/b", 4)
+        map.insert("c", 5)
+        map.insert("c/a", 6)
+
+        map.removeRange("b/a", PathDescendants("b/a"))
+
+        #expect(map.get("a") == 1)
+        #expect(map.get("a/a") == 1)
+        #expect(map.get("b") == 2)
+        #expect(map.get("b/a/a") == nil)
+        #expect(map.get("b/a/a/a/b") == nil)
+        #expect(map.get("c") == 5)
+        #expect(map.get("c/a") == 6)
+
+        map.removeRange("c", PathDescendants("c"))
+
+        #expect(map.get("a") == 1)
+        #expect(map.get("a/a") == 1)
+        #expect(map.get("b") == 2)
+        #expect(map.get("c") == nil)
+        #expect(map.get("c/a") == nil)
+
+        map.removeRange("a", PathDescendants("a"))
+
+        #expect(map.get("a") == nil)
+        #expect(map.get("a/a") == nil)
+        #expect(map.get("b") == 2)
+        #expect(map.get("c") == nil)
+        #expect(map.get("c/a") == nil)
+
+        map.removeRange("b", PathDescendants("b"))
+
+        #expect(map.get("a") == nil)
+        #expect(map.get("a/a") == nil)
+        #expect(map.get("b") == nil)
+        #expect(map.get("c") == nil)
+        #expect(map.get("c/a") == nil)
+    }
 }
+

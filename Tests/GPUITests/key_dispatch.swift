@@ -42,7 +42,7 @@ struct KeyDispatchTests {
     }
 
     @Test("Test bindings for action hides targeted unbind in active context")
-    func testBindingsForActionHidesTargetedUnbind() throws {
+    func test_bindings_for_action_hides_targeted_unbind_in_active_context() throws {
         let tree = testDispatchTree(bindings: [
             KeyBinding(keystrokes: "tab", action: TestDispatchAction(), context: "Editor"),
             KeyBinding(
@@ -183,5 +183,15 @@ struct KeyDispatchTests {
         #expect(res2.toReplay.count == 1)
         #expect(res2.toReplay[0].bindings.count == 1)
         #expect(res2.toReplay[0].bindings[0].action.isEqual(to: SecondaryTestAction()))
+    }
+
+    @Test(.disabled("Requires TestAppContext and interactive Window lifecycle event loop, deferred until integration harness is ready"))
+    func test_pending_input_observers_notified_on_focus_change() {
+        // Deferred: requires interactive TestAppContext Window lifecycle
+    }
+
+    @Test(.disabled("Requires TestAppContext and interactive Window lifecycle event loop, deferred until integration harness is ready"))
+    func test_input_handler_pending() {
+        // Deferred: requires interactive TestAppContext Window lifecycle
     }
 }

@@ -3,7 +3,23 @@
 // Port status: ported
 
 import Testing
+import GPUIMacros
 @testable import GPUI
+
+/// Swift Testing trait for deterministic GPUI execution per ADR-0007.
+public struct GPUITestTrait: TestTrait, SuiteTrait {
+    public var config: GPUITestConfig
+
+    public init(iterations: Int = 1, seed: UInt64? = nil, maxRetries: Int = 0) {
+        self.config = GPUITestConfig(iterations: iterations, seed: seed, maxRetries: maxRetries)
+    }
+}
+
+extension Trait where Self == GPUITestTrait {
+    public static func gpui(iterations: Int = 1, seed: UInt64? = nil, maxRetries: Int = 0) -> Self {
+        GPUITestTrait(iterations: iterations, seed: seed, maxRetries: maxRetries)
+    }
+}
 
 @Suite("TestModuleTests")
 struct TestModuleTests {

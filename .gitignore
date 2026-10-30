@@ -28,3 +28,7 @@ __pycache__/
 
 # Agent metadata
 .agents/
+
+# Build and test artifacts
+artifacts/
+

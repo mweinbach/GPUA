@@ -7,6 +7,33 @@ import Testing
 
 @Suite("Taffy Compute Root & Leaf Tests")
 struct TaffyComputeTests {
+    @Test func hidden_layout_should_hide_recursively() {
+        var taffy: TaffyTree<Void> = TaffyTree.new()
+        var style = Style<String>.DEFAULT
+        style.display = .flex
+        style.size = Size(width: .length(50.0), height: .length(50.0))
+
+        let grandchild00 = try! taffy.newLeaf(style).get()
+        let grandchild01 = try! taffy.newLeaf(style).get()
+        let child00 = try! taffy.newWithChildren(style, [grandchild00, grandchild01]).get()
+
+        let grandchild02 = try! taffy.newLeaf(style).get()
+        let child01 = try! taffy.newWithChildren(style, [grandchild02]).get()
+
+        var rootStyle = Style<String>.DEFAULT
+        rootStyle.display = .none
+        rootStyle.size = Size(width: .length(50.0), height: .length(50.0))
+        let root = try! taffy.newWithChildren(rootStyle, [child00, child01]).get()
+
+        computeHiddenLayout(tree: &taffy, node: root)
+
+        for node in [root, child00, child01, grandchild00, grandchild01, grandchild02] {
+            let layout = try! taffy.layout(node).get()
+            #expect(layout.size == Size<Float>.ZERO)
+            #expect(layout.location == Point<Float>.ZERO)
+        }
+    }
+
     @Test("Hidden layout produces zero sizes")
     func testHiddenLayout() {
         var tree: TaffyTree<Void> = TaffyTree.new()

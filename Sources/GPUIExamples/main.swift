@@ -5,8 +5,12 @@
 // `static func main()` and registers itself below (see docs/PORTING_GUIDE.md).
 
 /// Example name (upstream file stem) → entry point. Keep alphabetical.
-var examples: [String: @MainActor () -> Void] = [:]
-// examples["hello_world"] = HelloWorldExample.main
+var examples: [String: @MainActor () -> Void] = [
+    "hello_world": HelloWorldExample.run,
+    "scrollable": ScrollableExample.run,
+    "text_layout": TextLayoutExample.run,
+    "uniform_list": UniformListExample.run,
+]
 
 let requested = CommandLine.arguments.dropFirst().first
 
