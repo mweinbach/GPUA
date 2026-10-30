@@ -3,6 +3,244 @@
 
 using namespace metal;
 
+#ifndef SCENE_H
+#define SCENE_H
+
+typedef float Pixels;
+typedef float ScaledPixels;
+typedef int DevicePixels;
+typedef unsigned int DrawOrder;
+typedef unsigned int TileId;
+
+enum BorderStyle : unsigned int {
+    BorderStyle_Solid = 0,
+    BorderStyle_Dashed = 1,
+};
+
+enum BackgroundTag : unsigned int {
+    BackgroundTag_Solid = 0,
+    BackgroundTag_LinearGradient = 1,
+    BackgroundTag_PatternSlash = 2,
+    BackgroundTag_Checkerboard = 3,
+};
+
+enum ColorSpace : unsigned int {
+    ColorSpace_Srgb = 0,
+    ColorSpace_Oklab = 1,
+};
+
+enum AtlasTextureKind : unsigned int {
+    AtlasTextureKind_Monochrome = 0,
+    AtlasTextureKind_Polychrome = 1,
+    AtlasTextureKind_Subpixel = 2,
+};
+
+enum PathRasterizationInputIndex : unsigned int {
+    PathRasterizationInputIndex_Vertices = 0,
+    PathRasterizationInputIndex_ViewportSize = 1,
+};
+
+enum ShadowInputIndex : unsigned int {
+    ShadowInputIndex_Vertices = 0,
+    ShadowInputIndex_Shadows = 1,
+    ShadowInputIndex_ViewportSize = 2,
+};
+
+enum QuadInputIndex : unsigned int {
+    QuadInputIndex_Vertices = 0,
+    QuadInputIndex_Quads = 1,
+    QuadInputIndex_ViewportSize = 2,
+};
+
+enum UnderlineInputIndex : unsigned int {
+    UnderlineInputIndex_Vertices = 0,
+    UnderlineInputIndex_Underlines = 1,
+    UnderlineInputIndex_ViewportSize = 2,
+};
+
+enum SpriteInputIndex : unsigned int {
+    SpriteInputIndex_Vertices = 0,
+    SpriteInputIndex_Sprites = 1,
+    SpriteInputIndex_ViewportSize = 2,
+    SpriteInputIndex_AtlasTextureSize = 3,
+    SpriteInputIndex_AtlasTexture = 4,
+};
+
+enum SurfaceInputIndex : unsigned int {
+    SurfaceInputIndex_Vertices = 0,
+    SurfaceInputIndex_Surfaces = 1,
+    SurfaceInputIndex_ViewportSize = 2,
+    SurfaceInputIndex_TextureSize = 3,
+    SurfaceInputIndex_YTexture = 4,
+    SurfaceInputIndex_CbCrTexture = 5,
+};
+
+struct PointF {
+    float x;
+    float y;
+};
+
+struct Point_ScaledPixels {
+    ScaledPixels x;
+    ScaledPixels y;
+};
+
+struct Size_ScaledPixels {
+    ScaledPixels width;
+    ScaledPixels height;
+};
+
+struct Bounds_ScaledPixels {
+    Point_ScaledPixels origin;
+    Size_ScaledPixels size;
+};
+
+struct ContentMask_ScaledPixels {
+    Bounds_ScaledPixels bounds;
+};
+
+struct Corners_ScaledPixels {
+    ScaledPixels top_left;
+    ScaledPixels top_right;
+    ScaledPixels bottom_right;
+    ScaledPixels bottom_left;
+};
+
+struct Edges_ScaledPixels {
+    ScaledPixels top;
+    ScaledPixels right;
+    ScaledPixels bottom;
+    ScaledPixels left;
+};
+
+struct Point_DevicePixels {
+    DevicePixels x;
+    DevicePixels y;
+};
+
+struct Size_DevicePixels {
+    DevicePixels width;
+    DevicePixels height;
+};
+
+struct Bounds_DevicePixels {
+    Point_DevicePixels origin;
+    Size_DevicePixels size;
+};
+
+struct Hsla {
+    float h;
+    float s;
+    float l;
+    float a;
+};
+
+struct LinearColorStop {
+    Hsla color;
+    float percentage;
+};
+
+struct Background {
+    BackgroundTag tag;
+    ColorSpace color_space;
+    Hsla solid;
+    float gradient_angle_or_pattern_height;
+    LinearColorStop colors[2];
+    unsigned int pad;
+};
+
+struct AtlasTextureId {
+    unsigned int index;
+    AtlasTextureKind kind;
+};
+
+struct AtlasTile {
+    AtlasTextureId texture_id;
+    TileId tile_id;
+    unsigned int padding;
+    Bounds_DevicePixels bounds;
+};
+
+struct TransformationMatrix {
+    float rotation_scale[2][2];
+    float translation[2];
+};
+
+struct PathVertex_ScaledPixels {
+    Point_ScaledPixels xy_position;
+    PointF st_position;
+    ContentMask_ScaledPixels content_mask;
+};
+
+struct PathRasterizationVertex {
+    Point_ScaledPixels xy_position;
+    PointF st_position;
+    Background color;
+    Bounds_ScaledPixels bounds;
+};
+
+struct PathSprite {
+    Bounds_ScaledPixels bounds;
+};
+
+struct Shadow {
+    DrawOrder order;
+    ScaledPixels blur_radius;
+    Bounds_ScaledPixels bounds;
+    Corners_ScaledPixels corner_radii;
+    ContentMask_ScaledPixels content_mask;
+    Hsla color;
+};
+
+struct Quad {
+    DrawOrder order;
+    BorderStyle border_style;
+    Bounds_ScaledPixels bounds;
+    ContentMask_ScaledPixels content_mask;
+    Background background;
+    Hsla border_color;
+    Corners_ScaledPixels corner_radii;
+    Edges_ScaledPixels border_widths;
+};
+
+struct Underline {
+    DrawOrder order;
+    unsigned int pad;
+    Bounds_ScaledPixels bounds;
+    ContentMask_ScaledPixels content_mask;
+    Hsla color;
+    ScaledPixels thickness;
+    unsigned int wavy;
+};
+
+struct MonochromeSprite {
+    DrawOrder order;
+    unsigned int pad;
+    Bounds_ScaledPixels bounds;
+    ContentMask_ScaledPixels content_mask;
+    Hsla color;
+    AtlasTile tile;
+    TransformationMatrix transformation;
+};
+
+struct PolychromeSprite {
+    DrawOrder order;
+    unsigned int pad;
+    bool grayscale;
+    float opacity;
+    Bounds_ScaledPixels bounds;
+    ContentMask_ScaledPixels content_mask;
+    Corners_ScaledPixels corner_radii;
+    AtlasTile tile;
+};
+
+struct SurfaceBounds {
+    Bounds_ScaledPixels bounds;
+    ContentMask_ScaledPixels content_mask;
+};
+
+#endif // SCENE_H
+
 float4 hsla_to_rgba(Hsla hsla);
 float3 srgb_to_linear(float3 color);
 float3 linear_to_srgb(float3 color);

@@ -389,6 +389,15 @@ enum MetalShaderCompiler {
         }
         cacheLock.unlock()
 
+        #if SWIFT_PACKAGE && !RuntimeShaders
+        if let precompiled = try? device.makeDefaultLibrary(bundle: Bundle.module) {
+            cacheLock.lock()
+            libraryCache[registryID] = precompiled
+            cacheLock.unlock()
+            return precompiled
+        }
+        #endif
+
         let stitchedSource = try loadStitchedShaderSource()
         let options = MTLCompileOptions()
         let compiledLibrary: any MTLLibrary

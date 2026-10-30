@@ -2,6 +2,7 @@
 #include "CAndroidSys.h"
 
 #if defined(__ANDROID__)
+#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -242,18 +243,61 @@ int32_t candroid_native_window_set_buffers_geometry(
     return ANativeWindow_setBuffersGeometry(window, width, height, format);
 }
 
-// MARK: - AChoreographer Wrappers (API 29+)
+// MARK: - AChoreographer Wrappers (API 29+ with dynamic fallback for API 24-28)
 
 AChoreographer* _Nullable candroid_choreographer_get_instance(void) {
     return AChoreographer_getInstance();
 }
+
+#if __ANDROID_API__ < 29
+typedef struct CAndroidLegacyChoreographerTrampoline {
+    candroid_choreographer_callback_t callback;
+    void* data;
+} CAndroidLegacyChoreographerTrampoline;
+
+static void candroid_legacy_choreographer_cb(long frameTimeNanos, void* data) {
+    CAndroidLegacyChoreographerTrampoline* tramp = (CAndroidLegacyChoreographerTrampoline*)data;
+    if (tramp != NULL) {
+        candroid_choreographer_callback_t cb = tramp->callback;
+        void* user_data = tramp->data;
+        free(tramp);
+        if (cb != NULL) {
+            cb((int64_t)frameTimeNanos, user_data);
+        }
+    }
+}
+#endif
 
 void candroid_choreographer_post_frame_callback64(
     AChoreographer* _Nonnull choreographer,
     candroid_choreographer_callback_t _Nonnull callback,
     void* _Nullable data
 ) {
+#if __ANDROID_API__ >= 29
     AChoreographer_postFrameCallback64(choreographer, callback, data);
+#else
+    typedef void (*post64_fn_t)(AChoreographer*, candroid_choreographer_callback_t, void*);
+    static post64_fn_t fn = NULL;
+    static int resolved = 0;
+    if (!resolved) {
+        fn = (post64_fn_t)dlsym(RTLD_DEFAULT, "AChoreographer_postFrameCallback64");
+        resolved = 1;
+    }
+    if (fn != NULL) {
+        fn(choreographer, callback, data);
+        return;
+    }
+    CAndroidLegacyChoreographerTrampoline* tramp =
+        (CAndroidLegacyChoreographerTrampoline*)malloc(sizeof(CAndroidLegacyChoreographerTrampoline));
+    if (tramp != NULL) {
+        tramp->callback = callback;
+        tramp->data = data;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        AChoreographer_postFrameCallback(choreographer, candroid_legacy_choreographer_cb, tramp);
+#pragma clang diagnostic pop
+    }
+#endif
 }
 
 void candroid_choreographer_post_frame_callback_delayed64(
@@ -262,53 +306,147 @@ void candroid_choreographer_post_frame_callback_delayed64(
     void* _Nullable data,
     uint32_t delayMillis
 ) {
+#if __ANDROID_API__ >= 29
     AChoreographer_postFrameCallbackDelayed64(choreographer, callback, data, delayMillis);
+#else
+    typedef void (*post_delayed64_fn_t)(AChoreographer*, candroid_choreographer_callback_t, void*, uint32_t);
+    static post_delayed64_fn_t fn = NULL;
+    static int resolved = 0;
+    if (!resolved) {
+        fn = (post_delayed64_fn_t)dlsym(RTLD_DEFAULT, "AChoreographer_postFrameCallbackDelayed64");
+        resolved = 1;
+    }
+    if (fn != NULL) {
+        fn(choreographer, callback, data, delayMillis);
+        return;
+    }
+    CAndroidLegacyChoreographerTrampoline* tramp =
+        (CAndroidLegacyChoreographerTrampoline*)malloc(sizeof(CAndroidLegacyChoreographerTrampoline));
+    if (tramp != NULL) {
+        tramp->callback = callback;
+        tramp->data = data;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        AChoreographer_postFrameCallbackDelayed(
+            choreographer,
+            candroid_legacy_choreographer_cb,
+            tramp,
+            (long)delayMillis
+        );
+#pragma clang diagnostic pop
+    }
+#endif
 }
 
-// MARK: - System Font Discovery & Matching (API 29+)
+// MARK: - System Font Discovery & Matching (API 29+ with dlsym fallback for API 24-28)
 
 ASystemFontIterator* _Nullable candroid_system_font_iterator_open(void) {
+#if __ANDROID_API__ >= 29
     return ASystemFontIterator_open();
+#else
+    typedef ASystemFontIterator* (*fn_t)(void);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "ASystemFontIterator_open");
+    return fn != NULL ? fn() : NULL;
+#endif
 }
 
 AFont* _Nullable candroid_system_font_iterator_next(ASystemFontIterator* _Nonnull iterator) {
+#if __ANDROID_API__ >= 29
     return ASystemFontIterator_next(iterator);
+#else
+    typedef AFont* (*fn_t)(ASystemFontIterator*);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "ASystemFontIterator_next");
+    return fn != NULL ? fn(iterator) : NULL;
+#endif
 }
 
 void candroid_system_font_iterator_close(ASystemFontIterator* _Nullable iterator) {
     if (iterator != NULL) {
+#if __ANDROID_API__ >= 29
         ASystemFontIterator_close(iterator);
+#else
+        typedef void (*fn_t)(ASystemFontIterator*);
+        fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "ASystemFontIterator_close");
+        if (fn != NULL) {
+            fn(iterator);
+        }
+#endif
     }
 }
 
 const char* _Nonnull candroid_font_get_file_path(const AFont* _Nonnull font) {
+#if __ANDROID_API__ >= 29
     return AFont_getFontFilePath(font);
+#else
+    typedef const char* (*fn_t)(const AFont*);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFont_getFontFilePath");
+    const char* path = fn != NULL ? fn(font) : NULL;
+    return path != NULL ? path : "";
+#endif
 }
 
 uint16_t candroid_font_get_weight(const AFont* _Nonnull font) {
+#if __ANDROID_API__ >= 29
     return AFont_getWeight(font);
+#else
+    typedef uint16_t (*fn_t)(const AFont*);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFont_getWeight");
+    return fn != NULL ? fn(font) : 400;
+#endif
 }
 
 bool candroid_font_is_italic(const AFont* _Nonnull font) {
+#if __ANDROID_API__ >= 29
     return AFont_isItalic(font);
+#else
+    typedef bool (*fn_t)(const AFont*);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFont_isItalic");
+    return fn != NULL ? fn(font) : false;
+#endif
 }
 
 const char* _Nullable candroid_font_get_locale(const AFont* _Nonnull font) {
+#if __ANDROID_API__ >= 29
     return AFont_getLocale(font);
+#else
+    typedef const char* (*fn_t)(const AFont*);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFont_getLocale");
+    return fn != NULL ? fn(font) : NULL;
+#endif
 }
 
 size_t candroid_font_get_collection_index(const AFont* _Nonnull font) {
+#if __ANDROID_API__ >= 29
     return AFont_getCollectionIndex(font);
+#else
+    typedef size_t (*fn_t)(const AFont*);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFont_getCollectionIndex");
+    return fn != NULL ? fn(font) : 0;
+#endif
 }
 
 void candroid_font_close(AFont* _Nullable font) {
     if (font != NULL) {
+#if __ANDROID_API__ >= 29
         AFont_close(font);
+#else
+        typedef void (*fn_t)(AFont*);
+        fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFont_close");
+        if (fn != NULL) {
+            fn(font);
+        }
+#endif
     }
 }
 
 AFontMatcher* _Nullable candroid_font_matcher_create(void) {
+#if __ANDROID_API__ >= 29
     return AFontMatcher_create();
+#else
+    typedef AFontMatcher* (*fn_t)(void);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFontMatcher_create");
+    return fn != NULL ? fn() : NULL;
+#endif
 }
 
 void candroid_font_matcher_set_style(
@@ -316,14 +454,30 @@ void candroid_font_matcher_set_style(
     uint16_t weight,
     bool italic
 ) {
+#if __ANDROID_API__ >= 29
     AFontMatcher_setStyle(matcher, weight, italic);
+#else
+    typedef void (*fn_t)(AFontMatcher*, uint16_t, bool);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFontMatcher_setStyle");
+    if (fn != NULL) {
+        fn(matcher, weight, italic);
+    }
+#endif
 }
 
 void candroid_font_matcher_set_locales(
     AFontMatcher* _Nonnull matcher,
     const char* _Nonnull languageTags
 ) {
+#if __ANDROID_API__ >= 29
     AFontMatcher_setLocales(matcher, languageTags);
+#else
+    typedef void (*fn_t)(AFontMatcher*, const char*);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFontMatcher_setLocales");
+    if (fn != NULL) {
+        fn(matcher, languageTags);
+    }
+#endif
 }
 
 AFont* _Nullable candroid_font_matcher_match(
@@ -333,12 +487,26 @@ AFont* _Nullable candroid_font_matcher_match(
     uint32_t textLength,
     uint32_t* _Nullable runLengthOut
 ) {
+#if __ANDROID_API__ >= 29
     return AFontMatcher_match(matcher, familyName, text, textLength, runLengthOut);
+#else
+    typedef AFont* (*fn_t)(const AFontMatcher*, const char*, const uint16_t*, uint32_t, uint32_t*);
+    fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFontMatcher_match");
+    return fn != NULL ? fn(matcher, familyName, text, textLength, runLengthOut) : NULL;
+#endif
 }
 
 void candroid_font_matcher_destroy(AFontMatcher* _Nullable matcher) {
     if (matcher != NULL) {
+#if __ANDROID_API__ >= 29
         AFontMatcher_destroy(matcher);
+#else
+        typedef void (*fn_t)(AFontMatcher*);
+        fn_t fn = (fn_t)dlsym(RTLD_DEFAULT, "AFontMatcher_destroy");
+        if (fn != NULL) {
+            fn(matcher);
+        }
+#endif
     }
 }
 

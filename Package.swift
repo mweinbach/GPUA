@@ -131,7 +131,7 @@ let package = Package(
         crate(                                                      // crates/gpui
             "GPUI",
             ["GPUICollections", "GPUIMacros", "GPUIUtil", "HTTPClient", "Media", "Refineable", "Scheduler", "SumTree", "Taffy"],
-            resources: [.copy("platform/mac/shaders.metal")]
+            exclude: ["platform/mac/shaders.metal"]
         ),
 
         // ---- Renderers -----------------------------------------------------

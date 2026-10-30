@@ -109,6 +109,7 @@ jobs:
       - uses: skiptools/swift-android-action@v2
         with:
           swift-version: "6.3"
+          android-api-level: 29
           build-tests: false
           run-tests: false
 
@@ -119,10 +120,16 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Install Swift Wasm SDK
+      - name: Install Swift Wasm SDK and Node.js 22
         run: |
-          apt-get update && apt-get install -y --no-install-recommends curl ca-certificates nodejs
-          swift sdk install https://download.swift.org/swift-6.3-release/wasm-sdk/swift-6.3-RELEASE/swift-6.3-RELEASE_wasm.artifactbundle.tar.gz
+          apt-get update && apt-get install -y --no-install-recommends curl ca-certificates xz-utils
+          ARCH="$(uname -m)"
+          if [ "${ARCH}" = "x86_64" ]; then NODE_ARCH="x64"; else NODE_ARCH="arm64"; fi
+          curl -fsSL "https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-${NODE_ARCH}.tar.xz" | tar -xJ -C /usr/local --strip-components=1
+          node --version
+          curl -fsSL -o /tmp/swift-wasm-sdk.artifactbundle.tar.gz https://download.swift.org/swift-6.3-release/wasm-sdk/swift-6.3-RELEASE/swift-6.3-RELEASE_wasm.artifactbundle.tar.gz
+          swift sdk install /tmp/swift-wasm-sdk.artifactbundle.tar.gz
+          rm -f /tmp/swift-wasm-sdk.artifactbundle.tar.gz
           swift sdk list
       - name: Build gpui-examples.wasm
         run: |
