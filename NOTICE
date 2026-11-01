@@ -12,6 +12,14 @@ GPUI (Glass-HQ fork), the pinned upstream for this port
   Copyright Glass-HQ contributors
   https://github.com/Glass-HQ/gpui
 
+Taffy, the pinned layout engine upstream for this port (MIT License)
+  Copyright DioxusLabs and Taffy contributors
+  https://github.com/DioxusLabs/taffy
+
+Rune, the pinned UI & motion toolkit upstream for this port (MIT License)
+  Copyright Anomaly and Rune contributors
+  https://github.com/anomalyco/rune
+
 Files under Sources/ and Tests/ that carry a "Ported from:" header are
 translations of the corresponding upstream Rust source files. Shader files
 (*.metal, *.wgsl, *.hlsl) and example assets are copied from upstream verbatim.

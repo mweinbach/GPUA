@@ -92,6 +92,51 @@ Goal: the whole framework runs on `TestPlatform`, with upstream `#[gpui::test]` 
 - [x] `GPUIWeb` + `GPUIWGPU` targeting browser `navigator.gpu` WebGPU (`gpui-examples.wasm`)
 - [x] `Hosts/web` (`index.html`, `gpui_web_runtime.js`)
 
+## Rune Track (`anomalyco/rune` @ `5f6d53ddae78`)
+
+Following [ADR-0014](adr/0014-rune-upstream-and-target-layout.md), Rune is ported bottom-up across the same shared `Taffy` and `CWebGPU` / native platform bridges:
+
+```mermaid
+flowchart LR
+    R0["Phase R0: Scaffolding ✅"] --> R1["Phase R1: Support & Motion"]
+    R1 --> R2["Phase R2: Core & Reference Renderer"]
+    R2 --> R3["Phase R3: Effects, Diagrams & Knobs"]
+    R3 --> R4["Phase R4: RuneKit, OpenCode Theme & Examples"]
+```
+
+### Phase R0: Scaffolding ✅
+
+- [x] Pin `anomalyco/rune` (`5f6d53ddae78`) in `porting.json` and document target architecture in [ADR-0014](adr/0014-rune-upstream-and-target-layout.md)
+- [x] Scaffold 1:1 Swift source/test stubs and WGSL/PNG assets across all 14 Rune targets (`Procwatch`, `RuneStaging`, `RuneRegister`, `RuneMotion`, `RunePerf`, `RuneMac`, `RuneLight`, `RuneFX`, `Rune`, `RuneRef`, `RuneKnobs`, `RuneMermaid`, `RuneKit`, `RuneThemeOpenCode`)
+- [x] Wire SwiftPM products and targets in `Package.swift` with 6/6 CI green
+
+### Phase R1: Support & Motion
+
+- [ ] `Procwatch` (`crates/procwatch`): footprint, per-thread CPU, gauges, and loopback telemetry
+- [ ] `RuneStaging` (`crates/rune-staging`): reused GPU upload staging buffers on `CWebGPU`
+- [ ] `RuneRegister` (`crates/rune-register`): explicit Swift story/scene/knob registration
+- [ ] `RuneMotion` (`crates/rune-motion`): analytic springs, retargetable tracks, presence, layout & matched-geometry transitions
+- [ ] `RunePerf` (`crates/rune-perf`): bounded local performance recorder & incident store
+
+### Phase R2: Core & Reference Renderer
+
+- [ ] `Rune` (`crates/rune`): keyed element tree, `Taffy` layout integration, text shaping/smoothing, uber-quad WebGPU/Metal renderer, input/windows/overlays, and headless test harness
+- [ ] `RuneMac` (`crates/rune-mac`): macOS window frame persistence, full screen, quiet relaunch, and notifications
+- [ ] `RuneRef` (`crates/rune-ref`): deterministic CPU reference rasterizer for differential pixel parity tests
+
+### Phase R3: Effects, Diagrams & Knobs
+
+- [ ] `RuneLight` (`crates/rune-light`): SDF soft shadows, bevel normals, god rays, and radiance-cascade GI
+- [ ] `RuneFX` (`crates/rune-fx`): glow, pulse, electricity, fire, motion blur, and distortion layers
+- [ ] `RuneKnobs` (`crates/rune-knobs`): live tuning groups and interactive `⌘⇧K` panel
+- [ ] `RuneMermaid` (`crates/rune-mermaid`): native Mermaid flowcharts, sequence diagrams, and state diagrams
+
+### Phase R4: Components, Theme & Examples
+
+- [ ] `RuneKit` (`crates/rune-kit`): semantic `Kit` tokens, generic UI controls, shell/split/tree/table/diff, and streaming Markdown
+- [ ] `RuneThemeOpenCode` (`themes/opencode`): OpenCode design tokens, fonts, and icons
+- [ ] `RuneExamples`: standalone Rune example apps (`examples/*`)
+
 ## Ongoing
 
 - **Upstream sync**: bump the pin on a regular cadence, monthly or so ([UPSTREAM_SYNC.md](UPSTREAM_SYNC.md)).

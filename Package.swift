@@ -69,6 +69,16 @@ let package = Package(
         .library(name: "GPUIPlatform", targets: ["GPUIPlatform"]),
         // Upstream example gallery: `swift run gpui-examples hello_world`.
         .executable(name: "gpui-examples", targets: ["GPUIExamples"]),
+
+        // ---- Rune (https://github.com/anomalyco/rune, ADR-0014) ------------
+        .library(name: "Rune", targets: ["Rune"]),
+        .library(name: "RuneKit", targets: ["RuneKit"]),
+        .library(name: "RuneMotion", targets: ["RuneMotion"]),
+        .library(name: "RuneFX", targets: ["RuneFX"]),
+        .library(name: "RuneLight", targets: ["RuneLight"]),
+        .library(name: "RuneMermaid", targets: ["RuneMermaid"]),
+        .library(name: "RuneKnobs", targets: ["RuneKnobs"]),
+        .library(name: "RuneThemeOpenCode", targets: ["RuneThemeOpenCode"]),
     ],
     // Cargo features ↔ SwiftPM package traits. `#[cfg(feature = "test-support")]`
     // becomes `#if TestSupport`, etc. See docs/PORTING_GUIDE.md#cfg-and-features.
@@ -254,6 +264,52 @@ let package = Package(
             swiftSettings: swiftSettings
         ),
 
+        // ---- Rune (anomalyco/rune, ADR-0014) -------------------------------
+        crate("Procwatch"),                                         // crates/procwatch
+        crate("RuneStaging", ["CWebGPU"]),                          // crates/rune-staging
+        crate("RuneRegister"),                                      // crates/rune-register
+        crate("RuneMotion"),                                        // crates/rune-motion
+        crate("RunePerf", ["Procwatch"]),                           // crates/rune-perf
+        crate("RuneMac"),                                           // crates/rune-mac (#if os(macOS))
+        crate(                                                      // crates/rune-light
+            "RuneLight",
+            ["RuneStaging", "CWebGPU"],
+            resources: [.copy("shaders")]
+        ),
+        crate(                                                      // crates/rune-fx
+            "RuneFX",
+            ["RuneMotion", "RuneStaging", "CWebGPU"],
+            resources: [.copy("shaders")]
+        ),
+        crate(                                                      // crates/rune
+            "Rune",
+            [
+                "RuneMotion",
+                "RuneStaging",
+                "Procwatch",
+                "Taffy",
+                "CWebGPU",
+                .target(name: "CLinuxSys", condition: .when(platforms: [.linux])),
+                .target(name: "CWinSys", condition: .when(platforms: [.windows])),
+                .target(name: "CAndroidSys", condition: .when(platforms: [.android])),
+                .target(name: "CWebSys", condition: .when(platforms: [.wasi])),
+            ],
+            resources: [
+                .copy("backdrop_blur.wgsl"),
+                .copy("backdrop_composite.wgsl"),
+                .copy("clip.wgsl"),
+                .copy("gpu/springs.wgsl"),
+                .copy("layer_blur.wgsl"),
+                .copy("native_surface/video.wgsl"),
+                .copy("shader.wgsl"),
+            ]
+        ),
+        crate("RuneRef", ["Rune"]),                                 // crates/rune-ref
+        crate("RuneKnobs", ["Rune"]),                               // crates/rune-knobs
+        crate("RuneMermaid", ["Rune"]),                             // crates/rune-mermaid
+        crate("RuneKit", ["Rune", "RuneMotion", "RuneMermaid"]),    // crates/rune-kit
+        crate("RuneThemeOpenCode", ["Rune", "RuneKit"]),            // themes/opencode
+
         // ---- Tests (inline `#[cfg(test)]` modules + crates/*/tests) ---------
         crateTests("GPUICollections"),
         crateTests("GPUIUtil"),
@@ -274,5 +330,18 @@ let package = Package(
         crateTests("GPUIWeb", ["GPUIUtil"]),
         crateTests("GPUIAndroid", ["GPUIUtil"]),
         crateTests("GPUIPlatform"),
+        crateTests("Procwatch"),
+        crateTests("RuneRegister"),
+        crateTests("RuneMotion"),
+        crateTests("RunePerf"),
+        crateTests("RuneMac"),
+        crateTests("RuneLight", ["Rune", "RuneFX"]),
+        crateTests("RuneFX", ["Rune", "RuneRef"]),
+        crateTests("Rune", exclude: ["tests/coretext"]),
+        crateTests("RuneRef"),
+        crateTests("RuneKnobs"),
+        crateTests("RuneMermaid"),
+        crateTests("RuneKit", ["Procwatch", "RuneThemeOpenCode"]),
+        crateTests("RuneThemeOpenCode"),
     ]
 )

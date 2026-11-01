@@ -1,9 +1,9 @@
 # GPUA
 
-**A file-for-file Swift port of [GPUI](https://github.com/Glass-HQ/gpui).** GPUI is the GPU-accelerated UI framework behind the [Zed](https://zed.dev) editor. GPUA ships it as a zero-dependency SwiftPM package, giving Swift apps one native, GPU-rendered UI SDK across **macOS, iOS / visionOS, Windows, Linux, Android, and the Web (WebAssembly + WebGPU)**.
+**A file-for-file Swift port of [GPUI](https://github.com/Glass-HQ/gpui) and [Rune](https://github.com/anomalyco/rune).** GPUI is the GPU-accelerated UI framework behind the [Zed](https://zed.dev) editor, and Rune is Anomaly's GPU-rendered UI, analytic spring motion, shader effects, Mermaid diagram, and component toolkit (`rune-kit`). GPUA ships them together in one zero-dependency SwiftPM package (sharing a pure-Swift port of [Taffy](https://github.com/DioxusLabs/taffy)), giving Swift apps a native, GPU-rendered UI SDK across **macOS, iOS / visionOS, Windows, Linux, Android, and the Web (WebAssembly + WebGPU)**.
 
 > [!NOTE]
-> All 429 mapped upstream files (`Glass-HQ/gpui` @ `650aab59d54f` + `DioxusLabs/taffy` `v0.9.0`) and all six native platform backends are ported and verified in CI. See [docs/PORTING_STATUS.md](docs/PORTING_STATUS.md) and [docs/TEST_PARITY.md](docs/TEST_PARITY.md) for per-file and per-test parity reports.
+> All 429 mapped GPUI + Taffy upstream files (`Glass-HQ/gpui` @ `650aab59d54f` + `DioxusLabs/taffy` `v0.9.0`) and all six native platform backends are ported and verified in CI, and all 14 Rune crates (`anomalyco/rune` @ `5f6d53ddae78`, [ADR-0014](docs/adr/0014-rune-upstream-and-target-layout.md)) are pinned and scaffolded 1:1 in `Package.swift`. See [docs/PORTING_STATUS.md](docs/PORTING_STATUS.md) and [docs/TEST_PARITY.md](docs/TEST_PARITY.md) for per-file and per-test parity reports.
 
 ## Why
 
@@ -82,7 +82,10 @@ crates/gpui_metal/src/shaders.metal    →  Sources/GPUIMetal/shaders.metal     
 | `gpui_metal` | `GPUIMetal` | | `collections` | `GPUICollections` |
 | `gpui_linux` | `GPUILinux` | | `util` | `ZedUtil` |
 | `gpui_windows` | `GPUIWindows` | | `sum_tree` / `scheduler` / `refineable` | `SumTree` / `Scheduler` / `Refineable` |
-| *(new)* | `GPUIAndroid` | | `http_client` / `media` | `HTTPClient` / `Media` |
+| *(new)* | `GPUIAndroid` | | `http_client` / `media` / `taffy` | `HTTPClient` / `Media` / `Taffy` |
+| `rune` / `rune-kit` | `Rune` / `RuneKit` | | `rune-motion` / `rune-fx` / `rune-light` | `RuneMotion` / `RuneFX` / `RuneLight` |
+| `rune-mermaid` / `rune-knobs` | `RuneMermaid` / `RuneKnobs` | | `rune-theme-opencode` / `rune-ref` | `RuneThemeOpenCode` / `RuneRef` |
+| `procwatch` / `rune-perf` | `Procwatch` / `RunePerf` | | `rune-staging` / `rune-register` / `rune-mac` | `RuneStaging` / `RuneRegister` / `RuneMac` |
 
 The mapping lives in [`porting.json`](porting.json) and is enforced by [`Scripts/port.py`](Scripts/port.py).
 

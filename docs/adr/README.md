@@ -24,3 +24,4 @@ Copy [0000-template.md](0000-template.md), take the next number, and open it as 
 | [0011](0011-apple-native-and-ios-host.md) | Apple native backends (`GPUIMetal`, `GPUIApple`, `GPUIMacOS`, `GPUIiOS`) and iOS host shell | Accepted |
 | [0012](0012-android-platform-and-jni.md) | Android platform backend (`GPUIAndroid`), NDK C bridge (`CAndroidSys`), and `wgpu-native` dynamic dispatch | Accepted |
 | [0013](0013-web-wasm-bridge.md) | Web / Wasm backend (`GPUIWeb`), zero-dependency WASI host bridge (`CWebSys`), and browser WebGPU | Accepted |
+| [0014](0014-rune-upstream-and-target-layout.md) | Multi-upstream integration of Rune (`anomalyco/rune`) and 1:1 SwiftPM target layout | Accepted |

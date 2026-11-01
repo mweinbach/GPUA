@@ -105,6 +105,7 @@ flowchart TD
 - **Renderers** turn a `Scene` into pixels. `GPUIMetal` serves Apple platforms. `GPUIWGPU` serves Linux, Android, and web, and can serve Windows as a fallback. Upstream Windows uses its own D3D11 renderer inside `gpui_windows`, and we port that as-is.
 - **Platforms** implement the `Platform*` protocols for one OS family. All of their code sits inside `#if os(...)`, so every target compiles everywhere.
 - **`GPUIPlatform`** exposes `application()`, `headless()`, and `current_platform()`, choosing the backend through SwiftPM's per-platform target conditions (upstream does the same with `cfg`-gated Cargo deps).
+- **Rune targets (`ADR-0014`)**: Alongside `GPUI`, GPUA pins `anomalyco/rune` and maps its 14 crates (`Procwatch`, `RuneStaging`, `RuneRegister`, `RuneMotion`, `RunePerf`, `RuneMac`, `RuneLight`, `RuneFX`, `Rune`, `RuneRef`, `RuneKnobs`, `RuneMermaid`, `RuneKit`, `RuneThemeOpenCode`) 1:1 on top of the shared `Taffy` layout target and shared `CWebGPU` / platform C bridges. See [ADR-0014](adr/0014-rune-upstream-and-target-layout.md).
 
 ## 3. Platform layer contract
 

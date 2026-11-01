@@ -33,7 +33,9 @@ CONFIG_PATH = ROOT / "porting.json"
 LEDGER_PATH = ROOT / "docs" / "parity" / "test_parity.json"
 OUTPUT_MD_PATH = ROOT / "docs" / "TEST_PARITY.md"
 
-# In-scope targets/crates per AC5 and specification analysis
+# In-scope targets/crates per AC5 and specification analysis.
+# Completed GPUI + Taffy crates are gated at >= 95% 1-to-1 test parity; newly scaffolded
+# Rune crates (`anomalyco/rune`, ADR-0014) join this list as each phase (R1-R4) completes.
 IN_SCOPE_CRATES = [
     "gpui",
     "collections",
