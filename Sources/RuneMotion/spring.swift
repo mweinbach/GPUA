@@ -139,16 +139,16 @@ public struct Spring: Sendable, Equatable, Hashable, Codable {
     /// like knobs' `springEasing`. For web backends that offload to WAAPI.
     public func cssLinear() -> (String, UInt32) {
         let total = max(settlingDuration(0.002), 1.0 / 60.0)
-        let n = min(max(Int(ceil(total * 60.0)), 2), 240)
+        let n = min(max(Int((total * 60.0).rounded(.up)), 2), 240)
         var s = "linear(0"
         for i in 1..<n {
             let t = total * Float(i) / Float(n)
             let (x, _) = sample(0.0, 0.0, 1.0, t)
-            let rounded = (x * 1000.0).rounded(.toNearestOrAwayFromZero) / 1000.0
-            if rounded == rounded.rounded(.towardZero) {
-                s += ",\(Int(rounded))"
+            let r: Float = (x * 1000.0).rounded(.toNearestOrAwayFromZero) / 1000.0
+            if r == r.rounded(FloatingPointRoundingRule.towardZero) {
+                s += ",\(Int(r))"
             } else {
-                s += ",\(rounded)"
+                s += ",\(r)"
             }
         }
         s += ",1)"

@@ -168,7 +168,7 @@ func steps(_ x: Float, _ n: UInt16, _ pos: StepPosition) -> Float {
         return 0.0
     }
     let nf = Float(max(n, 1))
-    var step = floor(max(x, 0.0) * nf)
+    var step = (max(x, 0.0) * nf).rounded(.down)
     if pos == .start || pos == .both {
         step += 1.0
     }
