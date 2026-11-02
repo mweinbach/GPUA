@@ -20,7 +20,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIWindows` | 18 | 0 | 0 | 18 | 0 | 0 | 11,223 | 100% |
 | `GPUIMacOS` | 14 | 0 | 0 | 14 | 0 | 0 | 10,175 | 100% |
 | `ZedUtil` | 23 | 0 | 0 | 19 | 0 | 4 | 9,596 | 100% |
-| `RuneMotion` | 28 | 28 | 0 | 0 | 0 | 0 | 7,038 | 0% |
+| `RuneMotion` | 28 | 0 | 0 | 28 | 0 | 0 | 7,038 | 100% |
 | `GPUIiOS` | 20 | 0 | 0 | 20 | 0 | 0 | 6,168 | 100% |
 | `RuneFX` | 12 | 12 | 0 | 0 | 0 | 0 | 5,852 | 0% |
 | `SumTree` | 4 | 0 | 0 | 4 | 0 | 0 | 3,313 | 100% |
@@ -32,21 +32,21 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIMetal` | 3 | 0 | 0 | 3 | 0 | 0 | 2,083 | 100% |
 | `RuneLight` | 6 | 6 | 0 | 0 | 0 | 0 | 1,747 | 0% |
 | `RuneRef` | 6 | 6 | 0 | 0 | 0 | 0 | 1,213 | 0% |
-| `Procwatch` | 3 | 3 | 0 | 0 | 0 | 0 | 1,108 | 0% |
+| `Procwatch` | 3 | 0 | 0 | 3 | 0 | 0 | 1,108 | 100% |
 | `HTTPClient` | 4 | 0 | 0 | 4 | 0 | 0 | 1,073 | 100% |
-| `RunePerf` | 8 | 8 | 0 | 0 | 0 | 0 | 851 | 0% |
+| `RunePerf` | 8 | 0 | 0 | 8 | 0 | 0 | 851 | 100% |
 | `RuneThemeOpenCode` | 3 | 3 | 0 | 0 | 0 | 0 | 593 | 0% |
-| `RuneMac` | 5 | 5 | 0 | 0 | 0 | 0 | 581 | 0% |
+| `RuneMac` | 5 | 0 | 0 | 5 | 0 | 0 | 581 | 100% |
 | `DeriveRefineable` | 1 | 0 | 0 | 1 | 0 | 0 | 548 | 100% |
 | `GPUIUtil` | 2 | 0 | 0 | 2 | 0 | 0 | 433 | 100% |
 | `GPUICollections` | 3 | 0 | 0 | 3 | 0 | 0 | 414 | 100% |
 | `Media` | 2 | 0 | 0 | 2 | 0 | 0 | 362 | 100% |
-| `RuneStaging` | 1 | 1 | 0 | 0 | 0 | 0 | 309 | 0% |
+| `RuneStaging` | 1 | 0 | 0 | 1 | 0 | 0 | 309 | 100% |
 | `GPUIPlatform` | 1 | 0 | 0 | 1 | 0 | 0 | 169 | 100% |
 | `GPUIApple` | 19 | 0 | 0 | 19 | 0 | 0 | 168 | 100% |
-| `RuneRegister` | 2 | 2 | 0 | 0 | 0 | 0 | 168 | 0% |
+| `RuneRegister` | 2 | 0 | 0 | 2 | 0 | 0 | 168 | 100% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **1088** | 789 | 0 | 294 | 0 | 5 | 345,298 | 41% |
+| **Total** | **1088** | 742 | 0 | 341 | 0 | 5 | 345,298 | 44% |
 
 ## Files
 
@@ -459,12 +459,12 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/procwatch/src/alloc.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/src/alloc.rs) | [Sources/Procwatch/alloc.swift](../Sources/Procwatch/alloc.swift) | source | 209 | not-started |
-| [crates/procwatch/src/gauge.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/src/gauge.rs) | [Sources/Procwatch/gauge.swift](../Sources/Procwatch/gauge.swift) | source | 152 | not-started |
-| [crates/procwatch/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/src/lib.rs) | [Sources/Procwatch/lib.swift](../Sources/Procwatch/lib.swift) | source | 747 | not-started |
-| [crates/procwatch/src/gauge.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/src/gauge.rs) | [Tests/ProcwatchTests/gauge.swift](../Tests/ProcwatchTests/gauge.swift) | inline-test |  | not-started |
-| [crates/procwatch/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/src/lib.rs) | [Tests/ProcwatchTests/lib.swift](../Tests/ProcwatchTests/lib.swift) | inline-test |  | not-started |
-| [crates/procwatch/tests/no_allocator.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/tests/no_allocator.rs) | [Tests/ProcwatchTests/tests/no_allocator.swift](../Tests/ProcwatchTests/tests/no_allocator.swift) | test | 8 | not-started |
+| [crates/procwatch/src/alloc.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/src/alloc.rs) | [Sources/Procwatch/alloc.swift](../Sources/Procwatch/alloc.swift) | source | 209 | ported |
+| [crates/procwatch/src/gauge.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/src/gauge.rs) | [Sources/Procwatch/gauge.swift](../Sources/Procwatch/gauge.swift) | source | 152 | ported |
+| [crates/procwatch/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/src/lib.rs) | [Sources/Procwatch/lib.swift](../Sources/Procwatch/lib.swift) | source | 747 | ported |
+| [crates/procwatch/src/gauge.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/src/gauge.rs) | [Tests/ProcwatchTests/gauge.swift](../Tests/ProcwatchTests/gauge.swift) | inline-test |  | ported |
+| [crates/procwatch/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/src/lib.rs) | [Tests/ProcwatchTests/lib.swift](../Tests/ProcwatchTests/lib.swift) | inline-test |  | ported |
+| [crates/procwatch/tests/no_allocator.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/procwatch/tests/no_allocator.rs) | [Tests/ProcwatchTests/tests/no_allocator.swift](../Tests/ProcwatchTests/tests/no_allocator.swift) | test | 8 | ported |
 
 ### `Refineable`
 
@@ -1658,15 +1658,15 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/rune-mac/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/lib.rs) | [Sources/RuneMac/lib.swift](../Sources/RuneMac/lib.swift) | source | 126 | not-started |
-| [crates/rune-mac/src/notify.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/notify.rs) | [Sources/RuneMac/notify.swift](../Sources/RuneMac/notify.swift) | source | 307 | not-started |
-| [crates/rune-mac/src/notify_tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/notify_tests.rs) | [Sources/RuneMac/notify_tests.swift](../Sources/RuneMac/notify_tests.swift) | source | 75 | not-started |
-| [crates/rune-mac/src/quiet.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/quiet.rs) | [Sources/RuneMac/quiet.swift](../Sources/RuneMac/quiet.swift) | source | 53 | not-started |
-| [crates/rune-mac/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/tests.rs) | [Sources/RuneMac/tests.swift](../Sources/RuneMac/tests.swift) | source | 20 | not-started |
-| [crates/rune-mac/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/lib.rs) | [Tests/RuneMacTests/lib.swift](../Tests/RuneMacTests/lib.swift) | inline-test |  | not-started |
-| [crates/rune-mac/src/notify.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/notify.rs) | [Tests/RuneMacTests/notify.swift](../Tests/RuneMacTests/notify.swift) | inline-test |  | not-started |
-| [crates/rune-mac/src/notify_tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/notify_tests.rs) | [Tests/RuneMacTests/notify_tests.swift](../Tests/RuneMacTests/notify_tests.swift) | inline-test |  | not-started |
-| [crates/rune-mac/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/tests.rs) | [Tests/RuneMacTests/tests.swift](../Tests/RuneMacTests/tests.swift) | inline-test |  | not-started |
+| [crates/rune-mac/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/lib.rs) | [Sources/RuneMac/lib.swift](../Sources/RuneMac/lib.swift) | source | 126 | ported |
+| [crates/rune-mac/src/notify.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/notify.rs) | [Sources/RuneMac/notify.swift](../Sources/RuneMac/notify.swift) | source | 307 | ported |
+| [crates/rune-mac/src/notify_tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/notify_tests.rs) | [Sources/RuneMac/notify_tests.swift](../Sources/RuneMac/notify_tests.swift) | source | 75 | ported |
+| [crates/rune-mac/src/quiet.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/quiet.rs) | [Sources/RuneMac/quiet.swift](../Sources/RuneMac/quiet.swift) | source | 53 | ported |
+| [crates/rune-mac/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/tests.rs) | [Sources/RuneMac/tests.swift](../Sources/RuneMac/tests.swift) | source | 20 | ported |
+| [crates/rune-mac/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/lib.rs) | [Tests/RuneMacTests/lib.swift](../Tests/RuneMacTests/lib.swift) | inline-test |  | ported |
+| [crates/rune-mac/src/notify.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/notify.rs) | [Tests/RuneMacTests/notify.swift](../Tests/RuneMacTests/notify.swift) | inline-test |  | ported |
+| [crates/rune-mac/src/notify_tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/notify_tests.rs) | [Tests/RuneMacTests/notify_tests.swift](../Tests/RuneMacTests/notify_tests.swift) | inline-test |  | ported |
+| [crates/rune-mac/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-mac/src/tests.rs) | [Tests/RuneMacTests/tests.swift](../Tests/RuneMacTests/tests.swift) | inline-test |  | ported |
 
 ### `RuneMermaid`
 
@@ -1794,70 +1794,70 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/rune-motion/src/animated.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/animated.rs) | [Sources/RuneMotion/animated.swift](../Sources/RuneMotion/animated.swift) | source | 137 | not-started |
-| [crates/rune-motion/src/choreo.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/choreo.rs) | [Sources/RuneMotion/choreo.swift](../Sources/RuneMotion/choreo.swift) | source | 393 | not-started |
-| [crates/rune-motion/src/clock.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/clock.rs) | [Sources/RuneMotion/clock.swift](../Sources/RuneMotion/clock.swift) | source | 144 | not-started |
-| [crates/rune-motion/src/curve.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/curve.rs) | [Sources/RuneMotion/curve.swift](../Sources/RuneMotion/curve.swift) | source | 175 | not-started |
-| [crates/rune-motion/src/cycle.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/cycle.rs) | [Sources/RuneMotion/cycle.swift](../Sources/RuneMotion/cycle.swift) | source | 27 | not-started |
-| [crates/rune-motion/src/easing.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/easing.rs) | [Sources/RuneMotion/easing.swift](../Sources/RuneMotion/easing.swift) | source | 233 | not-started |
-| [crates/rune-motion/src/gesture.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/gesture.rs) | [Sources/RuneMotion/gesture.swift](../Sources/RuneMotion/gesture.swift) | source | 161 | not-started |
-| [crates/rune-motion/src/keyframes.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/keyframes.rs) | [Sources/RuneMotion/keyframes.swift](../Sources/RuneMotion/keyframes.swift) | source | 164 | not-started |
-| [crates/rune-motion/src/layer.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/layer.rs) | [Sources/RuneMotion/layer.swift](../Sources/RuneMotion/layer.swift) | source | 301 | not-started |
-| [crates/rune-motion/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/lib.rs) | [Sources/RuneMotion/lib.swift](../Sources/RuneMotion/lib.swift) | source | 173 | not-started |
-| [crates/rune-motion/src/looping.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/looping.rs) | [Sources/RuneMotion/looping.swift](../Sources/RuneMotion/looping.swift) | source | 290 | not-started |
-| [crates/rune-motion/src/math.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/math.rs) | [Sources/RuneMotion/math.swift](../Sources/RuneMotion/math.swift) | source | 118 | not-started |
-| [crates/rune-motion/src/props.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/props.rs) | [Sources/RuneMotion/props.swift](../Sources/RuneMotion/props.swift) | source | 135 | not-started |
-| [crates/rune-motion/src/scene.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/scene.rs) | [Sources/RuneMotion/scene.swift](../Sources/RuneMotion/scene.swift) | source | 1053 | not-started |
-| [crates/rune-motion/src/scene/presence.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/scene/presence.rs) | [Sources/RuneMotion/scene/presence.swift](../Sources/RuneMotion/scene/presence.swift) | source | 256 | not-started |
-| [crates/rune-motion/src/scene/props.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/scene/props.rs) | [Sources/RuneMotion/scene/scene_props.swift](../Sources/RuneMotion/scene/scene_props.swift) | source | 99 | not-started |
-| [crates/rune-motion/src/scene/trailing.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/scene/trailing.rs) | [Sources/RuneMotion/scene/trailing.swift](../Sources/RuneMotion/scene/trailing.swift) | source | 53 | not-started |
-| [crates/rune-motion/src/scene/travel.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/scene/travel.rs) | [Sources/RuneMotion/scene/travel.swift](../Sources/RuneMotion/scene/travel.swift) | source | 146 | not-started |
-| [crates/rune-motion/src/sequence.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/sequence.rs) | [Sources/RuneMotion/sequence.swift](../Sources/RuneMotion/sequence.swift) | source | 48 | not-started |
-| [crates/rune-motion/src/snap.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/snap.rs) | [Sources/RuneMotion/snap.swift](../Sources/RuneMotion/snap.swift) | source | 47 | not-started |
-| [crates/rune-motion/src/spring.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/spring.rs) | [Sources/RuneMotion/spring.swift](../Sources/RuneMotion/spring.swift) | source | 191 | not-started |
-| [crates/rune-motion/src/store.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/store.rs) | [Sources/RuneMotion/store.swift](../Sources/RuneMotion/store.swift) | source | 1089 | not-started |
-| [crates/rune-motion/src/store/tracks.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/store/tracks.rs) | [Sources/RuneMotion/store/tracks.swift](../Sources/RuneMotion/store/tracks.swift) | source | 70 | not-started |
-| [crates/rune-motion/src/store/typed.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/store/typed.rs) | [Sources/RuneMotion/store/typed.swift](../Sources/RuneMotion/store/typed.swift) | source | 299 | not-started |
-| [crates/rune-motion/src/tokens.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/tokens.rs) | [Sources/RuneMotion/tokens.swift](../Sources/RuneMotion/tokens.swift) | source | 95 | not-started |
-| [crates/rune-motion/src/trace.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/trace.rs) | [Sources/RuneMotion/trace.swift](../Sources/RuneMotion/trace.swift) | source | 436 | not-started |
-| [crates/rune-motion/src/transition.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/transition.rs) | [Sources/RuneMotion/transition.swift](../Sources/RuneMotion/transition.swift) | source | 273 | not-started |
-| [crates/rune-motion/src/value.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/value.rs) | [Sources/RuneMotion/value.swift](../Sources/RuneMotion/value.swift) | source | 432 | not-started |
-| [crates/rune-motion/src/clock.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/clock.rs) | [Tests/RuneMotionTests/clock.swift](../Tests/RuneMotionTests/clock.swift) | inline-test |  | not-started |
-| [crates/rune-motion/src/easing.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/easing.rs) | [Tests/RuneMotionTests/easing.swift](../Tests/RuneMotionTests/easing.swift) | inline-test |  | not-started |
-| [crates/rune-motion/src/gesture.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/gesture.rs) | [Tests/RuneMotionTests/gesture.swift](../Tests/RuneMotionTests/gesture.swift) | inline-test |  | not-started |
-| [crates/rune-motion/src/layer.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/layer.rs) | [Tests/RuneMotionTests/layer.swift](../Tests/RuneMotionTests/layer.swift) | inline-test |  | not-started |
-| [crates/rune-motion/src/looping.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/looping.rs) | [Tests/RuneMotionTests/looping.swift](../Tests/RuneMotionTests/looping.swift) | inline-test |  | not-started |
-| [crates/rune-motion/src/math.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/math.rs) | [Tests/RuneMotionTests/math.swift](../Tests/RuneMotionTests/math.swift) | inline-test |  | not-started |
-| [crates/rune-motion/src/snap.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/snap.rs) | [Tests/RuneMotionTests/snap.swift](../Tests/RuneMotionTests/snap.swift) | inline-test |  | not-started |
-| [crates/rune-motion/src/value.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/value.rs) | [Tests/RuneMotionTests/value.swift](../Tests/RuneMotionTests/value.swift) | inline-test |  | not-started |
-| [crates/rune-motion/tests/alloc.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/alloc.rs) | [Tests/RuneMotionTests/tests/alloc.swift](../Tests/RuneMotionTests/tests/alloc.swift) | test | 99 | not-started |
-| [crates/rune-motion/tests/choreo.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/choreo.rs) | [Tests/RuneMotionTests/tests/choreo.swift](../Tests/RuneMotionTests/tests/choreo.swift) | test | 190 | not-started |
-| [crates/rune-motion/tests/enter_delay.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/enter_delay.rs) | [Tests/RuneMotionTests/tests/enter_delay.swift](../Tests/RuneMotionTests/tests/enter_delay.swift) | test | 157 | not-started |
-| [crates/rune-motion/tests/quality.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/quality.rs) | [Tests/RuneMotionTests/tests/quality.swift](../Tests/RuneMotionTests/tests/quality.swift) | test | 29 | not-started |
-| [crates/rune-motion/tests/scene.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/scene.rs) | [Tests/RuneMotionTests/tests/scene.swift](../Tests/RuneMotionTests/tests/scene.swift) | test | 537 | not-started |
-| [crates/rune-motion/tests/siblings.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/siblings.rs) | [Tests/RuneMotionTests/tests/siblings.swift](../Tests/RuneMotionTests/tests/siblings.swift) | test | 29 | not-started |
-| [crates/rune-motion/tests/spring.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/spring.rs) | [Tests/RuneMotionTests/tests/spring.swift](../Tests/RuneMotionTests/tests/spring.swift) | test | 190 | not-started |
-| [crates/rune-motion/tests/store.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/store.rs) | [Tests/RuneMotionTests/tests/store.swift](../Tests/RuneMotionTests/tests/store.swift) | test | 393 | not-started |
+| [crates/rune-motion/src/animated.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/animated.rs) | [Sources/RuneMotion/animated.swift](../Sources/RuneMotion/animated.swift) | source | 137 | ported |
+| [crates/rune-motion/src/choreo.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/choreo.rs) | [Sources/RuneMotion/choreo.swift](../Sources/RuneMotion/choreo.swift) | source | 393 | ported |
+| [crates/rune-motion/src/clock.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/clock.rs) | [Sources/RuneMotion/clock.swift](../Sources/RuneMotion/clock.swift) | source | 144 | ported |
+| [crates/rune-motion/src/curve.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/curve.rs) | [Sources/RuneMotion/curve.swift](../Sources/RuneMotion/curve.swift) | source | 175 | ported |
+| [crates/rune-motion/src/cycle.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/cycle.rs) | [Sources/RuneMotion/cycle.swift](../Sources/RuneMotion/cycle.swift) | source | 27 | ported |
+| [crates/rune-motion/src/easing.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/easing.rs) | [Sources/RuneMotion/easing.swift](../Sources/RuneMotion/easing.swift) | source | 233 | ported |
+| [crates/rune-motion/src/gesture.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/gesture.rs) | [Sources/RuneMotion/gesture.swift](../Sources/RuneMotion/gesture.swift) | source | 161 | ported |
+| [crates/rune-motion/src/keyframes.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/keyframes.rs) | [Sources/RuneMotion/keyframes.swift](../Sources/RuneMotion/keyframes.swift) | source | 164 | ported |
+| [crates/rune-motion/src/layer.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/layer.rs) | [Sources/RuneMotion/layer.swift](../Sources/RuneMotion/layer.swift) | source | 301 | ported |
+| [crates/rune-motion/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/lib.rs) | [Sources/RuneMotion/lib.swift](../Sources/RuneMotion/lib.swift) | source | 173 | ported |
+| [crates/rune-motion/src/looping.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/looping.rs) | [Sources/RuneMotion/looping.swift](../Sources/RuneMotion/looping.swift) | source | 290 | ported |
+| [crates/rune-motion/src/math.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/math.rs) | [Sources/RuneMotion/math.swift](../Sources/RuneMotion/math.swift) | source | 118 | ported |
+| [crates/rune-motion/src/props.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/props.rs) | [Sources/RuneMotion/props.swift](../Sources/RuneMotion/props.swift) | source | 135 | ported |
+| [crates/rune-motion/src/scene.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/scene.rs) | [Sources/RuneMotion/scene.swift](../Sources/RuneMotion/scene.swift) | source | 1053 | ported |
+| [crates/rune-motion/src/scene/presence.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/scene/presence.rs) | [Sources/RuneMotion/scene/presence.swift](../Sources/RuneMotion/scene/presence.swift) | source | 256 | ported |
+| [crates/rune-motion/src/scene/props.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/scene/props.rs) | [Sources/RuneMotion/scene/scene_props.swift](../Sources/RuneMotion/scene/scene_props.swift) | source | 99 | ported |
+| [crates/rune-motion/src/scene/trailing.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/scene/trailing.rs) | [Sources/RuneMotion/scene/trailing.swift](../Sources/RuneMotion/scene/trailing.swift) | source | 53 | ported |
+| [crates/rune-motion/src/scene/travel.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/scene/travel.rs) | [Sources/RuneMotion/scene/travel.swift](../Sources/RuneMotion/scene/travel.swift) | source | 146 | ported |
+| [crates/rune-motion/src/sequence.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/sequence.rs) | [Sources/RuneMotion/sequence.swift](../Sources/RuneMotion/sequence.swift) | source | 48 | ported |
+| [crates/rune-motion/src/snap.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/snap.rs) | [Sources/RuneMotion/snap.swift](../Sources/RuneMotion/snap.swift) | source | 47 | ported |
+| [crates/rune-motion/src/spring.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/spring.rs) | [Sources/RuneMotion/spring.swift](../Sources/RuneMotion/spring.swift) | source | 191 | ported |
+| [crates/rune-motion/src/store.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/store.rs) | [Sources/RuneMotion/store.swift](../Sources/RuneMotion/store.swift) | source | 1089 | ported |
+| [crates/rune-motion/src/store/tracks.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/store/tracks.rs) | [Sources/RuneMotion/store/tracks.swift](../Sources/RuneMotion/store/tracks.swift) | source | 70 | ported |
+| [crates/rune-motion/src/store/typed.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/store/typed.rs) | [Sources/RuneMotion/store/typed.swift](../Sources/RuneMotion/store/typed.swift) | source | 299 | ported |
+| [crates/rune-motion/src/tokens.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/tokens.rs) | [Sources/RuneMotion/tokens.swift](../Sources/RuneMotion/tokens.swift) | source | 95 | ported |
+| [crates/rune-motion/src/trace.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/trace.rs) | [Sources/RuneMotion/trace.swift](../Sources/RuneMotion/trace.swift) | source | 436 | ported |
+| [crates/rune-motion/src/transition.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/transition.rs) | [Sources/RuneMotion/transition.swift](../Sources/RuneMotion/transition.swift) | source | 273 | ported |
+| [crates/rune-motion/src/value.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/value.rs) | [Sources/RuneMotion/value.swift](../Sources/RuneMotion/value.swift) | source | 432 | ported |
+| [crates/rune-motion/src/clock.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/clock.rs) | [Tests/RuneMotionTests/clock.swift](../Tests/RuneMotionTests/clock.swift) | inline-test |  | ported |
+| [crates/rune-motion/src/easing.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/easing.rs) | [Tests/RuneMotionTests/easing.swift](../Tests/RuneMotionTests/easing.swift) | inline-test |  | ported |
+| [crates/rune-motion/src/gesture.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/gesture.rs) | [Tests/RuneMotionTests/gesture.swift](../Tests/RuneMotionTests/gesture.swift) | inline-test |  | ported |
+| [crates/rune-motion/src/layer.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/layer.rs) | [Tests/RuneMotionTests/layer.swift](../Tests/RuneMotionTests/layer.swift) | inline-test |  | ported |
+| [crates/rune-motion/src/looping.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/looping.rs) | [Tests/RuneMotionTests/looping.swift](../Tests/RuneMotionTests/looping.swift) | inline-test |  | ported |
+| [crates/rune-motion/src/math.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/math.rs) | [Tests/RuneMotionTests/math.swift](../Tests/RuneMotionTests/math.swift) | inline-test |  | ported |
+| [crates/rune-motion/src/snap.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/snap.rs) | [Tests/RuneMotionTests/snap.swift](../Tests/RuneMotionTests/snap.swift) | inline-test |  | ported |
+| [crates/rune-motion/src/value.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/src/value.rs) | [Tests/RuneMotionTests/value.swift](../Tests/RuneMotionTests/value.swift) | inline-test |  | ported |
+| [crates/rune-motion/tests/alloc.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/alloc.rs) | [Tests/RuneMotionTests/tests/alloc.swift](../Tests/RuneMotionTests/tests/alloc.swift) | test | 99 | ported |
+| [crates/rune-motion/tests/choreo.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/choreo.rs) | [Tests/RuneMotionTests/tests/choreo.swift](../Tests/RuneMotionTests/tests/choreo.swift) | test | 190 | ported |
+| [crates/rune-motion/tests/enter_delay.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/enter_delay.rs) | [Tests/RuneMotionTests/tests/enter_delay.swift](../Tests/RuneMotionTests/tests/enter_delay.swift) | test | 157 | ported |
+| [crates/rune-motion/tests/quality.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/quality.rs) | [Tests/RuneMotionTests/tests/quality.swift](../Tests/RuneMotionTests/tests/quality.swift) | test | 29 | ported |
+| [crates/rune-motion/tests/scene.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/scene.rs) | [Tests/RuneMotionTests/tests/scene.swift](../Tests/RuneMotionTests/tests/scene.swift) | test | 537 | ported |
+| [crates/rune-motion/tests/siblings.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/siblings.rs) | [Tests/RuneMotionTests/tests/siblings.swift](../Tests/RuneMotionTests/tests/siblings.swift) | test | 29 | ported |
+| [crates/rune-motion/tests/spring.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/spring.rs) | [Tests/RuneMotionTests/tests/spring.swift](../Tests/RuneMotionTests/tests/spring.swift) | test | 190 | ported |
+| [crates/rune-motion/tests/store.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-motion/tests/store.rs) | [Tests/RuneMotionTests/tests/store.swift](../Tests/RuneMotionTests/tests/store.swift) | test | 393 | ported |
 
 ### `RunePerf`
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/rune-perf/src/incident.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/incident.rs) | [Sources/RunePerf/incident.swift](../Sources/RunePerf/incident.swift) | source | 98 | not-started |
-| [crates/rune-perf/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/lib.rs) | [Sources/RunePerf/lib.swift](../Sources/RunePerf/lib.swift) | source | 161 | not-started |
-| [crates/rune-perf/src/recorder.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/recorder.rs) | [Sources/RunePerf/recorder.swift](../Sources/RunePerf/recorder.swift) | source | 63 | not-started |
-| [crates/rune-perf/src/recorder/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/recorder/tests.rs) | [Sources/RunePerf/recorder/recorder_tests.swift](../Sources/RunePerf/recorder/recorder_tests.swift) | source | 68 | not-started |
-| [crates/rune-perf/src/stats.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/stats.rs) | [Sources/RunePerf/stats.swift](../Sources/RunePerf/stats.swift) | source | 57 | not-started |
-| [crates/rune-perf/src/store.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/store.rs) | [Sources/RunePerf/store.swift](../Sources/RunePerf/store.swift) | source | 165 | not-started |
-| [crates/rune-perf/src/store/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/store/tests.rs) | [Sources/RunePerf/store/store_tests.swift](../Sources/RunePerf/store/store_tests.swift) | source | 125 | not-started |
-| [crates/rune-perf/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/tests.rs) | [Sources/RunePerf/tests.swift](../Sources/RunePerf/tests.swift) | source | 114 | not-started |
-| [crates/rune-perf/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/lib.rs) | [Tests/RunePerfTests/lib.swift](../Tests/RunePerfTests/lib.swift) | inline-test |  | not-started |
-| [crates/rune-perf/src/recorder.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/recorder.rs) | [Tests/RunePerfTests/recorder.swift](../Tests/RunePerfTests/recorder.swift) | inline-test |  | not-started |
-| [crates/rune-perf/src/recorder/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/recorder/tests.rs) | [Tests/RunePerfTests/recorder/recorder_tests.swift](../Tests/RunePerfTests/recorder/recorder_tests.swift) | inline-test |  | not-started |
-| [crates/rune-perf/src/store.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/store.rs) | [Tests/RunePerfTests/store.swift](../Tests/RunePerfTests/store.swift) | inline-test |  | not-started |
-| [crates/rune-perf/src/store/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/store/tests.rs) | [Tests/RunePerfTests/store/store_tests.swift](../Tests/RunePerfTests/store/store_tests.swift) | inline-test |  | not-started |
-| [crates/rune-perf/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/tests.rs) | [Tests/RunePerfTests/tests.swift](../Tests/RunePerfTests/tests.swift) | inline-test |  | not-started |
-| [crates/rune-perf/tests/no_allocator.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/tests/no_allocator.rs) | [Tests/RunePerfTests/tests/no_allocator.swift](../Tests/RunePerfTests/tests/no_allocator.swift) | test | 9 | not-started |
+| [crates/rune-perf/src/incident.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/incident.rs) | [Sources/RunePerf/incident.swift](../Sources/RunePerf/incident.swift) | source | 98 | ported |
+| [crates/rune-perf/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/lib.rs) | [Sources/RunePerf/lib.swift](../Sources/RunePerf/lib.swift) | source | 161 | ported |
+| [crates/rune-perf/src/recorder.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/recorder.rs) | [Sources/RunePerf/recorder.swift](../Sources/RunePerf/recorder.swift) | source | 63 | ported |
+| [crates/rune-perf/src/recorder/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/recorder/tests.rs) | [Sources/RunePerf/recorder/recorder_tests.swift](../Sources/RunePerf/recorder/recorder_tests.swift) | source | 68 | ported |
+| [crates/rune-perf/src/stats.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/stats.rs) | [Sources/RunePerf/stats.swift](../Sources/RunePerf/stats.swift) | source | 57 | ported |
+| [crates/rune-perf/src/store.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/store.rs) | [Sources/RunePerf/store.swift](../Sources/RunePerf/store.swift) | source | 165 | ported |
+| [crates/rune-perf/src/store/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/store/tests.rs) | [Sources/RunePerf/store/store_tests.swift](../Sources/RunePerf/store/store_tests.swift) | source | 125 | ported |
+| [crates/rune-perf/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/tests.rs) | [Sources/RunePerf/tests.swift](../Sources/RunePerf/tests.swift) | source | 114 | ported |
+| [crates/rune-perf/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/lib.rs) | [Tests/RunePerfTests/lib.swift](../Tests/RunePerfTests/lib.swift) | inline-test |  | ported |
+| [crates/rune-perf/src/recorder.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/recorder.rs) | [Tests/RunePerfTests/recorder.swift](../Tests/RunePerfTests/recorder.swift) | inline-test |  | ported |
+| [crates/rune-perf/src/recorder/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/recorder/tests.rs) | [Tests/RunePerfTests/recorder/recorder_tests.swift](../Tests/RunePerfTests/recorder/recorder_tests.swift) | inline-test |  | ported |
+| [crates/rune-perf/src/store.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/store.rs) | [Tests/RunePerfTests/store.swift](../Tests/RunePerfTests/store.swift) | inline-test |  | ported |
+| [crates/rune-perf/src/store/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/store/tests.rs) | [Tests/RunePerfTests/store/store_tests.swift](../Tests/RunePerfTests/store/store_tests.swift) | inline-test |  | ported |
+| [crates/rune-perf/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/src/tests.rs) | [Tests/RunePerfTests/tests.swift](../Tests/RunePerfTests/tests.swift) | inline-test |  | ported |
+| [crates/rune-perf/tests/no_allocator.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-perf/tests/no_allocator.rs) | [Tests/RunePerfTests/tests/no_allocator.swift](../Tests/RunePerfTests/tests/no_allocator.swift) | test | 9 | ported |
 
 ### `RuneRef`
 
@@ -1879,16 +1879,16 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/rune-register/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-register/src/lib.rs) | [Sources/RuneRegister/lib.swift](../Sources/RuneRegister/lib.swift) | source | 110 | not-started |
-| [crates/rune-register/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-register/src/tests.rs) | [Sources/RuneRegister/tests.swift](../Sources/RuneRegister/tests.swift) | source | 58 | not-started |
-| [crates/rune-register/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-register/src/lib.rs) | [Tests/RuneRegisterTests/lib.swift](../Tests/RuneRegisterTests/lib.swift) | inline-test |  | not-started |
-| [crates/rune-register/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-register/src/tests.rs) | [Tests/RuneRegisterTests/tests.swift](../Tests/RuneRegisterTests/tests.swift) | inline-test |  | not-started |
+| [crates/rune-register/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-register/src/lib.rs) | [Sources/RuneRegister/lib.swift](../Sources/RuneRegister/lib.swift) | source | 110 | ported |
+| [crates/rune-register/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-register/src/tests.rs) | [Sources/RuneRegister/tests.swift](../Sources/RuneRegister/tests.swift) | source | 58 | ported |
+| [crates/rune-register/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-register/src/lib.rs) | [Tests/RuneRegisterTests/lib.swift](../Tests/RuneRegisterTests/lib.swift) | inline-test |  | ported |
+| [crates/rune-register/src/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-register/src/tests.rs) | [Tests/RuneRegisterTests/tests.swift](../Tests/RuneRegisterTests/tests.swift) | inline-test |  | ported |
 
 ### `RuneStaging`
 
 | Upstream | Swift | Kind | Lines | Status |
 |---|---|---|---:|---|
-| [crates/rune-staging/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-staging/src/lib.rs) | [Sources/RuneStaging/lib.swift](../Sources/RuneStaging/lib.swift) | source | 309 | not-started |
+| [crates/rune-staging/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune-staging/src/lib.rs) | [Sources/RuneStaging/lib.swift](../Sources/RuneStaging/lib.swift) | source | 309 | ported |
 
 ### `RuneThemeOpenCode`
 

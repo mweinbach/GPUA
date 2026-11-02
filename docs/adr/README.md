@@ -25,3 +25,4 @@ Copy [0000-template.md](0000-template.md), take the next number, and open it as 
 | [0012](0012-android-platform-and-jni.md) | Android platform backend (`GPUIAndroid`), NDK C bridge (`CAndroidSys`), and `wgpu-native` dynamic dispatch | Accepted |
 | [0013](0013-web-wasm-bridge.md) | Web / Wasm backend (`GPUIWeb`), zero-dependency WASI host bridge (`CWebSys`), and browser WebGPU | Accepted |
 | [0014](0014-rune-upstream-and-target-layout.md) | Multi-upstream integration of Rune (`anomalyco/rune`) and 1:1 SwiftPM target layout | Accepted |
+| [0015](0015-gpuaui-shadcn-ornaments.md) | `GPUAUI` — Unified Shadcn-style ornament & component target across GPUI and Rune | Accepted |
