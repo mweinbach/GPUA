@@ -1,3 +1,6 @@
 // Ported from: crates/rune/src/platform/macos/window_shape_tests.rs
 // Upstream commit: 5f6d53ddae78
-// Port status: not-started
+// Port status: ported
+
+// Inline #[cfg(test)] module in upstream; behavioral tests live in
+// Tests/RuneTests/platform/macos/window_shape_tests.swift per Golden Rule #6.

@@ -1,6 +1,5 @@
-// Tests ported from: crates/rune/src/gpu/pick.rs (#[cfg(test)] items)
+// Ported from: crates/rune/src/gpu/pick.rs
 // Upstream commit: 5f6d53ddae78
-// Port status: not-started
+// Port status: ported
 
-import Testing
-@testable import Rune
+// Inline tests for `gpu/pick.rs` are located in `pick_tests.rs` -> `Tests/RuneTests/gpu/pick_tests.swift`.

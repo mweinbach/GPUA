@@ -220,7 +220,7 @@ private final class FileTraceWriter: TraceWriter, @unchecked Sendable {
     private let handle: FileHandle
 
     init?(path: String) {
-        FileManager.default.createFile(atPath: path, contents: nil)
+        _ = FileManager.default.createFile(atPath: path, contents: nil)
         guard let fh = FileHandle(forWritingAtPath: path) else {
             return nil
         }

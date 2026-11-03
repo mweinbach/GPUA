@@ -112,3 +112,29 @@ struct SharedBox<T> {
         a.storage === b.storage
     }
 }
+
+/// Copy-on-write optional box so large rarely-present fields (`InputSpec`, `TextSpec`, `RtTextLayout`)
+/// occupy a single pointer word inside `El` and `Node` while keeping transparent `T?` syntax.
+@propertyWrapper
+struct ColdOpt<T> {
+    private var storage: ColdStorage<T>?
+
+    init(wrappedValue: T? = nil) {
+        self.storage = wrappedValue.map(ColdStorage.init)
+    }
+
+    var wrappedValue: T? {
+        get { storage?.value }
+        set {
+            if let v = newValue {
+                if storage == nil || !isKnownUniquelyReferenced(&storage) {
+                    storage = ColdStorage(v)
+                } else {
+                    storage!.value = v
+                }
+            } else {
+                storage = nil
+            }
+        }
+    }
+}

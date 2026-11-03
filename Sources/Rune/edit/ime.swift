@@ -19,14 +19,14 @@ public enum Ime: Sendable, Equatable {
     public static func == (lhs: Ime, rhs: Ime) -> Bool {
         switch (lhs, rhs) {
         case (.preedit(let ls, let lr), .preedit(let rs, let rr)):
-            guard ls == rs else { return false }
+            guard ls.utf8.elementsEqual(rs.utf8) else { return false }
             switch (lr, rr) {
             case (nil, nil): return true
             case (let l?, let r?): return l.0 == r.0 && l.1 == r.1
             default: return false
             }
         case (.commit(let l), .commit(let r)):
-            return l == r
+            return l.utf8.elementsEqual(r.utf8)
         case (.enabled, .enabled), (.disabled, .disabled):
             return true
         default:

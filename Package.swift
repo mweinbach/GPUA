@@ -308,7 +308,11 @@ let package = Package(
         crate("RuneKnobs", ["Rune"]),                               // crates/rune-knobs
         crate("RuneMermaid", ["Rune"]),                             // crates/rune-mermaid
         crate("RuneKit", ["Rune", "RuneMotion", "RuneMermaid"]),    // crates/rune-kit
-        crate("RuneThemeOpenCode", ["Rune", "RuneKit"]),            // themes/opencode
+        crate(                                                      // themes/opencode
+            "RuneThemeOpenCode",
+            ["Rune", "RuneKit"],
+            resources: [.copy("assets")]
+        ),
 
         // ---- Tests (inline `#[cfg(test)]` modules + crates/*/tests) ---------
         crateTests("GPUICollections"),

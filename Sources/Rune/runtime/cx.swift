@@ -59,6 +59,7 @@ public final class Cx<S> {
     var layoutRects: [String: [Float]]
     var windowRects: [String: [Float]]
     var layoutReadKeys: Set<String> = []
+    var layoutPredicates: [LayoutWithCheck] = []
 
     public init(
         env: Env = Env(),
@@ -101,6 +102,7 @@ public final class Cx<S> {
         timeScaleValue = other.timeScaleValue
         caretRead = caretRead || other.caretRead
         layoutReadKeys.formUnion(other.layoutReadKeys)
+        layoutPredicates.append(contentsOf: other.layoutPredicates)
     }
 
     public func env() -> Env {
@@ -157,12 +159,44 @@ public final class Cx<S> {
         return rect
     }
 
+    public func layoutSize(_ key: String) -> [Float]? {
+        layoutReadKeys.insert("@size:\(key)")
+        let rect = layoutRects[key]
+        return rect.map { [$0[2], $0[3]] }
+    }
+
     public func windowLayout(_ key: String) -> [Float]? {
         let winKey = "@win:\(key)"
         layoutReadKeys.insert(winKey)
         let rect = windowRects[key] ?? layoutRects[key]
         recordMemoLayoutRead(winKey, rect)
         return rect
+    }
+
+    public func layoutWith<T: Equatable>(_ key: String, _ f: @escaping ([Float]) -> T) -> T? {
+        let rect = layoutRects[key]
+        layoutPredicates.append(
+            LayoutWithCheck(
+                key: key,
+                windowSpace: false,
+                lastRect: rect,
+                equals: { a, b in a.map(f) == b.map(f) }
+            )
+        )
+        return rect.map(f)
+    }
+
+    public func windowLayoutWith<T: Equatable>(_ key: String, _ f: @escaping ([Float]) -> T) -> T? {
+        let rect = windowRects[key] ?? layoutRects[key]
+        layoutPredicates.append(
+            LayoutWithCheck(
+                key: key,
+                windowSpace: true,
+                lastRect: rect,
+                equals: { a, b in a.map(f) == b.map(f) }
+            )
+        )
+        return rect.map(f)
     }
 }
 

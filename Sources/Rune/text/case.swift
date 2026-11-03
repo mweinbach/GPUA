@@ -13,6 +13,8 @@ public enum TextCase: Sendable, Equatable, Hashable {
 }
 
 /// The authored string behind a cased one, and where each of its characters landed.
+typealias CaseSource = TextCaseSource
+
 struct TextCaseSource: Sendable, Equatable {
     var text: String
     /// `(sourceByte, shownByte)` at each source character's start, then both lengths.
@@ -26,37 +28,58 @@ struct TextCaseSource: Sendable, Equatable {
         return true
     }
 
+    // PORT NOTE: Implements Unicode Standard §3.13 `Final_Sigma` context rule explicitly via
+    // `UnicodeScalar.Properties` (`isCased`, `isCaseIgnorable`), matching Rust `str::to_lowercase`
+    // across macOS, Linux, Windows, Android, and WASI (Swift stdlib `String.lowercased()` omits
+    // `Final_Sigma` when Greek sigma precedes space + another word).
     static func new(_ textCase: TextCase, _ text: String) -> (String, TextCaseSource) {
-        let shownStr: String
-        switch textCase {
-        case .uppercase: shownStr = text.uppercased()
-        case .lowercase: shownStr = text.lowercased()
-        }
+        let scalars = Array(text.unicodeScalars)
+        var shownStr = ""
+        shownStr.reserveCapacity(text.utf8.count)
         var bounds: [(UInt32, UInt32)] = []
-        bounds.reserveCapacity(text.unicodeScalars.count + 1)
+        bounds.reserveCapacity(scalars.count + 1)
         var srcByte: UInt32 = 0
         var dstByte: UInt32 = 0
-        for scalar in text.unicodeScalars {
+
+        for (idx, scalar) in scalars.enumerated() {
             bounds.append((srcByte, dstByte))
-            let s = String(scalar)
             let mapped: String
             switch textCase {
-            case .uppercase: mapped = s.uppercased()
-            case .lowercase: mapped = s.lowercased()
+            case .uppercase:
+                mapped = String(scalar).uppercased()
+            case .lowercase:
+                if scalar.value == 0x03A3 {
+                    var prev = idx - 1
+                    while prev >= 0 && scalars[prev].properties.isCaseIgnorable {
+                        prev -= 1
+                    }
+                    let precededByCased = prev >= 0 && scalars[prev].properties.isCased
+
+                    var next = idx + 1
+                    while next < scalars.count && scalars[next].properties.isCaseIgnorable {
+                        next += 1
+                    }
+                    let followedByCased = next < scalars.count && scalars[next].properties.isCased
+
+                    mapped = (precededByCased && !followedByCased) ? "ς" : "σ"
+                } else {
+                    mapped = String(scalar).lowercased()
+                }
             }
-            srcByte += UInt32(s.utf8.count)
+            shownStr.append(mapped)
+            srcByte += UInt32(scalar.utf8.count)
             dstByte += UInt32(mapped.utf8.count)
         }
-        bounds.append((UInt32(text.utf8.count), UInt32(shownStr.utf8.count)))
+        bounds.append((UInt32(text.utf8.count), dstByte))
         return (shownStr, TextCaseSource(text: text, bounds: bounds))
     }
 
     func shown(_ b: UInt32, _ up: Bool) -> UInt32 {
         let i: Int
         if up {
-            i = bounds.firstIndex(where: { $0.0 >= b }) ?? bounds.count
+            i = partitionPoint(byFirst: true, lessOrEqual: false, target: b)
         } else {
-            let pp = bounds.firstIndex(where: { $0.0 > b }) ?? bounds.count
+            let pp = partitionPoint(byFirst: true, lessOrEqual: true, target: b)
             i = max(pp - 1, 0)
         }
         if i < bounds.count { return bounds[i].1 }
@@ -66,12 +89,28 @@ struct TextCaseSource: Sendable, Equatable {
     func source(_ b: UInt32, _ up: Bool) -> UInt32 {
         let i: Int
         if up {
-            i = bounds.firstIndex(where: { $0.1 >= b }) ?? bounds.count
+            i = partitionPoint(byFirst: false, lessOrEqual: false, target: b)
         } else {
-            let pp = bounds.firstIndex(where: { $0.1 > b }) ?? bounds.count
+            let pp = partitionPoint(byFirst: false, lessOrEqual: true, target: b)
             i = max(pp - 1, 0)
         }
         if i < bounds.count { return bounds[i].0 }
         return UInt32(text.utf8.count)
+    }
+
+    private func partitionPoint(byFirst: Bool, lessOrEqual: Bool, target: UInt32) -> Int {
+        var lo = 0
+        var hi = bounds.count
+        while lo < hi {
+            let mid = lo + (hi - lo) / 2
+            let val = byFirst ? bounds[mid].0 : bounds[mid].1
+            let cond = lessOrEqual ? (val <= target) : (val < target)
+            if cond {
+                lo = mid + 1
+            } else {
+                hi = mid
+            }
+        }
+        return lo
     }
 }
