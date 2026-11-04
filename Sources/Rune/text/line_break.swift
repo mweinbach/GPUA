@@ -213,6 +213,7 @@ func breakLinesWithBlocks(
                 var pFirst: Int? = nil
                 var pLast: Int? = nil
                 var pillW: Float = 0.0
+                var pillTrailW: Float = 0.0
                 for idx in paraRange {
                     let cl = layout.shapedRuns[flat[idx].runIdx].clusters[flat[idx].clusterIdx]
                     if cl.textRange.lowerBound >= pStartByte && cl.textRange.upperBound <= pEndByte {
@@ -220,16 +221,25 @@ func breakLinesWithBlocks(
                         pLast = idx
                         for b in flat[idx].leadBoxes { pillW += b.width }
                         pillW += cl.advance
-                        for b in flat[idx].trailBoxes { pillW += b.width }
+                        for b in flat[idx].trailBoxes {
+                            pillW += b.width
+                            pillTrailW += b.width
+                        }
                     }
                 }
                 if let f = pFirst, let l = pLast {
-                    let fitsLine = availWidth.map { pillW <= $0 + 0.5 } ?? true
-                    if fitsLine && f < l {
+                    // Matching `line_break.rs`: if `lead + label` fits on a line (only `trail`
+                    // would spill past `availWidth`), keep the label unbroken and start the pill
+                    // on a fresh line where the line widens to hold `trail`. Only wrap inside
+                    // the pill when `lead + label` itself exceeds `availWidth`.
+                    let labelFitsLine = availWidth.map { (pillW - pillTrailW) <= $0 + 0.5 } ?? true
+                    let wholeFitsLine = availWidth.map { pillW <= $0 + 0.5 } ?? true
+                    if labelFitsLine && f < l {
                         for k in f..<l {
                             flat[k].allowSoftBreakAfter = false
                         }
-                    } else if !fitsLine {
+                    }
+                    if !wholeFitsLine {
                         oversizedPillStarts.insert(f)
                     }
                 }

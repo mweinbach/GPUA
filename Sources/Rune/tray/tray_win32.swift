@@ -10,7 +10,8 @@ import WinSDK
 private let TRAY_WM_CALLBACK: UINT = UINT(WM_APP) + 1
 private let TRAY_WM_UPDATE: UINT = UINT(WM_APP) + 2
 private let TRAY_ICON_ID: UINT = 1
-private let WIN32_HWND_MESSAGE = HWND(bitPattern: -3)
+@inline(__always)
+private var WIN32_HWND_MESSAGE: HWND? { HWND(bitPattern: -3) }
 
 @_silgen_name("TrackPopupMenu")
 private func win32TrackPopupMenu(

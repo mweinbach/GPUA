@@ -391,4 +391,21 @@ struct TextShapingTests {
             #expect(out.isEmpty)
         }
     }
+
+    #if !os(WASI)
+    @Test("sfnt_gsub_tabular_figures_substitutes_proportional_digits")
+    func sfntGsubTabularFiguresSubstitutesProportionalDigits() throws {
+        let url = try #require(runeBundledAssetURL("Inter-Regular.ttf"))
+        let data = try Data(contentsOf: url)
+        let sfnt = try #require(SfntFont(data: [UInt8](data), index: 0))
+        let tnumTag = try #require(SfntTag.fromString("tnum"))
+        let g0 = try #require(sfnt.glyphId(for: UnicodeScalar("0")))
+        let g1 = try #require(sfnt.glyphId(for: UnicodeScalar("1")))
+        #expect(sfnt.advanceWidth(g0) != sfnt.advanceWidth(g1))
+        let t0 = sfnt.applyFeatureSubstitutions(g0, features: [(tnumTag, 1)])
+        let t1 = sfnt.applyFeatureSubstitutions(g1, features: [(tnumTag, 1)])
+        #expect(t0 != g0 && t1 != g1)
+        #expect(sfnt.advanceWidth(t0) == sfnt.advanceWidth(t1))
+    }
+    #endif
 }

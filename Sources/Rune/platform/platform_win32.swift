@@ -76,7 +76,8 @@ private final class Win32OverlayInput {
     }
 }
 
-private let WIN32_HWND_TOPMOST = HWND(bitPattern: -1)
+@inline(__always)
+private var WIN32_HWND_TOPMOST: HWND? { HWND(bitPattern: -1) }
 
 private let win32InputsLock = LiveLock()
 // PORT NOTE: Guarded by `win32InputsLock` on the window thread (matching `thread_local! INPUTS` in `platform/win32.rs`).

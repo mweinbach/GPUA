@@ -1779,7 +1779,6 @@ private final class AppleFontFamilyCache: @unchecked Sendable {
         activeFeatures: [(UInt32, Int32)],
         isRtl: Bool
     ) -> ShapedRun {
-        _ = activeFeatures
         let metrics = computeLayoutMetrics(face: face, sizePt: slice.sizePt, scale: scale)
         let lookupPt: Float
         if let opt = opticalFixed {
@@ -1848,6 +1847,7 @@ private final class AppleFontFamilyCache: @unchecked Sendable {
             scale: scale,
             extraTrackingPx: extraTrackingPx,
             monoSpaceAdv: monoSpaceAdv,
+            activeFeatures: activeFeatures,
             isRtl: isRtl
         )
     }
@@ -2057,6 +2057,7 @@ private final class AppleFontFamilyCache: @unchecked Sendable {
         scale: Float,
         extraTrackingPx: Float,
         monoSpaceAdv: Float,
+        activeFeatures: [(UInt32, Int32)],
         isRtl: Bool
     ) -> ShapedRun {
         let px = slice.sizePt * scale
@@ -2078,7 +2079,8 @@ private final class AppleFontFamilyCache: @unchecked Sendable {
                 let gid: UInt16
                 var rawAdvPx: Float
                 if let sfnt = face.sfnt, let upem = sfnt.unitsPerEm(), upem > 0 {
-                    gid = sfnt.glyphId(for: sc) ?? 0
+                    let baseGid = sfnt.glyphId(for: sc) ?? 0
+                    gid = activeFeatures.isEmpty ? baseGid : sfnt.applyFeatureSubstitutions(baseGid, features: activeFeatures)
                     rawAdvPx = isCombining ? 0.0 : (Float(sfnt.advanceWidth(gid) ?? 0) * px / Float(upem))
                 } else {
                     gid = BuiltinVectorFont.glyphId(for: sc)

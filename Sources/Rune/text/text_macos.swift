@@ -22,6 +22,7 @@ enum SfntTag {
     static let glyf: UInt32 = 0x676C_7966 // 'glyf'
     static let name: UInt32 = 0x6E61_6D65 // 'name'
     static let OS2:  UInt32 = 0x4F53_2F32 // 'OS/2'
+    static let GSUB: UInt32 = 0x4753_5542 // 'GSUB'
     static let STAT: UInt32 = 0x5354_4154 // 'STAT'
     static let trak: UInt32 = 0x7472_616B // 'trak'
     static let fvar: UInt32 = 0x6676_6172 // 'fvar'
@@ -661,5 +662,173 @@ struct SfntFont: Sendable {
             }
             return allContours
         }
+    }
+
+    private func gsubCoverageIndex(at cov: Int, glyph: UInt16, end: Int) -> Int? {
+        guard cov >= 0, cov + 4 <= end,
+              let fmt = u16(cov),
+              let countU16 = u16(cov + 2)
+        else { return nil }
+        let count = Int(countU16)
+        if fmt == 1 {
+            guard cov + 4 + count * 2 <= end else { return nil }
+            var lo = 0
+            var hi = count
+            while lo < hi {
+                let mid = (lo + hi) / 2
+                guard let g = u16(cov + 4 + mid * 2) else { return nil }
+                if g == glyph {
+                    return mid
+                } else if g < glyph {
+                    lo = mid + 1
+                } else {
+                    hi = mid
+                }
+            }
+            return nil
+        } else if fmt == 2 {
+            guard cov + 4 + count * 6 <= end else { return nil }
+            var lo = 0
+            var hi = count
+            while lo < hi {
+                let mid = (lo + hi) / 2
+                let rec = cov + 4 + mid * 6
+                guard let startG = u16(rec),
+                      let endG = u16(rec + 2),
+                      let startCov = u16(rec + 4)
+                else { return nil }
+                if glyph < startG {
+                    hi = mid
+                } else if glyph > endG {
+                    lo = mid + 1
+                } else {
+                    return Int(startCov) + Int(glyph - startG)
+                }
+            }
+            return nil
+        }
+        return nil
+    }
+
+    /// Applies enabled OpenType `GSUB` single/alternate glyph substitutions (e.g. `'tnum'`, `'pnum'`,
+    /// `'zero'`, `'ss01'`..`'ss20'`, `'cv01'`..`'cv99'`) when shaping without CoreText.
+    func applyFeatureSubstitutions(_ glyph: UInt16, features: [(UInt32, Int32)]) -> UInt16 {
+        guard glyph != 0,
+              !features.isEmpty,
+              let gsub = tables[SfntTag.GSUB],
+              gsub.count >= 10,
+              let featListOff = u16(gsub.lowerBound + 6),
+              let lookupListOff = u16(gsub.lowerBound + 8)
+        else { return glyph }
+
+        let featList = gsub.lowerBound + Int(featListOff)
+        let lookupList = gsub.lowerBound + Int(lookupListOff)
+        guard featList + 2 <= gsub.upperBound,
+              lookupList + 2 <= gsub.upperBound,
+              let featCountU16 = u16(featList),
+              let lookupCountU16 = u16(lookupList)
+        else { return glyph }
+
+        let featCount = Int(featCountU16)
+        let lookupCount = Int(lookupCountU16)
+        guard featList + 2 + featCount * 6 <= gsub.upperBound,
+              lookupList + 2 + lookupCount * 2 <= gsub.upperBound
+        else { return glyph }
+
+        var cur = glyph
+        for (reqTag, reqVal) in features where reqVal > 0 {
+            var seenLookups = Set<UInt16>()
+            var orderedLookups: [UInt16] = []
+            for i in 0..<featCount {
+                let rec = featList + 2 + i * 6
+                guard let recTag = u32(rec), recTag == reqTag,
+                      let fOff = u16(rec + 4)
+                else { continue }
+                let ftab = featList + Int(fOff)
+                guard ftab + 4 <= gsub.upperBound,
+                      let lCountU16 = u16(ftab + 2)
+                else { continue }
+                let lCount = Int(lCountU16)
+                guard ftab + 4 + lCount * 2 <= gsub.upperBound else { continue }
+                for j in 0..<lCount {
+                    if let lIdx = u16(ftab + 4 + j * 2), seenLookups.insert(lIdx).inserted {
+                        orderedLookups.append(lIdx)
+                    }
+                }
+            }
+
+            for lIdxU16 in orderedLookups {
+                let lIdx = Int(lIdxU16)
+                guard lIdx < lookupCount,
+                      let lOff = u16(lookupList + 2 + lIdx * 2)
+                else { continue }
+                let ltab = lookupList + Int(lOff)
+                guard ltab + 6 <= gsub.upperBound,
+                      let rawType = u16(ltab),
+                      let subCountU16 = u16(ltab + 4)
+                else { continue }
+                let subCount = Int(subCountU16)
+                guard ltab + 6 + subCount * 2 <= gsub.upperBound else { continue }
+
+                subtableLoop: for s in 0..<subCount {
+                    guard let sOff = u16(ltab + 6 + s * 2) else { continue }
+                    var stab = ltab + Int(sOff)
+                    var actualType = rawType
+                    if actualType == 7 {
+                        guard stab + 8 <= gsub.upperBound,
+                              u16(stab) == 1,
+                              let extType = u16(stab + 2),
+                              let extOff = u32(stab + 4)
+                        else { continue }
+                        actualType = extType
+                        stab += Int(extOff)
+                    }
+                    guard stab + 6 <= gsub.upperBound,
+                          let substFmt = u16(stab),
+                          let covOff = u16(stab + 2)
+                    else { continue }
+
+                    if actualType == 1 {
+                        guard let covIdx = gsubCoverageIndex(at: stab + Int(covOff), glyph: cur, end: gsub.upperBound) else {
+                            continue
+                        }
+                        if substFmt == 1 {
+                            if let delta = i16(stab + 4) {
+                                cur = UInt16(truncatingIfNeeded: Int(cur) + Int(delta))
+                                break subtableLoop
+                            }
+                        } else if substFmt == 2 {
+                            if let gCount = u16(stab + 4),
+                               covIdx < Int(gCount),
+                               stab + 6 + covIdx * 2 + 2 <= gsub.upperBound,
+                               let mapped = u16(stab + 6 + covIdx * 2)
+                            {
+                                cur = mapped
+                                break subtableLoop
+                            }
+                        }
+                    } else if actualType == 3 && substFmt == 1 {
+                        guard let covIdx = gsubCoverageIndex(at: stab + Int(covOff), glyph: cur, end: gsub.upperBound),
+                              let setCount = u16(stab + 4),
+                              covIdx < Int(setCount),
+                              stab + 6 + covIdx * 2 + 2 <= gsub.upperBound,
+                              let setOff = u16(stab + 6 + covIdx * 2)
+                        else { continue }
+                        let altSet = stab + Int(setOff)
+                        let pick = Int(reqVal) - 1
+                        if altSet + 2 <= gsub.upperBound,
+                           let altCount = u16(altSet),
+                           pick >= 0, pick < Int(altCount),
+                           altSet + 2 + pick * 2 + 2 <= gsub.upperBound,
+                           let mapped = u16(altSet + 2 + pick * 2)
+                        {
+                            cur = mapped
+                            break subtableLoop
+                        }
+                    }
+                }
+            }
+        }
+        return cur
     }
 }
