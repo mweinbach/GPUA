@@ -159,8 +159,12 @@ struct CoreTextAdvancesTests {
     @Test("spans_and_fallback_runs_track_at_their_own_point_size")
     func spansAndFallbackRunsTrackAtTheirOwnPointSize() {
         var plexFonts: [[UInt8]] = []
-        if let crateDir = upstreamRuneCrateDir() {
-            let plexPath = "\(crateDir)/../../themes/opencode/assets/fonts/IBMPlexMono-Regular.ttf"
+        if let plexURL = runeBundledAssetURL("IBMPlexMono-Regular.ttf"),
+           let data = try? Data(contentsOf: plexURL)
+        {
+            plexFonts = [[UInt8](data)]
+        } else if let crateDir = upstreamRuneCrateDir() {
+            let plexPath = "\(crateDir.path)/../../themes/opencode/assets/fonts/IBMPlexMono-Regular.ttf"
             if let data = try? Data(contentsOf: URL(fileURLWithPath: plexPath)) {
                 plexFonts = [[UInt8](data)]
             }

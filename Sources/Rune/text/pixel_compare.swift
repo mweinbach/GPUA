@@ -215,21 +215,27 @@ public enum pixelCompare {
     }
 
     public static func refsDir() -> URL {
+        #if !os(WASI)
+        let repoTests = runeRepoRootDir().appendingPathComponent("Tests/RuneTests/tests/coretext")
+        if FileManager.default.fileExists(atPath: repoTests.appendingPathComponent("layout.txt").path) {
+            return repoTests
+        }
         if let crateDir = upstreamRuneCrateDir() {
             return crateDir.appendingPathComponent("tests/coretext")
         }
-        return URL(fileURLWithPath: "Tests/RuneTests/coretext")
+        #endif
+        return URL(fileURLWithPath: "Tests/RuneTests/tests/coretext")
     }
 
     public static func fontPaths() -> [URL] {
-        if let crateDir = upstreamRuneCrateDir() {
-            return [
-                crateDir.appendingPathComponent("assets/Inter-Regular.ttf"),
-                refsDir().appendingPathComponent("Inter-Bold-subset.ttf"),
-            ]
-        }
+        #if !os(WASI)
+        let interRegular = runeBundledAssetURL("Inter-Regular.ttf")
+            ?? runeRepoRootDir().appendingPathComponent("Sources/Rune/assets/Inter-Regular.ttf")
+        #else
+        let interRegular = URL(fileURLWithPath: "Sources/Rune/assets/Inter-Regular.ttf")
+        #endif
         return [
-            URL(fileURLWithPath: "assets/Inter-Regular.ttf"),
+            interRegular,
             refsDir().appendingPathComponent("Inter-Bold-subset.ttf"),
         ]
     }

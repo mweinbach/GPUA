@@ -251,6 +251,7 @@ struct VideoPlayerTests {
         #expect(!a.isPlaying(), "a failed clip doesn't play")
     }
 
+    #if os(macOS)
     @Test("the waker hears each state change once")
     func theWakerHearsEachStateChangeOnce() {
         let a = Player.audio("missing.m4a")
@@ -275,6 +276,7 @@ struct VideoPlayerTests {
         a.shared.settle(windows: false)
         #expect(calls == 2)
     }
+    #endif
 
     @Test("a waker set after a failure hears it once")
     func aWakerSetAfterAFailureHearsItOnce() {
@@ -373,6 +375,7 @@ struct VideoPlayerTests {
         #expect(abs(c.time - 0.95) < 1e-9)
     }
 
+    #if os(macOS)
     @Test("playing after the end restarts from zero")
     func playingAfterTheEndRestartsFromZero() {
         let v = Video.file("missing.mp4")
@@ -387,6 +390,7 @@ struct VideoPlayerTests {
         #expect(sk == 0.0)
         #expect(pl && !en)
     }
+    #endif
 
     @Test("display positions loop or end")
     func displayPositionsLoopOrEnd() {

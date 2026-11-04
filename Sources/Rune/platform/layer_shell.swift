@@ -73,8 +73,8 @@ func computeLayerShellPlacement(
         )
     case .rect(let x, let y, let width, let height):
         return LayerShellPlacementGeometry(
-            width: UInt32(max(ceil(width), 1.0)),
-            height: UInt32(max(ceil(height), 1.0)),
+            width: UInt32(max(width.rounded(.up), 1.0)),
+            height: UInt32(max(height.rounded(.up), 1.0)),
             anchor: [.top, .left],
             margins: (Int32(y.rounded()), 0, 0, Int32(x.rounded()))
         )
@@ -121,8 +121,8 @@ func computeLayerShellPlacement(
         right = inset
     }
     return LayerShellPlacementGeometry(
-        width: UInt32(max(ceil(resolved.size.0), 1.0)),
-        height: UInt32(max(ceil(resolved.size.1), 1.0)),
+        width: UInt32(max(resolved.size.0.rounded(.up), 1.0)),
+        height: UInt32(max(resolved.size.1.rounded(.up), 1.0)),
         anchor: vertical.union(horizontal),
         margins: (top, right, bottom, left)
     )
@@ -178,12 +178,12 @@ final class LayerSurface {
         case .all:
             next = nil
         case .regions:
-            next = regions.compactMap { r in
+            next = regions.compactMap { (r: [Float]) -> [Int32]? in
                 guard r.count >= 4 else { return nil }
-                let x = Int32(floor(r[0]))
-                let y = Int32(floor(r[1]))
-                let w = Int32(ceil(r[2])) - x
-                let h = Int32(ceil(r[3])) - y
+                let x = Int32(r[0].rounded(.down))
+                let y = Int32(r[1].rounded(.down))
+                let w = Int32(r[2].rounded(.up)) - x
+                let h = Int32(r[3].rounded(.up)) - y
                 return (w > 0 && h > 0) ? [x, y, w, h] : nil
             }
         case .legacy, .none:

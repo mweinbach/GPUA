@@ -76,6 +76,8 @@ private final class Win32OverlayInput {
     }
 }
 
+private let WIN32_HWND_TOPMOST = HWND(bitPattern: -1)
+
 private let win32InputsLock = LiveLock()
 // PORT NOTE: Guarded by `win32InputsLock` on the window thread (matching `thread_local! INPUTS` in `platform/win32.rs`).
 nonisolated(unsafe) private var win32ShownInputs: [Win32OverlayInput] = []
@@ -86,7 +88,7 @@ private func win32RaiseLevels() {
         for inp in snapshot where inp.visible && inp.level == lvl {
             _ = SetWindowPos(
                 inp.hwnd,
-                HWND_TOPMOST,
+                WIN32_HWND_TOPMOST,
                 0,
                 0,
                 0,
@@ -216,7 +218,7 @@ final class Win32OverlayWindow {
             return .failure(err)
         }
         _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE)
-        _ = SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, UINT(SWP_NOMOVE) | UINT(SWP_NOSIZE) | UINT(SWP_NOACTIVATE))
+        _ = SetWindowPos(hwnd, WIN32_HWND_TOPMOST, 0, 0, 0, 0, UINT(SWP_NOMOVE) | UINT(SWP_NOSIZE) | UINT(SWP_NOACTIVATE))
         guard IsWindowVisible(hwnd) else {
             return .failure(Win32OverlayError("ShowWindow left the overlay window hidden"))
         }

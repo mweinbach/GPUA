@@ -5,12 +5,10 @@
 //! Default fallback faces and pure-Swift built-in vector glyph outlines for environments where
 //! bundled `.ttf` assets or system fonts are unavailable (such as WASI or minimal containers).
 
-// PORT NOTE: Upstream `default_fonts.rs` embeds ~1.4 MiB of Inter & IBM Plex Mono `.ttf` binaries via
-// `include_bytes!`. Because `Package.swift` does not attach `.ttf` resources to `Rune`, on Apple
-// platforms `TextSystem` maps uninstalled `"Inter"` / `"IBM Plex Mono"` to guaranteed static system
-// faces (`Helvetica Neue` / `Menlo`), on Linux/Windows/Android it scans system TrueType fonts, and
-// on all platforms `BuiltinVectorFont` provides deterministic proportional-sans and monospace
-// vector outlines (`upem = 1000`) so shaping, metrics, ink bounds, and glyph rasterization always succeed.
+// PORT NOTE: Upstream `default_fonts.rs` embeds Inter & IBM Plex Mono `.ttf` binaries via
+// `include_bytes!`. In SwiftPM, `Sources/Rune/assets` is bundled via `Bundle.module` on platforms
+// with resource bundle support (`!os(WASI)`), and `BuiltinVectorFont` provides deterministic
+// proportional-sans and monospace vector outlines (`upem = 1000`) on WASI or minimal containers.
 
 #if !os(WASI)
 import Foundation
@@ -19,14 +17,53 @@ private let defaultFontsLock = LiveLock()
 // PORT NOTE: Guarded by `defaultFontsLock`; memoizes the bundled Inter `.ttf` byte arrays once per process.
 nonisolated(unsafe) private var cachedDefaultFonts: [[UInt8]]? = nil
 
-/// Resolves `.upstream/rune/crates/rune` when running inside the GPUA checkout or any git worktree of it.
-func upstreamRuneCrateDir(filePath: String = #filePath) -> URL? {
-    let fm = FileManager.default
-    var dir = URL(fileURLWithPath: filePath)
+/// Resolves the GPUA checkout / worktree root directory from `#filePath`.
+func runeRepoRootDir(filePath: String = #filePath) -> URL {
+    URL(fileURLWithPath: filePath)
         .deletingLastPathComponent() // text
         .deletingLastPathComponent() // Rune
         .deletingLastPathComponent() // Sources
         .deletingLastPathComponent() // repo / worktree root
+}
+
+/// Resolves a bundled font/asset file from `RUNE_ASSETS_DIR`, `Bundle.module`, `Sources/Rune/assets`, or `.upstream/rune`.
+func runeBundledAssetURL(_ filename: String) -> URL? {
+    let fm = FileManager.default
+    if let envDir = ProcessInfo.processInfo.environment["RUNE_ASSETS_DIR"], !envDir.isEmpty {
+        let candidate = URL(fileURLWithPath: envDir).appendingPathComponent(filename)
+        if fm.fileExists(atPath: candidate.path) {
+            return candidate
+        }
+    }
+    let ns = filename as NSString
+    let stem = ns.deletingPathExtension
+    let ext = ns.pathExtension
+    if let url = Bundle.module.url(
+        forResource: stem,
+        withExtension: ext.isEmpty ? nil : ext,
+        subdirectory: "assets"
+    ) {
+        return url
+    }
+    let repoCandidate = runeRepoRootDir()
+        .appendingPathComponent("Sources/Rune/assets")
+        .appendingPathComponent(filename)
+    if fm.fileExists(atPath: repoCandidate.path) {
+        return repoCandidate
+    }
+    if let crateDir = upstreamRuneCrateDir() {
+        let upCandidate = crateDir.appendingPathComponent("assets").appendingPathComponent(filename)
+        if fm.fileExists(atPath: upCandidate.path) {
+            return upCandidate
+        }
+    }
+    return nil
+}
+
+/// Resolves `.upstream/rune/crates/rune` when running inside the GPUA checkout or any git worktree of it.
+func upstreamRuneCrateDir(filePath: String = #filePath) -> URL? {
+    let fm = FileManager.default
+    var dir = runeRepoRootDir(filePath: filePath)
 
     let direct = dir.appendingPathComponent(".upstream/rune/crates/rune")
     if fm.fileExists(atPath: direct.path) {
@@ -64,27 +101,16 @@ func defaultFontBlobs() -> [[UInt8]] {
             return cached
         }
         let names = ["Inter-Regular.ttf", "Inter-Medium.ttf", "Inter-SemiBold.ttf"]
-        var dirs: [URL] = []
-        if let envDir = ProcessInfo.processInfo.environment["RUNE_ASSETS_DIR"], !envDir.isEmpty {
-            dirs.append(URL(fileURLWithPath: envDir))
-        }
-        if let crateDir = upstreamRuneCrateDir() {
-            dirs.append(crateDir.appendingPathComponent("assets"))
-        }
-        var loaded: [[UInt8]] = []
-        for base in dirs {
-            var batch: [[UInt8]] = []
-            for name in names {
-                let url = base.appendingPathComponent(name)
-                if let data = try? Data(contentsOf: url), !data.isEmpty {
-                    batch.append([UInt8](data))
-                }
-            }
-            if batch.count == names.count {
-                loaded = batch
-                break
+        var batch: [[UInt8]] = []
+        for name in names {
+            if let url = runeBundledAssetURL(name),
+               let data = try? Data(contentsOf: url),
+               !data.isEmpty
+            {
+                batch.append([UInt8](data))
             }
         }
+        let loaded = (batch.count == names.count) ? batch : []
         cachedDefaultFonts = loaded
         return loaded
     }

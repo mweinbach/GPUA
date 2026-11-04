@@ -87,7 +87,7 @@ private func rtGlidePath(_ rt: Runtime<Int>) -> [Float] {
         rt.update { _, tx in tx.scrollCenter("r30") }
         for _ in 0..<5 { _ = rt.frame(rtRetargetDt) }
         let mid = rt.scrollOffset("scroll")
-        let k = Int(ceil((mid + 40.0 + 75.0) / 50.0))
+        let k = Int(((mid + 40.0 + 75.0) / 50.0).rounded(.up))
         let to = Float(k) * 50.0 - 75.0
         #expect(to < 1425.0)
 

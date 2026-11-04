@@ -6,6 +6,17 @@
 //! config directory, read and written with Codable.
 
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif canImport(Android)
+import Android
+#elseif canImport(WinSDK)
+import WinSDK
+#endif
 
 public enum PrefsError: Error, CustomStringConvertible, Sendable {
     case serialize(String)
@@ -143,6 +154,13 @@ private func loadPrefsEntries(_ path: String) -> [String: Data] {
 }
 
 #if !os(WASI)
+#if os(Windows)
+@inline(__always)
+private func win32PrefsOk(_ v: Bool) -> Bool { v }
+@inline(__always)
+private func win32PrefsOk(_ v: Int32) -> Bool { v != 0 }
+#endif
+
 private func writeAtomicPrefs(_ path: String, _ bytes: Data) throws {
     let fm = FileManager.default
     let parent = (path as NSString).deletingLastPathComponent
@@ -157,10 +175,26 @@ private func writeAtomicPrefs(_ path: String, _ bytes: Data) throws {
     let pid = ProcessInfo.processInfo.processIdentifier
     let tmpPath = "\(path).\(pid).\(seq).tmp"
     let tmpURL = URL(fileURLWithPath: tmpPath)
-    let dstURL = URL(fileURLWithPath: path)
     do {
         try bytes.write(to: tmpURL, options: .withoutOverwriting)
-        _ = try fm.replaceItemAt(dstURL, withItemAt: tmpURL)
+        // PORT NOTE: `FileManager.replaceItemAt` in swift-corelibs-foundation fails with ENOENT
+        // when the destination does not yet exist; use POSIX `rename` / Win32 `MoveFileExW` directly.
+        #if os(Windows)
+        let wTmp = Array(tmpPath.utf16) + [0]
+        let wDest = Array(path.utf16) + [0]
+        let moved = wTmp.withUnsafeBufferPointer { pTmp in
+            wDest.withUnsafeBufferPointer { pDest in
+                MoveFileExW(pTmp.baseAddress, pDest.baseAddress, DWORD(MOVEFILE_REPLACE_EXISTING))
+            }
+        }
+        if !win32PrefsOk(moved) {
+            throw PrefsError.io("MoveFileExW failed with \(GetLastError())")
+        }
+        #else
+        if rename(tmpPath, path) != 0 {
+            throw PrefsError.io("rename failed with errno \(errno)")
+        }
+        #endif
     } catch {
         try? fm.removeItem(at: tmpURL)
         throw error

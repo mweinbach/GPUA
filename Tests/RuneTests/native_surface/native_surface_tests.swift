@@ -209,6 +209,7 @@ private func checkSurfaceSuite(
 
 @Suite("NativeSurface GPU Integration Tests")
 struct NativeSurfaceIntegrationTests {
+    #if canImport(Metal)
     @Test("queued video frames then readback")
     func queuedVideoFramesThenReadback() {
         let gpu = Gpu.headless()
@@ -340,6 +341,7 @@ struct NativeSurfaceIntegrationTests {
         assertClose(px(cropped, 2, 0, 0), [0, 0, 255, 255], 1, "cropped mirrored left is col 2")
         assertClose(px(cropped, 2, 1, 0), [0, 255, 0, 255], 1, "cropped mirrored right is col 1")
     }
+    #endif
 
     @Test("orientations come from quarter-turn transforms only")
     func orientationsComeFromQuarterTurnTransformsOnly() {
@@ -355,6 +357,7 @@ struct NativeSurfaceIntegrationTests {
         #expect(SurfaceOrient.fromTransform(0.7, 0.7, -0.7, 0.7) == .UP)
     }
 
+    #if canImport(Metal)
     @Test("oriented frames draw like frames turned upright")
     func orientedFramesDrawLikeFramesTurnedUpright() {
         func bgra(_ w: UInt32, _ h: UInt32, _ at: (UInt32, UInt32) -> [UInt8]) -> ByteFrame {
@@ -423,6 +426,7 @@ struct NativeSurfaceIntegrationTests {
         assertClose(px(mirrored, 2, 0, 3), [255, 255, 0, 255], 1, "mirrored bottom-left is yellow")
         assertClose(px(mirrored, 2, 1, 3), [0, 0, 255, 255], 1, "mirrored bottom-right is blue")
     }
+    #endif
 
     #if os(macOS)
     @Test("rotated clip buffers draw upright like its poster")

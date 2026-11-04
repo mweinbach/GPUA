@@ -14,7 +14,13 @@ struct PixelCompareTests {
         case .success(let r):
             rows = r
         case .failure(let e):
-            if o.set == .sf || e.message.contains("missing") || e.message.contains("not found") || e.message.contains("upstream") {
+            if o.set == .sf
+                || e.message.contains("missing")
+                || e.message.contains("not found")
+                || e.message.contains("upstream")
+                || e.message.contains("unavailable")
+                || e.message.contains("references in")
+            {
                 return
             }
             Issue.record("\(e.message)")

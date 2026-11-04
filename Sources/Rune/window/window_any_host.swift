@@ -33,9 +33,9 @@ extension Host: AnyHost {
         windowHandle.bind(slot: hostIndex, sink: wakeSink)
         rt.hostSetLiveWaker(wakeHost)
         #if os(macOS)
-        let virtualGuards = !Thread.isMainThread || MainActor.assumeIsolated { NSApp == nil }
+        let virtualGuards = headlessGuards || !Thread.isMainThread || MainActor.assumeIsolated { NSApp == nil }
         #else
-        let virtualGuards = isHeadless()
+        let virtualGuards = headlessGuards || isHeadless()
         #endif
         shortcutGuard = ShortcutGuard.attach(handle, wake: wakeHost, headless: virtualGuards, wayland: false)
         menuGuard = MenuGuard.attach(handle, headless: virtualGuards)

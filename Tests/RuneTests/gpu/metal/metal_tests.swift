@@ -177,7 +177,6 @@ struct MetalBackendTests {
         #expect(Array(gotColor[at(0, 0)..<(at(0, 0) + 4)]) == [26, 51, 77, 255], "the scissor kept the clear")
         #expect(gotMask[12 * 256 + 20] == 128, "the shader saw four weights (n = 4 -> 4/8 = 0.5 -> 128)")
     }
-    #endif
 
     @Test("a_frame_is_one_command_buffer_and_writes_land")
     func frameIsOneCommandBufferAndWritesLand() {
@@ -205,7 +204,6 @@ struct MetalBackendTests {
         #expect(Array(mapped[4..<8]) == [1, 2, 3, 4])
     }
 
-    #if canImport(Metal)
     @Test("a_map_waits_for_the_work_before_it")
     func mapWaitsForWorkBeforeIt() {
         let (device, queue) = metalGpu()
@@ -232,7 +230,6 @@ struct MetalBackendTests {
         #expect(Array(out.getMappedRange()[0..<4]) == [0, 0, 51, 102], "the copy landed before the map")
         out.unmap()
     }
-    #endif
 
     @Test("what_a_buffer_used_lives_until_it_completes")
     func whatABufferUsedLivesUntilItCompletes() {
@@ -323,7 +320,6 @@ struct MetalBackendTests {
         }
     }
 
-    #if canImport(Metal)
     @Test("adapters_are_the_ones_wgpu_picks")
     func adaptersMatchPowerPreference() {
         let low = metalPreferredAdapter(powerPreference: .lowPower)

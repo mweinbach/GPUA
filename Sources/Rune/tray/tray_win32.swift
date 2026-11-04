@@ -10,6 +10,18 @@ import WinSDK
 private let TRAY_WM_CALLBACK: UINT = UINT(WM_APP) + 1
 private let TRAY_WM_UPDATE: UINT = UINT(WM_APP) + 2
 private let TRAY_ICON_ID: UINT = 1
+private let WIN32_HWND_MESSAGE = HWND(bitPattern: -3)
+
+@_silgen_name("TrackPopupMenu")
+private func win32TrackPopupMenu(
+    _ hMenu: HMENU?,
+    _ uFlags: UINT,
+    _ x: Int32,
+    _ y: Int32,
+    _ nReserved: Int32,
+    _ hWnd: HWND?,
+    _ prcRect: UnsafePointer<RECT>?
+) -> Int32
 
 @inline(__always) private func win32TrayBool(_ v: Bool) -> Bool { v }
 @inline(__always) private func win32TrayBool(_ v: WindowsBool) -> Bool { v != false }
@@ -130,7 +142,7 @@ private func pickWin32TrayMenu(_ hwnd: HWND?, _ context: Win32TrayContext) -> St
     var at = POINT(x: 0, y: 0)
     _ = GetCursorPos(&at)
     _ = SetForegroundWindow(hwnd)
-    let picked = TrackPopupMenu(
+    let picked = win32TrackPopupMenu(
         popup,
         UINT(TPM_RETURNCMD) | UINT(TPM_NONOTIFY) | UINT(TPM_RIGHTBUTTON),
         at.x,
@@ -227,7 +239,7 @@ final class Win32Tray: @unchecked Sendable {
                     nil,
                     0,
                     0, 0, 0, 0,
-                    HWND_MESSAGE,
+                    WIN32_HWND_MESSAGE,
                     nil,
                     hInstance,
                     retainedCtx.toOpaque()

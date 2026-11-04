@@ -15,14 +15,14 @@ struct MacosSmoothingTests {
     #if !os(WASI)
     private func smoothingDataDir() -> String? {
         guard let crateDir = upstreamRuneCrateDir() else { return nil }
-        let dir = "\(crateDir)/src/text/macos/smoothing_data"
+        let dir = crateDir.appendingPathComponent("src/text/macos/smoothing_data").path
         return FileManager.default.fileExists(atPath: dir) ? dir : nil
     }
 
     private func interSfnt() -> SfntFont? {
-        guard let crateDir = upstreamRuneCrateDir() else { return nil }
-        let path = "\(crateDir)/assets/Inter-Regular.ttf"
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else { return nil }
+        guard let url = runeBundledAssetURL("Inter-Regular.ttf"),
+              let data = try? Data(contentsOf: url)
+        else { return nil }
         return SfntFont(data: [UInt8](data), index: 0)
     }
 

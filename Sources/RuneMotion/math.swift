@@ -12,14 +12,10 @@
 /// are also several times faster than libm for the ranges a spring needs: polynomials are
 /// evaluated with Estrin's scheme so a frame's lanes overlap in the pipeline.
 public enum math {
-    // PORT NOTE: Swift does not expose an x86 `target_feature = "fma"` compile-time condition, so
-    // `fused` is enabled on `arm64` (matching upstream `target_arch = "aarch64"`) and uses the
-    // upstream non-fused IEEE-754 path elsewhere.
-    #if arch(arm64)
+    // PORT NOTE: Swift's `FloatingPoint.addingProduct` (`llvm.fma.f32`) performs IEEE-754
+    // single-rounded fused multiply-add on every target architecture (`arm64`, `x86_64`, `wasm32`),
+    // matching upstream's `FUSED = true` path bit-for-bit across all platforms.
     private static let fused: Bool = true
-    #else
-    private static let fused: Bool = false
-    #endif
 
     /// `a·b + c`, fused (one rounding) where the hardware has it.
     @inline(__always)

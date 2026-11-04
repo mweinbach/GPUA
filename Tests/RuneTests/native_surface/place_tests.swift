@@ -80,6 +80,7 @@ struct NativeSurfacePlaceTests {
         #expect(r5 == tall && uv5 == [0.0, 0.0, 1.0, 1.0])
     }
 
+    #if canImport(Metal)
     @Test("a stale frame draws pinned top-left on the GPU")
     func aStaleFrameDrawsPinnedTopLeftOnTheGpu() {
         let gpu = Gpu.headless()
@@ -167,4 +168,5 @@ struct NativeSurfacePlaceTests {
         let corner = (3 * 8 + 3) * 4
         #expect(Array(sp[corner..<corner + 4]) == [255, 0, 0, 255], "(3, 3) is still the red top-left texel")
     }
+    #endif
 }

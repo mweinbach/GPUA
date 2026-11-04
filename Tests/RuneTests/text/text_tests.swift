@@ -97,9 +97,6 @@ struct TextShapingTests {
 
     @Test("mono_text_has_no_ligatures")
     func monoTextHasNoLigatures() {
-        #if !os(WASI)
-        guard upstreamRuneCrateDir() != nil else { return }
-        #endif
         let ts = TextSystem()
         func ids(_ text: String, _ spans: [Span], _ style: TextStyle) -> [UInt16] {
             let layout = ts.layoutRich(text, spans, style, 2.0, nil)
@@ -224,10 +221,12 @@ struct TextShapingTests {
 
         #if os(macOS)
         let real = "System Font"
+        #elseif os(Windows)
+        let real = "Arial"
         #else
         let real = "DejaVu Sans"
         #endif
-        if ts.hasFamily(real) {
+        if ts.hasItalicFace(forFamily: real) {
             let style = upright.family(.named(real)).italic()
             for (_, skew) in skews("Hello", [], style) {
                 #expect(skew == 0)
@@ -278,8 +277,12 @@ struct TextShapingTests {
     @Test("plex_keyboard_symbols_and_cap_height_and_colour_emoji")
     func macosKeyboardSymbolsAndColourEmoji() {
         var plexFonts: [[UInt8]] = []
-        if let crateDir = upstreamRuneCrateDir() {
-            let plexPath = "\(crateDir)/../../themes/opencode/assets/fonts/IBMPlexMono-Regular.ttf"
+        if let plexURL = runeBundledAssetURL("IBMPlexMono-Regular.ttf"),
+           let data = try? Data(contentsOf: plexURL)
+        {
+            plexFonts = [[UInt8](data)]
+        } else if let crateDir = upstreamRuneCrateDir() {
+            let plexPath = "\(crateDir.path)/../../themes/opencode/assets/fonts/IBMPlexMono-Regular.ttf"
             if let data = try? Data(contentsOf: URL(fileURLWithPath: plexPath)) {
                 plexFonts = [[UInt8](data)]
             }

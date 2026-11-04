@@ -277,7 +277,7 @@ func desktopPixels(
             let (sigmaPt, offsetPt, opacity) = slot.keyWindow ? KEY_SHADOW : SHADOW
             let offY = offsetPt * slot.scale
             let downF = Float(DOWN)
-            let pad = Int(ceil((KEY_SHADOW.0 * slot.scale * 3.0) / downF)) * Int(DOWN)
+            let pad = Int(((KEY_SHADOW.0 * slot.scale * 3.0) / downF).rounded(.up)) * Int(DOWN)
             let maskW = max((sw + 2 * pad + Int(DOWN) - 1) / Int(DOWN), 1)
             let maskH = max((sh + 2 * pad + Int(DOWN) - 1) / Int(DOWN), 1)
 
@@ -306,12 +306,12 @@ func desktopPixels(
             }
 
             let sigmaTex = max((sigmaPt * slot.scale) / downF, 0.5)
-            let r = Int(ceil(sigmaTex * 3.0))
+            let r = Int((sigmaTex * 3.0).rounded(.up))
             var weights = [Float](repeating: 0.0, count: 2 * r + 1)
             var weightTotal: Float = 0.0
             let invTwoSigmaSq = 1.0 / (2.0 * sigmaTex * sigmaTex)
             for k in -r...r {
-                let w = expf(-Float(k * k) * invTwoSigmaSq)
+                let w = Float(exp(Double(-Float(k * k) * invTwoSigmaSq)))
                 weights[k + r] = w
                 weightTotal += w
             }
@@ -344,21 +344,23 @@ func desktopPixels(
                 }
             }
 
-            let yStart = max(0, Int(floor(Float(sy) + offY - Float(pad))))
-            let yEnd = min(dh, Int(ceil(Float(sy + sh) + offY + Float(pad))))
+            let yStart = max(0, Int((Float(sy) + offY - Float(pad)).rounded(.down)))
+            let yEnd = min(dh, Int((Float(sy + sh) + offY + Float(pad)).rounded(.up)))
             let xStart = max(0, sx - pad)
             let xEnd = min(dw, sx + sw + pad)
 
             for py in yStart..<yEnd {
                 let my = ((Float(py) + 0.5) - Float(sy) - offY + Float(pad)) / downF - 0.5
-                let y0i = min(max(Int(floor(my)), 0), maskH - 1)
+                let myFloor = my.rounded(.down)
+                let y0i = min(max(Int(myFloor), 0), maskH - 1)
                 let y1i = min(max(y0i + 1, 0), maskH - 1)
-                let fy = min(max(my - floor(my), 0.0), 1.0)
+                let fy = min(max(my - myFloor, 0.0), 1.0)
                 for px in xStart..<xEnd {
                     let mx = ((Float(px) + 0.5) - Float(sx) + Float(pad)) / downF - 0.5
-                    let x0i = min(max(Int(floor(mx)), 0), maskW - 1)
+                    let mxFloor = mx.rounded(.down)
+                    let x0i = min(max(Int(mxFloor), 0), maskW - 1)
                     let x1i = min(max(x0i + 1, 0), maskW - 1)
-                    let fx = min(max(mx - floor(mx), 0.0), 1.0)
+                    let fx = min(max(mx - mxFloor, 0.0), 1.0)
 
                     let m00 = mask0[y0i * maskW + x0i]
                     let m10 = mask0[y0i * maskW + x1i]

@@ -2,13 +2,7 @@
 // Upstream commit: 5f6d53ddae78
 // Port status: ported
 
-#if canImport(Darwin)
-import Darwin
-#elseif canImport(Glibc)
-import Glibc
-#elseif canImport(Musl)
-import Musl
-#endif
+import Foundation
 @testable import Rune
 import RuneMotion
 import Testing
@@ -25,8 +19,8 @@ private func rtDiscShape(_ radius: Float, _ center: Float) -> Shape {
     var pts: [[Float]] = []
     pts.reserveCapacity(n)
     for k in 0..<n {
-        let ang = Float(k) * (2.0 * Float.pi / Float(n))
-        pts.append([center + cos(ang) * radius, center + sin(ang) * radius])
+        let ang = Double(k) * (2.0 * Double.pi / Double(n))
+        pts.append([center + Float(cos(ang)) * radius, center + Float(sin(ang)) * radius])
     }
     return Shape.new().fill(pts, .WHITE)
 }

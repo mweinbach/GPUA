@@ -49,6 +49,7 @@ $SUDO apt-get install -y --no-install-recommends \
     libharfbuzz-dev \
     libfontconfig1-dev \
     fonts-dejavu-core \
+    fonts-dejavu-extra \
     xvfb \
     weston \
     mesa-vulkan-drivers \

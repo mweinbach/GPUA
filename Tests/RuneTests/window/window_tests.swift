@@ -132,6 +132,10 @@ struct WindowTests {
 
         let host1 = app1.buildHost(windowHandle: WindowHandle("first"))
         let host2 = app2.buildHost(windowHandle: WindowHandle("second"))
+        host1.headlessGuards = true
+        host2.headlessGuards = true
+        host1.openOnStart = false
+        host2.openOnStart = false
         let loop = startAll([host1, host2])
         _ = loop.pump()
         let state1 = host1.rt.state

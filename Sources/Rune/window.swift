@@ -59,6 +59,7 @@ final class Host<S> {
     var fitContentHeight: Bool
     var modifierKeys: Bool
     var tabVisitsControls: Bool
+    var headlessGuards: Bool = false
     var gpuBackend: HostGpuBackend = .auto
 
     var shortcutGuard: ShortcutGuard? = nil

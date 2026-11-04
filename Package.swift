@@ -298,6 +298,7 @@ let package = Package(
                 .target(name: "CWebSys", condition: .when(platforms: [.wasi])),
             ],
             resources: [
+                .copy("assets"),
                 .copy("backdrop_blur.wgsl"),
                 .copy("backdrop_composite.wgsl"),
                 .copy("clip.wgsl"),

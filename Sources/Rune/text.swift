@@ -468,6 +468,19 @@ private final class AppleFontFamilyCache: @unchecked Sendable {
         return Self.checkHasFamily(name, registeredFaces: registeredFaces, systemSfntFaces: systemSfntFaces)
     }
 
+    func hasItalicFace(forFamily name: String) -> Bool {
+        guard hasFamily(name) else { return false }
+        let lower = name.lowercased()
+        if registeredFaces.contains(where: { $0.familyLower == lower && $0.italic }) {
+            return true
+        }
+        #if canImport(CoreText) && canImport(CoreGraphics)
+        return AppleFontFamilyCache.shared.has(name)
+        #else
+        return systemSfntFaces.contains(where: { $0.familyLower == lower && $0.italic })
+        #endif
+    }
+
     func systemMono() -> [String] {
         if let existing = systemMonoList {
             return existing

@@ -65,7 +65,7 @@ private func rtZoomedScrollView(_ z: RtCarriedZoom, _: Cx<RtCarriedZoom>) -> El 
                 let x = e.rect[0] + e.scrolled[0]
                 let y = e.rect[1] + e.scrolled[1]
                 #expect(abs(x - start[0]) <= 1.0 && abs(y - start[1]) <= 1.0)
-                carried = max(carried, hypot(e.scrolled[0], e.scrolled[1]))
+                carried = max(carried, (e.scrolled[0] * e.scrolled[0] + e.scrolled[1] * e.scrolled[1]).squareRoot())
             }
 
             let screen: Float = (z == .within) ? 300.0 : 480.0

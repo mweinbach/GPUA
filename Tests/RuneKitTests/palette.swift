@@ -153,7 +153,7 @@ private func oklabDistance(_ a: Color, _ b: Color) -> Float {
     func lch(_ c: Color) -> (Float, Float) {
         let o = c.toOklab()
         let chroma = (o[1] * o[1] + o[2] * o[2]).squareRoot()
-        let hueDeg = atan2(o[2], o[1]) * 180.0 / Float.pi
+        let hueDeg = Float(atan2(Double(o[2]), Double(o[1]))) * 180.0 / Float.pi
         return (chroma, hueDeg)
     }
     for (token, site) in [(k.c.textMuted, "#4a463f"), (k.c.textFaint, "#857f74"), (k.c.layer03, "#dcd7cc")] {
