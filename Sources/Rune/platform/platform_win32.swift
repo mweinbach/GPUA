@@ -91,7 +91,7 @@ private func win32RaiseLevels() {
                 0,
                 0,
                 0,
-                UINT(SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)
+                UINT(SWP_NOMOVE) | UINT(SWP_NOSIZE) | UINT(SWP_NOACTIVATE)
             )
         }
     }
@@ -216,7 +216,7 @@ final class Win32OverlayWindow {
             return .failure(err)
         }
         _ = ShowWindow(hwnd, SW_SHOWNOACTIVATE)
-        _ = SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, UINT(SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE))
+        _ = SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, UINT(SWP_NOMOVE) | UINT(SWP_NOSIZE) | UINT(SWP_NOACTIVATE))
         guard IsWindowVisible(hwnd) else {
             return .failure(Win32OverlayError("ShowWindow left the overlay window hidden"))
         }

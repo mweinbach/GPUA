@@ -83,8 +83,8 @@ internal final class LockFile: @unchecked Sendable {
         let h = widePath.withUnsafeBufferPointer { ptr in
             CreateFileW(
                 ptr.baseAddress,
-                DWORD(GENERIC_READ | GENERIC_WRITE),
-                DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+                DWORD(GENERIC_READ) | DWORD(GENERIC_WRITE),
+                DWORD(FILE_SHARE_READ) | DWORD(FILE_SHARE_WRITE) | DWORD(FILE_SHARE_DELETE),
                 nil,
                 DWORD(OPEN_ALWAYS),
                 DWORD(FILE_ATTRIBUTE_NORMAL),
@@ -134,7 +134,7 @@ internal final class LockFile: @unchecked Sendable {
         var overlapped = OVERLAPPED()
         if win32StoreOk(LockFileEx(
             handle,
-            DWORD(LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY),
+            DWORD(LOCKFILE_EXCLUSIVE_LOCK) | DWORD(LOCKFILE_FAIL_IMMEDIATELY),
             0,
             UInt32.max,
             UInt32.max,

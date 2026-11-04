@@ -65,7 +65,9 @@ func assertPrefixesNeverPanic(_ src: String, _ dark: Bool) {
         #expect(dashes[0].first == [0.0, 0.0])
         let corner = dashes[2]
         #expect(corner.count == 3)
-        #expect(dist(corner[0], [8.0, 0.0]) < 1e-4 && dist(corner[1], [10.0, 0.0]) < 1e-4 && dist(corner[2], [10.0, 1.0]) < 1e-4)
+        #expect(dist(corner[0], [8.0, 0.0]) < 1e-4)
+        #expect(dist(corner[1], [10.0, 0.0]) < 1e-4)
+        #expect(dist(corner[2], [10.0, 1.0]) < 1e-4)
     }
 
     @Test func smoothPassesThroughItsPoints() {

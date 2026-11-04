@@ -509,7 +509,7 @@ struct PlaygroundTests {
         let chord = Mods(shift: true, cmd: true)
         let hasMenu = true
         #else
-        let chord = Mods(ctrl: true, shift: true, cmd: true)
+        let chord = Mods(shift: true, cmd: true, ctrl: true)
         let hasMenu = false
         #endif
         #expect(pgIsOpen(rtHeadless))

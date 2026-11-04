@@ -251,7 +251,8 @@ import Rune
         #expect(boundary(.rect, c, [100.0, 40.0], [0.0, 100.0]) == [0.0, 20.0])
         #expect(boundary(.rect, c, [100.0, 40.0], [100.0, 0.0]) == [50.0, 0.0])
         let d = boundary(.diamond, c, [100.0, 40.0], [100.0, 40.0])
-        #expect(abs(abs(d[0]) / 50.0 + abs(d[1]) / 20.0 - 1.0) < 1e-4)
+        let diamondNorm: Float = abs(d[0]) / 50.0 + abs(d[1]) / 20.0
+        #expect(abs(diamondNorm - 1.0) < 1e-4)
         let e = boundary(.circle, c, [40.0, 40.0], [30.0, 40.0])
         #expect(abs(dist(c, e) - 20.0) < 1e-4)
     }

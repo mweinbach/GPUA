@@ -104,7 +104,7 @@ private func setNotifyTip(_ data: inout NOTIFYICONDATAW, _ tooltip: String) {
 }
 
 private func notifyShell(_ hwnd: HWND?, _ context: Win32TrayContext, _ message: DWORD) -> Bool {
-    var data = makeNotifyData(hwnd, UINT(NIF_MESSAGE | NIF_ICON | NIF_TIP))
+    var data = makeNotifyData(hwnd, UINT(NIF_MESSAGE) | UINT(NIF_ICON) | UINT(NIF_TIP))
     data.uCallbackMessage = TRAY_WM_CALLBACK
     data.hIcon = context.icon
     let tip = context.model.lock.withLock { context.model.tooltip }
@@ -119,7 +119,7 @@ private func pickWin32TrayMenu(_ hwnd: HWND?, _ context: Win32TrayContext) -> St
     for (index, item) in menu.enumerated() {
         switch item {
         case .action(_, let label, let enabled):
-            let flags = UINT(enabled ? MF_STRING : (MF_STRING | MF_GRAYED))
+            let flags: UINT = enabled ? UINT(MF_STRING) : (UINT(MF_STRING) | UINT(MF_GRAYED))
             win32Wide(label).withUnsafeBufferPointer { buf in
                 _ = AppendMenuW(popup, flags, UINT_PTR(index + 1), buf.baseAddress)
             }
@@ -132,7 +132,7 @@ private func pickWin32TrayMenu(_ hwnd: HWND?, _ context: Win32TrayContext) -> St
     _ = SetForegroundWindow(hwnd)
     let picked = TrackPopupMenu(
         popup,
-        UINT(TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON),
+        UINT(TPM_RETURNCMD) | UINT(TPM_NONOTIFY) | UINT(TPM_RIGHTBUTTON),
         at.x,
         at.y,
         0,

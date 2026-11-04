@@ -77,7 +77,8 @@ import Rune
         let label = RuneMermaid.measure("Note: lasts, has versions", paint.font)
         let size = nodeSize(.cylinder, label.size)
         let ry = shapeRim(size[0])
-        #expect(abs(ry - size[0] / 2.0 / (2.5 + size[0] / 50.0)) < 1e-3)
+        let expectedRy: Float = size[0] / 2.0 / (2.5 + size[0] / 50.0)
+        #expect(abs(ry - expectedRy) < 1e-3)
         var c = Canvas()
         drawShape(&c, .cylinder, label, [0.0, 0.0], size, [paint.nodeFill, paint.nodeBorder, paint.text], paint)
         let top = -size[1] / 2.0
