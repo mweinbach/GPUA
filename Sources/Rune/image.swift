@@ -668,7 +668,7 @@ internal enum FreedesktopIconLookup {
               let rawName = iconName(text) else {
             return nil
         }
-        if rawName.hasPrefix("/") {
+        if (rawName as NSString).isAbsolutePath || rawName.hasPrefix("/") {
             var isDir: ObjCBool = false
             if fm.fileExists(atPath: rawName, isDirectory: &isDir), !isDir.boolValue {
                 return rawName

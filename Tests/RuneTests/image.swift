@@ -148,10 +148,11 @@ struct ImageTests {
             return full
         }
 
+        var entrySeq = 0
         func makeEntry(_ icon: String) throws -> String {
             try fm.createDirectory(atPath: root, withIntermediateDirectories: true)
-            let safe = icon.replacingOccurrences(of: "/", with: "_")
-            let path = (root as NSString).appendingPathComponent("\(safe).desktop")
+            entrySeq += 1
+            let path = (root as NSString).appendingPathComponent("entry-\(entrySeq).desktop")
             let body = "[Desktop Entry]\nName=App\nIcon=\(icon)\n[Desktop Action new]\nIcon=other\n"
             try Data(body.utf8).write(to: URL(fileURLWithPath: path))
             return path

@@ -54,25 +54,7 @@ enum ToolingCommitWhy {
 
 /// Thread CPU time in milliseconds, when the OS exposes it (`crates/rune/src/frame/profile.rs:cpu_ms`).
 func toolingThreadCpuMs() -> Double? {
-    #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
-    var basic = thread_basic_info_data_t()
-    var count = mach_msg_type_number_t(MemoryLayout<thread_basic_info_data_t>.stride / MemoryLayout<integer_t>.stride)
-    let kr = withUnsafeMutablePointer(to: &basic) { ptr in
-        ptr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { intPtr in
-            thread_info(mach_thread_self(), thread_flavor_t(THREAD_BASIC_INFO), intPtr, &count)
-        }
-    }
-    guard kr == KERN_SUCCESS else { return nil }
-    let secs = Double(basic.user_time.seconds) + Double(basic.system_time.seconds)
-    let usecs = Double(basic.user_time.microseconds) + Double(basic.system_time.microseconds)
-    return secs * 1000.0 + usecs / 1000.0
-    #elseif canImport(Glibc) || canImport(Android) || canImport(Musl)
-    var ts = timespec()
-    guard clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts) == 0 else { return nil }
-    return Double(ts.tv_sec) * 1000.0 + Double(ts.tv_nsec) / 1_000_000.0
-    #else
-    return nil
-    #endif
+    frameCpuMs()
 }
 
 let INTERACTION_SLOW_MS: Double = 1000.0 / 60.0

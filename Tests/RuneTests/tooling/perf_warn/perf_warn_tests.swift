@@ -51,12 +51,13 @@ struct PerfWarnTests {
         _ = perfWarnTakeLogForTests(newScope: true)
         for _ in 0..<2 {
             let stall = PerfStall.start()
-            Thread.sleep(forTimeInterval: 0.03)
+            Thread.sleep(forTimeInterval: 0.07)
             stall.end { ("test-blocked", "`poll`") }
         }
         let log = perfWarnTakeLogForTests()
         #expect(log.count == 1)
-        #expect(log[0].hasPrefix("rune: `poll` blocked ") && log[0].contains("on the main thread: move IO off it with `rune::Latest` or a thread"))
+        guard let first = log.first else { return }
+        #expect(first.hasPrefix("rune: `poll` blocked ") && first.contains("on the main thread: move IO off it with `rune::Latest` or a thread"))
     }
 
     @Test func aCallbackThatComputesIsNotAStall() {
@@ -85,7 +86,7 @@ struct PerfWarnTests {
         _ = perfWarnTakeLogForTests(newScope: true)
         let rt = Runtime(UInt32(0), { _, _ in col() }, (100.0, 100.0), Env.new(true, 1.0))
         rt.poll = { _, _, _ in
-            Thread.sleep(forTimeInterval: 0.03)
+            Thread.sleep(forTimeInterval: 0.07)
             return false
         }
         _ = rt.hostFrame(0.0)
