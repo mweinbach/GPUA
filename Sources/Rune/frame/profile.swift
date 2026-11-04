@@ -49,7 +49,7 @@ func frameCpuMs() -> Double? {
     var kernel = created
     var user = created
     let ok = GetThreadTimes(GetCurrentThread(), &created, &exited, &kernel, &user)
-    precondition(ok != 0, "thread CPU clock unavailable")
+    precondition(ok, "thread CPU clock unavailable")
     let ticks: (FILETIME) -> UInt64 = { ft in
         (UInt64(ft.dwHighDateTime) << 32) | UInt64(ft.dwLowDateTime)
     }

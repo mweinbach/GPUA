@@ -11,7 +11,16 @@ private let TRAY_WM_CALLBACK: UINT = UINT(WM_APP) + 1
 private let TRAY_WM_UPDATE: UINT = UINT(WM_APP) + 2
 private let TRAY_ICON_ID: UINT = 1
 
-private final class Win32TrayModel {
+@inline(__always) private func win32TrayBool(_ v: Bool) -> Bool { v }
+@inline(__always) private func win32TrayBool(_ v: WindowsBool) -> Bool { v != false }
+@inline(__always) private func win32TrayBool(_ v: Int32) -> Bool { v != 0 }
+
+@inline(__always) private func win32TrayMsgPositive(_ v: Bool) -> Bool { v }
+@inline(__always) private func win32TrayMsgPositive(_ v: WindowsBool) -> Bool { v != false }
+@inline(__always) private func win32TrayMsgPositive(_ v: Int32) -> Bool { v > 0 }
+
+// PORT NOTE: Synchronized via `lock` (`LiveLock`) between the caller and the dedicated Win32 tray message-loop thread.
+private final class Win32TrayModel: @unchecked Sendable {
     let lock = LiveLock()
     var tooltip: String
     var menu: [TrayItem]
@@ -20,6 +29,12 @@ private final class Win32TrayModel {
         self.tooltip = tooltip
         self.menu = menu
     }
+}
+
+// PORT NOTE: Synchronized via `lock` (`LiveLock`) to hand back the initialized tray window handle from the Win32 message thread.
+private final class Win32TrayInitBox: @unchecked Sendable {
+    let lock = LiveLock()
+    var result: Result<Int, TrayError>? = nil
 }
 
 private final class Win32TrayContext {
@@ -94,13 +109,13 @@ private func notifyShell(_ hwnd: HWND?, _ context: Win32TrayContext, _ message: 
     data.hIcon = context.icon
     let tip = context.model.lock.withLock { context.model.tooltip }
     setNotifyTip(&data, tip)
-    return Shell_NotifyIconW(message, &data) != 0
+    return win32TrayBool(Shell_NotifyIconW(message, &data))
 }
 
 private func pickWin32TrayMenu(_ hwnd: HWND?, _ context: Win32TrayContext) -> String? {
     let menu = context.model.lock.withLock { context.model.menu }
     guard let popup = CreatePopupMenu() else { return nil }
-    defer { DestroyMenu(popup) }
+    defer { _ = DestroyMenu(popup) }
     for (index, item) in menu.enumerated() {
         switch item {
         case .action(_, let label, let enabled):
@@ -113,8 +128,8 @@ private func pickWin32TrayMenu(_ hwnd: HWND?, _ context: Win32TrayContext) -> St
         }
     }
     var at = POINT(x: 0, y: 0)
-    GetCursorPos(&at)
-    SetForegroundWindow(hwnd)
+    _ = GetCursorPos(&at)
+    _ = SetForegroundWindow(hwnd)
     let picked = TrackPopupMenu(
         popup,
         UINT(TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON),
@@ -124,7 +139,7 @@ private func pickWin32TrayMenu(_ hwnd: HWND?, _ context: Win32TrayContext) -> St
         hwnd,
         nil
     )
-    PostMessageW(hwnd, UINT(WM_NULL), 0, 0)
+    _ = PostMessageW(hwnd, UINT(WM_NULL), 0, 0)
     let idx = Int(picked) - 1
     guard idx >= 0 && idx < menu.count else { return nil }
     if case .action(let id, _, _) = menu[idx] {
@@ -135,7 +150,7 @@ private func pickWin32TrayMenu(_ hwnd: HWND?, _ context: Win32TrayContext) -> St
 
 private let win32TrayWndProc: WNDPROC = { hwnd, message, wParam, lParam in
     if message == UINT(WM_NCCREATE), let createPtr = UnsafePointer<CREATESTRUCTW>(bitPattern: Int(lParam)) {
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, LONG_PTR(Int(bitPattern: createPtr.pointee.lpCreateParams)))
+        _ = SetWindowLongPtrW(hwnd, GWLP_USERDATA, LONG_PTR(Int(bitPattern: createPtr.pointee.lpCreateParams)))
     }
     let rawCtx = GetWindowLongPtrW(hwnd, GWLP_USERDATA)
     guard rawCtx != 0, let ptr = UnsafeRawPointer(bitPattern: Int(rawCtx)) else {
@@ -160,7 +175,7 @@ private let win32TrayWndProc: WNDPROC = { hwnd, message, wParam, lParam in
         PostQuitMessage(0)
         return 0
     case UINT(WM_NCDESTROY):
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0)
+        _ = SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0)
         return DefWindowProcW(hwnd, message, wParam, lParam)
     case context.taskbarCreated:
         _ = notifyShell(hwnd, context, DWORD(NIM_ADD))
@@ -186,8 +201,7 @@ final class Win32Tray: @unchecked Sendable {
         let model = Win32TrayModel(tooltip: spec.tooltip, menu: spec.menu)
         let readySem = DispatchSemaphore(value: 0)
         let doneSem = DispatchSemaphore(value: 0)
-        let resultLock = LiveLock()
-        var initResult: Result<Int, TrayError>? = nil
+        let initBox = Win32TrayInitBox()
 
         Thread.detachNewThread {
             defer { doneSem.signal() }
@@ -221,7 +235,7 @@ final class Win32Tray: @unchecked Sendable {
                     return .failure(win32TrayError("CreateWindowExW"))
                 }
                 if !notifyShell(hwnd, context, DWORD(NIM_ADD)) {
-                    DestroyWindow(hwnd)
+                    _ = DestroyWindow(hwnd)
                     return .failure(win32TrayError("Shell_NotifyIconW"))
                 }
                 return .success(hwnd)
@@ -229,23 +243,23 @@ final class Win32Tray: @unchecked Sendable {
 
             switch createdHwnd {
             case .success(let hwnd):
-                resultLock.withLock { initResult = .success(Int(bitPattern: hwnd)) }
+                initBox.lock.withLock { initBox.result = .success(Int(bitPattern: hwnd)) }
                 readySem.signal()
                 var msg = MSG()
-                while GetMessageW(&msg, nil, 0, 0) > 0 {
-                    TranslateMessage(&msg)
-                    DispatchMessageW(&msg)
+                while win32TrayMsgPositive(GetMessageW(&msg, nil, 0, 0)) {
+                    _ = TranslateMessage(&msg)
+                    _ = DispatchMessageW(&msg)
                 }
-                if let icon { DestroyIcon(icon) }
+                if let icon { _ = DestroyIcon(icon) }
             case .failure(let err):
-                if let icon { DestroyIcon(icon) }
-                resultLock.withLock { initResult = .failure(err) }
+                if let icon { _ = DestroyIcon(icon) }
+                initBox.lock.withLock { initBox.result = .failure(err) }
                 readySem.signal()
             }
         }
 
         readySem.wait()
-        let outcome = resultLock.withLock { initResult } ?? .failure(.backend("tray thread exited"))
+        let outcome = initBox.lock.withLock { initBox.result } ?? .failure(.backend("tray thread exited"))
         switch outcome {
         case .success(let bits):
             return .success(Win32Tray(windowBits: bits, model: model, doneSemaphore: doneSem))
@@ -262,13 +276,13 @@ final class Win32Tray: @unchecked Sendable {
     func setTooltip(_ tooltip: String) {
         model.lock.withLock { model.tooltip = tooltip }
         if let hwnd = HWND(bitPattern: windowBits) {
-            PostMessageW(hwnd, TRAY_WM_UPDATE, 0, 0)
+            _ = PostMessageW(hwnd, TRAY_WM_UPDATE, 0, 0)
         }
     }
 
     deinit {
         if let hwnd = HWND(bitPattern: windowBits) {
-            PostMessageW(hwnd, UINT(WM_CLOSE), 0, 0)
+            _ = PostMessageW(hwnd, UINT(WM_CLOSE), 0, 0)
         }
         doneSemaphore.wait()
     }

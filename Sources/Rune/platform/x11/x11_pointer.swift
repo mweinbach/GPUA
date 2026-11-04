@@ -82,7 +82,9 @@ final class X11MouseWatch: @unchecked Sendable {
 
         let obs = PlatformPointerObserver(wake: wake)
         let watch = X11MouseWatch(connection: conn, observer: obs, root: root)
+        let connBits = Int(bitPattern: conn)
         Thread.detachNewThread { [weak watch] in
+            guard let conn = OpaquePointer(bitPattern: connBits) else { return }
             while let rawEv = xcb_wait_for_event(conn) {
                 defer { free(rawEv) }
                 let responseType = rawEv.pointee.response_type & ~0x80

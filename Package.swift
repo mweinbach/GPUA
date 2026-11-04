@@ -305,6 +305,15 @@ let package = Package(
                 .copy("layer_blur.wgsl"),
                 .copy("native_surface/video.wgsl"),
                 .copy("shader.wgsl"),
+            ],
+            linkerSettings: [
+                .linkedLibrary("xcb", .when(platforms: [.linux])),
+                .linkedLibrary("xcb-randr", .when(platforms: [.linux])),
+                .linkedLibrary("xcb-xinput", .when(platforms: [.linux])),
+                .linkedLibrary("dwmapi", .when(platforms: [.windows])),
+                .linkedLibrary("shell32", .when(platforms: [.windows])),
+                .linkedLibrary("user32", .when(platforms: [.windows])),
+                .linkedLibrary("gdi32", .when(platforms: [.windows])),
             ]
         ),
         crate("RuneRef", ["Rune"]),                                 // crates/rune-ref

@@ -629,7 +629,7 @@ private func winGetProcessMemoryInfo(
     _ process: HANDLE?,
     _ ppsmemCounters: UnsafeMutablePointer<WinProcessMemoryCounters>,
     _ cb: DWORD
-) -> WINBOOL
+) -> Int32
 
 private func filetimeToSeconds(_ ft: FILETIME) -> Double {
     let ticks = (UInt64(ft.dwHighDateTime) << 32) | UInt64(ft.dwLowDateTime)
@@ -650,11 +650,11 @@ public func snapshotOf(_ pid: Int32) -> Snapshot? {
     var kernel = FILETIME()
     var user = FILETIME()
     var cpuS = 0.0
-    if GetProcessTimes(hProc, &creation, &exit, &kernel, &user) != 0 {
+    if GetProcessTimes(hProc, &creation, &exit, &kernel, &user) {
         cpuS = filetimeToSeconds(kernel) + filetimeToSeconds(user)
     }
     var handleCount: DWORD = 0
-    let hasHandles = GetProcessHandleCount(hProc, &handleCount) != 0
+    let hasHandles = GetProcessHandleCount(hProc, &handleCount)
     let footprint = pmc.PagefileUsage > 0 ? UInt64(pmc.PagefileUsage) : UInt64(pmc.WorkingSetSize)
     let peak = max(UInt64(pmc.PeakPagefileUsage), footprint)
     return Snapshot(
@@ -681,7 +681,7 @@ public func usage() -> Usage {
         out.resident = UInt64(pmc.WorkingSetSize)
     }
     var handleCount: DWORD = 0
-    if GetProcessHandleCount(hProc, &handleCount) != 0 {
+    if GetProcessHandleCount(hProc, &handleCount) {
         out.fds = UInt32(handleCount)
     }
     return out

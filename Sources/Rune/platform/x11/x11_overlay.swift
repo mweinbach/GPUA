@@ -60,8 +60,8 @@ func x11OutputCrtc(_ output: UInt32) -> UInt32? {
 
 #if os(Linux)
 private struct X11ShapeLib {
-    typealias QueryVersionFn = @convention(c) (OpaquePointer?) -> xcb_generic_cookie_t
-    typealias QueryVersionReplyFn = @convention(c) (OpaquePointer?, xcb_generic_cookie_t, UnsafeMutablePointer<UnsafeMutablePointer<xcb_generic_error_t>?>?) -> UnsafeMutableRawPointer?
+    typealias QueryVersionFn = @convention(c) (OpaquePointer?) -> xcb_void_cookie_t
+    typealias QueryVersionReplyFn = @convention(c) (OpaquePointer?, xcb_void_cookie_t, UnsafeMutablePointer<UnsafeMutablePointer<xcb_generic_error_t>?>?) -> UnsafeMutableRawPointer?
     typealias RectanglesCheckedFn = @convention(c) (OpaquePointer?, UInt8, UInt8, UInt8, xcb_window_t, Int16, Int16, UInt32, UnsafePointer<xcb_rectangle_t>?) -> xcb_void_cookie_t
     typealias MaskCheckedFn = @convention(c) (OpaquePointer?, UInt8, UInt8, xcb_window_t, Int16, Int16, xcb_pixmap_t) -> xcb_void_cookie_t
 

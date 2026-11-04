@@ -90,7 +90,12 @@ import Rune
             }
         }.filter { $0 != body }
         #expect(!rims.isEmpty)
-        #expect(rims.flatMap { $0 }.allSatisfy { $0[1] >= top - 0.01 && $0[1] <= top + 2.0 * ry + 0.01 })
+        let minRimY: Float = top - 0.01
+        let maxRimY: Float = top + 2.0 * ry + 0.01
+        let allInRimBand = rims.allSatisfy { pts in
+            pts.allSatisfy { pt in pt[1] >= minRimY && pt[1] <= maxRimY }
+        }
+        #expect(allInRimBand)
         let l = c.labels[0]
         #expect(l.at[1] >= top + 2.0 * ry)
         #expect(l.at[1] + l.size[1] <= bottom - ry)

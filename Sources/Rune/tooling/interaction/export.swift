@@ -20,6 +20,9 @@ import Foundation
 import ucrt
 import Foundation
 #endif
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 enum InteractionExportMessage: Sendable {
     case slow(InteractionSlow)

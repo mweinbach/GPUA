@@ -61,6 +61,12 @@ internal enum TryLockOutcome {
     case wouldBlock
 }
 
+#if os(Windows)
+@inline(__always) private func win32StoreOk(_ v: Bool) -> Bool { v }
+@inline(__always) private func win32StoreOk(_ v: WindowsBool) -> Bool { v != false }
+@inline(__always) private func win32StoreOk(_ v: Int32) -> Bool { v != 0 }
+#endif
+
 // PORT NOTE: Wraps OS per-open-file-description lock (`flock` on Unix, `LockFileEx` on Windows) matching Rust `std::fs::File::try_lock`.
 internal final class LockFile: @unchecked Sendable {
     #if os(Windows)
@@ -104,7 +110,7 @@ internal final class LockFile: @unchecked Sendable {
         #elseif os(Windows)
         guard let handle else { throw RunePerfError.ioError("closed lock handle") }
         var overlapped = OVERLAPPED()
-        guard LockFileEx(handle, DWORD(LOCKFILE_EXCLUSIVE_LOCK), 0, UInt32.max, UInt32.max, &overlapped) != 0 else {
+        guard win32StoreOk(LockFileEx(handle, DWORD(LOCKFILE_EXCLUSIVE_LOCK), 0, UInt32.max, UInt32.max, &overlapped)) else {
             throw RunePerfError.ioError("LockFileEx failed with \(GetLastError())")
         }
         #else
@@ -126,14 +132,14 @@ internal final class LockFile: @unchecked Sendable {
         #elseif os(Windows)
         guard let handle else { throw RunePerfError.ioError("closed lock handle") }
         var overlapped = OVERLAPPED()
-        if LockFileEx(
+        if win32StoreOk(LockFileEx(
             handle,
             DWORD(LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY),
             0,
             UInt32.max,
             UInt32.max,
             &overlapped
-        ) != 0 {
+        )) {
             return .acquired
         }
         let err = GetLastError()
@@ -161,7 +167,7 @@ internal final class LockFile: @unchecked Sendable {
     func closeHandle() {
         #if os(Windows)
         if let h = handle {
-            CloseHandle(h)
+            _ = CloseHandle(h)
             handle = nil
         }
         #elseif !os(WASI)
@@ -202,7 +208,7 @@ private func atomicRenameFile(from tmp: URL, to dest: URL) throws {
             MoveFileExW(pTmp.baseAddress, pDest.baseAddress, DWORD(MOVEFILE_REPLACE_EXISTING))
         }
     }
-    if ok == 0 {
+    if !win32StoreOk(ok) {
         throw RunePerfError.ioError("MoveFileExW failed with \(GetLastError())")
     }
     #else

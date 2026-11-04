@@ -82,7 +82,12 @@ import CWinSys
 import Foundation
 import WinSDK
 
-private final class Win32MouseService {
+@inline(__always) private func win32PtrMsgPositive(_ v: Bool) -> Bool { v }
+@inline(__always) private func win32PtrMsgPositive(_ v: WindowsBool) -> Bool { v != false }
+@inline(__always) private func win32PtrMsgPositive(_ v: Int32) -> Bool { v > 0 }
+
+// PORT NOTE: Synchronized through `lock` (`LiveLock`) between the hook thread and window owners.
+private final class Win32MouseService: @unchecked Sendable {
     let lock = LiveLock()
     var observers: [PlatformPointerObserver] = []
     var running: Bool = false
@@ -122,7 +127,7 @@ final class Win32MouseWatch {
             let ready = DispatchSemaphore(value: 0)
             Thread.detachNewThread {
                 var msg = MSG()
-                PeekMessageW(&msg, nil, 0, 0, UINT(PM_NOREMOVE))
+                _ = PeekMessageW(&msg, nil, 0, 0, UINT(PM_NOREMOVE))
                 let tid = GetCurrentThreadId()
                 let hook = SetWindowsHookExW(WH_MOUSE_LL, win32MouseHookProc, GetModuleHandleW(nil), 0)
                 win32MouseService.lock.withLock {
@@ -131,11 +136,11 @@ final class Win32MouseWatch {
                 }
                 ready.signal()
                 if let hook {
-                    while GetMessageW(&msg, nil, 0, 0) > 0 {
-                        TranslateMessage(&msg)
-                        DispatchMessageW(&msg)
+                    while win32PtrMsgPositive(GetMessageW(&msg, nil, 0, 0)) {
+                        _ = TranslateMessage(&msg)
+                        _ = DispatchMessageW(&msg)
                     }
-                    UnhookWindowsHookEx(hook)
+                    _ = UnhookWindowsHookEx(hook)
                 }
                 win32MouseService.lock.withLock {
                     win32MouseService.running = false

@@ -21,6 +21,8 @@ private func currentShortcutThreadId() -> UInt64 {
     return 1
     #elseif os(Windows)
     return UInt64(GetCurrentThreadId())
+    #elseif os(Linux)
+    return UInt64(pthread_self())
     #else
     return UInt64(UInt(bitPattern: pthread_self()))
     #endif

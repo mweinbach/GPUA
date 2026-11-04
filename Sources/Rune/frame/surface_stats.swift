@@ -18,6 +18,7 @@ import Android
 #elseif canImport(WASILibc)
 import WASILibc
 #elseif canImport(WinSDK)
+import ucrt
 import WinSDK
 #endif
 

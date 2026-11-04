@@ -59,10 +59,11 @@ final class X11ShortcutBackend: ShortcutBackend, @unchecked Sendable {
     }
 
     private func startListener(_ sink: @escaping ShortcutSink) {
-        let conn = connection
+        let connBits = Int(bitPattern: connection)
         let readFd = wakeReadFd
-        let xcbFd = xcb_get_file_descriptor(conn)
+        let xcbFd = xcb_get_file_descriptor(connection)
         Thread.detachNewThread { [weak self] in
+            guard let conn = OpaquePointer(bitPattern: connBits) else { return }
             var repeats = X11ShortcutRepeats()
             var pollFds = [
                 pollfd(fd: xcbFd, events: Int16(POLLIN), revents: 0),
