@@ -111,6 +111,8 @@ private func fixtureView(_ s: FixtureState, _: Cx<FixtureState>) -> El {
 }
 
 private func renderFixtureElements(_ src: String, _ dark: Bool, _ streaming: Bool, _ width: Float) -> [ElementInfo] {
+    let famGuard = Rune.withFamilies(RuneThemeOpenCode.FAMILIES.0, RuneThemeOpenCode.FAMILIES.1)
+    defer { famGuard.drop() }
     let text = TextSystem(RuneThemeOpenCode.FONTS, RuneThemeOpenCode.FAMILIES)
     let rt = Runtime.withText(
         FixtureState(src: src, dark: dark, streaming: streaming),

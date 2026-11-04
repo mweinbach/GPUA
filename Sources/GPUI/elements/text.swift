@@ -54,7 +54,7 @@ public struct TextLayout {
         let fontSize = textStyle.fontSize.toPixels(remSize: window.remSize)
         let lineHeight = textStyle.lineHeight.toPixels(baseSize: AbsoluteLength.pixels(fontSize), remSize: window.remSize)
 
-        let runs = runs ?? [textStyle.toRun(len: text.count)]
+        let runs = runs ?? [textStyle.toRun(len: text.len)]
         let innerRef = self.inner
 
         return window.requestMeasuredLayout(style: Style()) { knownDimensions, availableSpace, window, cx in
@@ -94,7 +94,7 @@ public struct TextLayout {
             }
 
             innerRef.lines = lines
-            innerRef.len = text.count
+            innerRef.len = text.len
             innerRef.lineHeight = lineHeight
             innerRef.wrapWidth = wrapWidth
             innerRef.size = size
@@ -307,7 +307,7 @@ public struct StyledText: Element, IntoElement {
         var copy = self
         var runs: [TextRun] = []
         var ix = 0
-        let textLen = text.count
+        let textLen = text.len
 
         for (range, highlight) in highlights {
             if ix < range.lowerBound {

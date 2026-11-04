@@ -355,6 +355,8 @@ struct RollingTextIntegrationTests {
             ("Copy password", inter),
             ("AVATAR Tokyo, WAVE", inter),
         ]
+        let famGuard = Rune.withFamilies("Inter", "IBM Plex Mono")
+        defer { famGuard.drop() }
         for (text, font) in cases {
             withRollingTextStore { $0 = RollingTextStore() }
             let rt = makePairRuntime(text, font)
@@ -377,6 +379,8 @@ struct RollingTextIntegrationTests {
 
     @Test
     func anEmojiSequenceIsOneCell() {
+        let famGuard = Rune.withFamilies("Inter", "IBM Plex Mono")
+        defer { famGuard.drop() }
         withRollingTextStore { $0 = RollingTextStore() }
         let family = "👩\u{200d}👩\u{200d}👧"
         let text = "\(family) 2 👍🏽 e\u{301}"
@@ -389,6 +393,8 @@ struct RollingTextIntegrationTests {
 
     @Test
     func keptGlyphsGlideToTheirNewAdvance() {
+        let famGuard = Rune.withFamilies("Inter", "IBM Plex Mono")
+        defer { famGuard.drop() }
         withRollingTextStore { $0 = RollingTextStore() }
         let font = TextStyle.new(13.0, 400.0)
         let rt = makePairRuntime("1:00", font)

@@ -79,6 +79,9 @@ let package = Package(
         .library(name: "RuneMermaid", targets: ["RuneMermaid"]),
         .library(name: "RuneKnobs", targets: ["RuneKnobs"]),
         .library(name: "RuneThemeOpenCode", targets: ["RuneThemeOpenCode"]),
+
+        // ---- Unified Shadcn-style UI Ornaments (ADR-0015) ------------------
+        .library(name: "GPUAUI", targets: ["GPUAUI"]),
     ],
     // Cargo features ↔ SwiftPM package traits. `#[cfg(feature = "test-support")]`
     // becomes `#if TestSupport`, etc. See docs/PORTING_GUIDE.md#cfg-and-features.
@@ -314,6 +317,22 @@ let package = Package(
             resources: [.copy("assets")]
         ),
 
+        // ---- Unified Shadcn-style Ornaments across GPUI & Rune (ADR-0015) --
+        crate(
+            "GPUAUI",
+            [
+                "GPUI",
+                "Rune",
+                "RuneMotion",
+                "RuneKit",
+                "RuneMermaid",
+                "RuneKnobs",
+                "RuneFX",
+                "RuneLight",
+                "RuneThemeOpenCode",
+            ]
+        ),
+
         // ---- Tests (inline `#[cfg(test)]` modules + crates/*/tests) ---------
         crateTests("GPUICollections"),
         crateTests("GPUIUtil"),
@@ -347,5 +366,20 @@ let package = Package(
         crateTests("RuneMermaid"),
         crateTests("RuneKit", ["Procwatch", "RuneThemeOpenCode"]),
         crateTests("RuneThemeOpenCode"),
+        crateTests(
+            "GPUAUI",
+            [
+                "GPUI",
+                "Rune",
+                "RuneMotion",
+                "RuneKit",
+                "RuneMermaid",
+                "RuneKnobs",
+                "RuneLight",
+                "RuneThemeOpenCode",
+                .target(name: "GPUIMetal", condition: .when(platforms: apple)),
+                .target(name: "GPUIMacOS", condition: .when(platforms: [.macOS])),
+            ]
+        ),
     ]
 )

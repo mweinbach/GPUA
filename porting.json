@@ -104,7 +104,8 @@
     { "target": "CLinuxSys", "guard": "os(Linux)", "note": "C interop packaging for Linux system libraries (Wayland, X11, xkbcommon, FreeType, HarfBuzz, Fontconfig)." },
     { "target": "CWinSys", "guard": "os(Windows)", "note": "C bridge umbrella header and C++ COM implementation for Windows system libraries (D3D11, DXGI, D3DCompiler, DirectWrite, Win32)." },
     { "target": "CAndroidSys", "guard": "os(Android)", "note": "C interop bridge for Android NDK system libraries (JNI, ANativeWindow, ALooper, AChoreographer, AInputEvent, AFontMatcher, log) per ADR-0012." },
-    { "target": "CWebSys", "guard": "os(WASI)", "note": "Zero-dependency C Wasm-import bridge for browser DOM, canvas, input, timers, clipboard, and fetch on WASI per ADR-0013." }
+    { "target": "CWebSys", "guard": "os(WASI)", "note": "Zero-dependency C Wasm-import bridge for browser DOM, canvas, input, timers, clipboard, and fetch on WASI per ADR-0013." },
+    { "target": "GPUAUI", "note": "Unified Shadcn-style UI ornaments and components across GPUI and Rune per ADR-0015." }
   ],
   "asset_extensions": [".metal", ".wgsl", ".hlsl", ".svg", ".png", ".gif"]
 }

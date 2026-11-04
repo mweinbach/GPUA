@@ -30,7 +30,7 @@ jobs:
   macos:
     name: macOS & iOS Simulator
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - run: swift --version
@@ -60,7 +60,7 @@ jobs:
     name: Linux
     runs-on: ubuntu-latest
     container: swift:6.3-noble
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Install Linux dependencies and wgpu-native
@@ -84,7 +84,7 @@ jobs:
   windows:
     name: Windows
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: SwiftyLab/setup-swift@latest
@@ -103,7 +103,7 @@ jobs:
   android:
     name: Android (cross-compile)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: skiptools/swift-android-action@v2
@@ -117,7 +117,7 @@ jobs:
     name: WebAssembly (WASI + WebGPU)
     runs-on: ubuntu-latest
     container: swift:6.3-noble
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Install Swift Wasm SDK and Node.js 22
@@ -134,11 +134,12 @@ jobs:
           swift sdk install /tmp/swift-wasm-sdk.artifactbundle.tar.gz
           rm -f /tmp/swift-wasm-sdk.artifactbundle.tar.gz
           swift sdk list
-      - name: Build gpui-examples.wasm
+      - name: Build gpui-examples.wasm and GPUAUI for WASI
         run: |
           SDK_ID="$(swift sdk list | grep -E 'wasm$' | head -n1)"
           echo "Using Wasm SDK: ${SDK_ID}"
           swift build --swift-sdk "${SDK_ID}" --product gpui-examples
+          swift build --swift-sdk "${SDK_ID}" --target GPUAUI
       - name: Validate JS runtime, Wasm imports & live WebGPU execution
         run: |
           node --check Hosts/web/gpui_web_runtime.js

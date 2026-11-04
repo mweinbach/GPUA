@@ -10,7 +10,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 
 | Target | Files | Not started | In progress | Ported | Verified | Skipped | Upstream lines | Lines done |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `Rune` | 530 | 0 | 1 | 528 | 0 | 1 | 133,572 | 100% |
+| `Rune` | 530 | 0 | 0 | 529 | 0 | 1 | 133,572 | 100% |
 | `GPUI` | 81 | 0 | 0 | 80 | 0 | 1 | 53,398 | 100% |
 | `RuneKit` | 73 | 0 | 0 | 73 | 0 | 0 | 21,401 | 100% |
 | `Taffy` | 47 | 3 | 0 | 44 | 0 | 0 | 18,695 | 98% |
@@ -46,7 +46,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | `GPUIApple` | 19 | 0 | 0 | 19 | 0 | 0 | 168 | 100% |
 | `RuneRegister` | 2 | 0 | 0 | 2 | 0 | 0 | 168 | 100% |
 | `Refineable` | 1 | 0 | 0 | 1 | 0 | 0 | 132 | 100% |
-| **Total** | **1088** | 39 | 1 | 1042 | 0 | 6 | 345,298 | 96% |
+| **Total** | **1088** | 39 | 0 | 1043 | 0 | 6 | 345,298 | 96% |
 
 ## Files
 
@@ -600,7 +600,7 @@ Status comes from the `// Port status:` header of each Swift file. Lines are ups
 | [crates/rune/src/latest.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune/src/latest.rs) | [Sources/Rune/latest.swift](../Sources/Rune/latest.swift) | source | 315 | ported |
 | [crates/rune/src/latest/pool.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune/src/latest/pool.rs) | [Sources/Rune/latest/pool.swift](../Sources/Rune/latest/pool.swift) | source | 111 | ported |
 | [crates/rune/src/latest/tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune/src/latest/tests.rs) | [Sources/Rune/latest/latest_tests.swift](../Sources/Rune/latest/latest_tests.swift) | source | 337 | ported |
-| [crates/rune/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune/src/lib.rs) | [Sources/Rune/lib.swift](../Sources/Rune/lib.swift) | source | 354 | in-progress |
+| [crates/rune/src/lib.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune/src/lib.rs) | [Sources/Rune/lib.swift](../Sources/Rune/lib.swift) | source | 354 | ported |
 | [crates/rune/src/live.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune/src/live.rs) | [Sources/Rune/live.swift](../Sources/Rune/live.swift) | source | 359 | ported |
 | [crates/rune/src/live_only_tests.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune/src/live_only_tests.rs) | [Sources/Rune/live_only_tests.swift](../Sources/Rune/live_only_tests.swift) | source | 270 | ported |
 | [crates/rune/src/memo.rs](https://github.com/anomalyco/rune/blob/5f6d53ddae78956bec5a2999469ad5c1b6eccc70/crates/rune/src/memo.rs) | [Sources/Rune/memo.swift](../Sources/Rune/memo.swift) | source | 957 | ported |

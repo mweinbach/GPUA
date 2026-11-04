@@ -199,6 +199,8 @@ struct MarkdownUnitTests {
     /// Colour is the only thing a highlight changes: every glyph lands in the same place, wrapped
     /// or not, as in the plain block and in the block mid-stream.
     @Test func highlightingNeverMovesAGlyph() {
+        let famGuard = Rune.withFamilies(RuneThemeOpenCode.FAMILIES.0, RuneThemeOpenCode.FAMILIES.1)
+        defer { famGuard.drop() }
         let ts = TextSystem(RuneThemeOpenCode.FONTS, RuneThemeOpenCode.FAMILIES)
         let style = MarkdownStyle.neutral(true)
         let font = style.codeBlockStyle

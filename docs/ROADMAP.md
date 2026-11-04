@@ -98,10 +98,10 @@ Following [ADR-0014](adr/0014-rune-upstream-and-target-layout.md), Rune is porte
 
 ```mermaid
 flowchart LR
-    R0["Phase R0: Scaffolding ✅"] --> R1["Phase R1: Support & Motion"]
-    R1 --> R2["Phase R2: Core & Reference Renderer"]
-    R2 --> R3["Phase R3: Effects, Diagrams & Knobs"]
-    R3 --> R4["Phase R4: RuneKit, OpenCode Theme & Examples"]
+    R0["Phase R0: Scaffolding ✅"] --> R1["Phase R1: Support & Motion ✅"]
+    R1 --> R2["Phase R2: Core & Reference Renderer ✅"]
+    R2 --> R3["Phase R3: Effects, Diagrams & Knobs ✅"]
+    R3 --> R4["Phase R4: RuneKit, OpenCode Theme & GPUAUI ✅"]
 ```
 
 ### Phase R0: Scaffolding ✅
@@ -110,32 +110,32 @@ flowchart LR
 - [x] Scaffold 1:1 Swift source/test stubs and WGSL/PNG assets across all 14 Rune targets (`Procwatch`, `RuneStaging`, `RuneRegister`, `RuneMotion`, `RunePerf`, `RuneMac`, `RuneLight`, `RuneFX`, `Rune`, `RuneRef`, `RuneKnobs`, `RuneMermaid`, `RuneKit`, `RuneThemeOpenCode`)
 - [x] Wire SwiftPM products and targets in `Package.swift` with 6/6 CI green
 
-### Phase R1: Support & Motion
+### Phase R1: Support & Motion ✅
 
-- [ ] `Procwatch` (`crates/procwatch`): footprint, per-thread CPU, gauges, and loopback telemetry
-- [ ] `RuneStaging` (`crates/rune-staging`): reused GPU upload staging buffers on `CWebGPU`
-- [ ] `RuneRegister` (`crates/rune-register`): explicit Swift story/scene/knob registration
-- [ ] `RuneMotion` (`crates/rune-motion`): analytic springs, retargetable tracks, presence, layout & matched-geometry transitions
-- [ ] `RunePerf` (`crates/rune-perf`): bounded local performance recorder & incident store
+- [x] `Procwatch` (`crates/procwatch`): footprint, per-thread CPU, gauges, and loopback telemetry
+- [x] `RuneStaging` (`crates/rune-staging`): reused GPU upload staging buffers on `CWebGPU`
+- [x] `RuneRegister` (`crates/rune-register`): explicit Swift story/scene/knob registration
+- [x] `RuneMotion` (`crates/rune-motion`): analytic springs, retargetable tracks, presence, layout & matched-geometry transitions
+- [x] `RunePerf` (`crates/rune-perf`): bounded local performance recorder & incident store
 
-### Phase R2: Core & Reference Renderer
+### Phase R2: Core & Reference Renderer ✅
 
-- [ ] `Rune` (`crates/rune`): keyed element tree, `Taffy` layout integration, text shaping/smoothing, uber-quad WebGPU/Metal renderer, input/windows/overlays, and headless test harness
-- [ ] `RuneMac` (`crates/rune-mac`): macOS window frame persistence, full screen, quiet relaunch, and notifications
-- [ ] `RuneRef` (`crates/rune-ref`): deterministic CPU reference rasterizer for differential pixel parity tests
+- [x] `Rune` (`crates/rune`): keyed element tree, `Taffy` layout integration, text shaping/smoothing, uber-quad WebGPU/Metal renderer, input/windows/overlays, and headless test harness
+- [x] `RuneMac` (`crates/rune-mac`): macOS window frame persistence, full screen, quiet relaunch, and notifications
+- [x] `RuneRef` (`crates/rune-ref`): deterministic CPU reference rasterizer for differential pixel parity tests
 
-### Phase R3: Effects, Diagrams & Knobs
+### Phase R3: Effects, Diagrams & Knobs ✅
 
-- [ ] `RuneLight` (`crates/rune-light`): SDF soft shadows, bevel normals, god rays, and radiance-cascade GI
-- [ ] `RuneFX` (`crates/rune-fx`): glow, pulse, electricity, fire, motion blur, and distortion layers
-- [ ] `RuneKnobs` (`crates/rune-knobs`): live tuning groups and interactive `⌘⇧K` panel
-- [ ] `RuneMermaid` (`crates/rune-mermaid`): native Mermaid flowcharts, sequence diagrams, and state diagrams
+- [x] `RuneLight` (`crates/rune-light`): SDF soft shadows, bevel normals, god rays, Liquid Glass (`Glass`), and radiance-cascade GI
+- [x] `RuneFX` (`crates/rune-fx`): glow, pulse, electricity, fire, motion blur, and distortion layers
+- [x] `RuneKnobs` (`crates/rune-knobs`): live tuning groups and interactive `⌘⇧K` panel
+- [x] `RuneMermaid` (`crates/rune-mermaid`): all 17 native Mermaid diagram families
 
-### Phase R4: Components, Theme & Examples
+### Phase R4: Components, Theme & `GPUAUI` Dual-Engine Ornaments ✅
 
-- [ ] `RuneKit` (`crates/rune-kit`): semantic `Kit` tokens, generic UI controls, shell/split/tree/table/diff, and streaming Markdown
-- [ ] `RuneThemeOpenCode` (`themes/opencode`): OpenCode design tokens, fonts, and icons
-- [ ] `RuneExamples`: standalone Rune example apps (`examples/*`)
+- [x] `RuneKit` (`crates/rune-kit`): semantic `Kit` tokens, generic UI controls, shell/split/tree/table/diff, 13-language syntax highlighting, and streaming Markdown
+- [x] `RuneThemeOpenCode` (`themes/opencode`): OpenCode design tokens, fonts, and icons
+- [x] `GPUAUI` ([ADR-0015](adr/0015-gpuaui-shadcn-ornaments.md), [GALLERY.md](GALLERY.md)): Shadcn-style semantic `OrnamentTheme` palettes, floating Liquid Glass chrome, command palette & modals, core controls, and developer ornaments rendering natively on both `GPUI` and `Rune`
 
 ## Ongoing
 

@@ -1,6 +1,6 @@
 // Ported from: crates/rune/src/lib.rs
 // Upstream commit: 5f6d53ddae78
-// Port status: in-progress
+// Port status: ported
 
 //! Rune: keyed element tree from plain view functions, Taffy layout, analytic
 //! spring tracks, an instanced uber-quad renderer with shaped text, pointer and keyboard

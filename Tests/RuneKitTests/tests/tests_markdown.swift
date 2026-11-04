@@ -460,6 +460,8 @@ struct MarkdownIntegrationTests {
     }
 
     @Test func aStreamingRowDoesNotMoveTheColumns() {
+        let famGuard = Rune.withFamilies("Inter", "Inter")
+        defer { famGuard.drop() }
         let base = "| Step | Result |\n|---|---|\n| one | ok |\n"
         let rt = Runtime.new(base, streamingView, (480.0, 800.0), Env.new(true, 1.0))
         _ = rt.frame(0.0)
@@ -478,6 +480,8 @@ struct MarkdownIntegrationTests {
     }
 
     @Test func aTableEndingAWholeNoteSizesToItsLastRow() {
+        let famGuard = Rune.withFamilies("Inter", "Inter")
+        defer { famGuard.drop() }
         let src = "| Field | Compared |\n|---|---|\n| title | yes |\n| a much longer cell at the end | no |"
         if case let .table(t) = markdown.parse(src)[0] {
             #expect(t.open)

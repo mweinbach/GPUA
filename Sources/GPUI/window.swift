@@ -2001,7 +2001,11 @@ public struct Window: @unchecked Sendable {
     }
 
     public mutating func paintPath(_ path: Path<Pixels>) {
-        nextFrame.scene.insertPath(path.scale(scaleFactor))
+        var scaled = path.scale(scaleFactor)
+        if scaled.contentMask.bounds.size == .zero {
+            scaled.contentMask = (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(scaleFactor)
+        }
+        nextFrame.scene.insertPath(scaled)
     }
 
     public mutating func paintUnderline(_ underline: Underline) {
@@ -3301,7 +3305,8 @@ public struct Window: @unchecked Sendable {
 
     public mutating func paintPath(_ path: Path<Pixels>, color: Hsla) {
         var scaled = path.scale(scaleFactor)
-        scaled.color = solidBackground(color)
+        scaled.color = solidBackground(color.opacity(elementOpacity))
+        scaled.contentMask = (contentMaskStack.last ?? ContentMask(bounds: .zero)).scale(scaleFactor)
         nextFrame.scene.insertPath(scaled)
     }
 
