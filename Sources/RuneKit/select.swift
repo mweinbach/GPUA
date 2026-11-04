@@ -40,7 +40,7 @@ public struct Select {
     var placementVal: Placement
     var chooseFn: ((String, El) -> El)?
     var toggleFn: ((El) -> El)?
-    var dismissSpec: (El, MenuModal)?
+    var dismissSpec: MenuDismissSpec?
 
     public init(_ key: String, _ options: [String] = []) {
         self.key = key

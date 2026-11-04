@@ -208,21 +208,28 @@ public struct MenuItem {
 /// focus returns to the trigger when it closes.
 typealias MenuModal = (El) -> El
 
+// PORT NOTE: Packaged as a struct rather than an `(El, MenuModal)` tuple to avoid an assertion in
+// Swift 6.3.3's `LoadableByAddress` SIL pass on Windows x64 when storing `Optional<(El, (El) -> El)>`.
+struct MenuDismissSpec {
+    var scrim: El
+    var modal: MenuModal
+}
+
 /// The outside-press scrim and the modal for a close request.
-func menuDismissal<S>(_ key: String, _ close: @escaping (inout S) -> Void) -> (El, MenuModal) {
-    (
-        scrim(key, close),
-        { e in e.modal(true, close) }
+func menuDismissal<S>(_ key: String, _ close: @escaping (inout S) -> Void) -> MenuDismissSpec {
+    MenuDismissSpec(
+        scrim: scrim(key, close),
+        modal: { e in e.modal(true, close) }
     )
 }
 
 /// Mounts a dismissal's scrim into `layer` and hands back its modal.
-func menuMountDismiss(_ dismiss: (El, MenuModal)?, _ layer: inout [El]) -> MenuModal? {
-    guard let (scrimEl, modal) = dismiss else {
+func menuMountDismiss(_ dismiss: MenuDismissSpec?, _ layer: inout [El]) -> MenuModal? {
+    guard let spec = dismiss else {
         return nil
     }
-    layer.append(scrimEl)
-    return modal
+    layer.append(spec.scrim)
+    return spec.modal
 }
 
 /// A dropdown menu: `Menu.new("file").trigger(button).item(..).open(s.open).build(kit, &layer)`.
@@ -236,7 +243,7 @@ public struct Menu {
     var gutterVal: Float
     var minWidthVal: Float
     var atPoint: (Float, Float)?
-    var dismissSpec: (El, MenuModal)?
+    var dismissSpec: MenuDismissSpec?
 
     public init(_ key: String) {
         self.key = key

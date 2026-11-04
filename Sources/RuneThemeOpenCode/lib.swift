@@ -15,6 +15,15 @@ import RuneKit
 /// The theme as data: palette, light and dark tokens, computed shadows and numbers.
 public let THEME: String = {
     #if !os(WASI)
+    let sourceURL = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .appendingPathComponent("assets/theme.json")
+    if let data = try? Data(contentsOf: sourceURL),
+       let text = String(data: data, encoding: .utf8)
+    {
+        return text
+    }
+    #if SWIFT_PACKAGE && !os(Android)
     if let url = Bundle.module.url(forResource: "theme", withExtension: "json", subdirectory: "assets"),
        let data = try? Data(contentsOf: url),
        let text = String(data: data, encoding: .utf8)
@@ -22,21 +31,32 @@ public let THEME: String = {
         return text
     }
     #endif
+    #endif
     return embeddedOpenCodeThemeJson
 }()
 
 /// Inter (variable) and IBM Plex Mono, for `AppSpec.fonts`.
-// PORT NOTE: Loaded from `Bundle.module` resources on platforms with bundle support; empty on WASI where fonts are supplied by the host/app.
+// PORT NOTE: Loaded from bundled `assets/fonts` or `Bundle.module` resources on platforms with filesystem/bundle support; empty on WASI where fonts are supplied by the host/app.
 public let FONTS: [[UInt8]] = {
     #if !os(WASI)
     let names = ["InterVariable", "IBMPlexMono-Regular", "IBMPlexMono-Medium"]
+    let fontsDir = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .appendingPathComponent("assets/fonts")
     var loaded: [[UInt8]] = []
     for name in names {
+        let sourceURL = fontsDir.appendingPathComponent("\(name).ttf")
+        if let data = try? Data(contentsOf: sourceURL) {
+            loaded.append([UInt8](data))
+            continue
+        }
+        #if SWIFT_PACKAGE && !os(Android)
         if let url = Bundle.module.url(forResource: name, withExtension: "ttf", subdirectory: "assets/fonts"),
            let data = try? Data(contentsOf: url)
         {
             loaded.append([UInt8](data))
         }
+        #endif
     }
     return loaded
     #else

@@ -43,9 +43,19 @@ public struct ListItem {
     }
 }
 
+struct ListSearchSpec {
+    var edit: TextEdit
+    var placeholder: String
+}
+
+private struct ListGroupAccum {
+    var name: String?
+    var el: El
+}
+
 public struct List {
     var items: [ListItem]
-    var searchSpec: (TextEdit, String)?
+    var searchSpec: ListSearchSpec?
     var activeIdx: Int?
     var dividerFlag: Bool
     var activeIconVal: Icon?
@@ -81,7 +91,7 @@ public struct List {
     /// A search field bound to `edit` (filtering is the app's job).
     public func search(_ edit: TextEdit, _ placeholder: String) -> List {
         var copy = self
-        copy.searchSpec = (edit, placeholder)
+        copy.searchSpec = ListSearchSpec(edit: edit, placeholder: placeholder)
         return copy
     }
 
@@ -138,14 +148,14 @@ public struct List {
         let c = k.c
         let itemFont = TextStyle.new(14.0, 500.0).lh(21.0)
         var root = Rune.col().role("list").wFull().gap(12.0)
-        if let (edit, placeholder) = searchSpec {
-            var input = Rune.textInput(edit, TextStyle.new(14.0, 400.0).lh(20.0))
+        if let search = searchSpec {
+            var input = Rune.textInput(search.edit, TextStyle.new(14.0, 400.0).lh(20.0))
                 .singleLine()
                 .key("input")
                 .grow(1.0)
                 .shrink()
                 .color(c.textStrong)
-                .placeholder(placeholder, c.textWeak)
+                .placeholder(search.placeholder, c.textWeak)
             if let f = editHook {
                 input = f(input)
             }
@@ -181,12 +191,12 @@ public struct List {
             )
         }
         let n = items.count
-        var groupEl: (String?, El)? = nil
+        var groupEl: ListGroupAccum? = nil
         var groups: [El] = []
         for (i, item) in items.enumerated() {
-            if groupEl == nil || groupEl?.0 != item.groupVal {
-                if let (_, prevGroup) = groupEl {
-                    groups.append(prevGroup)
+            if groupEl == nil || groupEl?.name != item.groupVal {
+                if let prev = groupEl {
+                    groups.append(prev.el)
                 }
                 var g = Rune.col().key("group\(i)").wFull()
                 if let name = item.groupVal {
@@ -196,7 +206,7 @@ public struct List {
                         )
                     )
                 }
-                groupEl = (item.groupVal, g)
+                groupEl = ListGroupAccum(name: item.groupVal, el: g)
             }
             let active = activeIdx == i
             let pressable = !item.actions.isEmpty
@@ -236,12 +246,12 @@ public struct List {
                 r = a(r)
             }
             if var currentGroup = groupEl {
-                currentGroup.1 = currentGroup.1.child(r)
+                currentGroup.el = currentGroup.el.child(r)
                 groupEl = currentGroup
             }
         }
-        if let (_, finalGroup) = groupEl {
-            groups.append(finalGroup)
+        if let finalGroup = groupEl {
+            groups.append(finalGroup.el)
         }
         if let add = addEl {
             groups.append(Rune.col().key("add").wFull().child(add))

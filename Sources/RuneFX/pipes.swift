@@ -561,10 +561,6 @@ fn clip_alpha(p: vec2<f32>, c: vec4<f32>, packed: vec4<u32>) -> f32 {
 
 func loadFXShader(_ name: String) -> String {
     #if !os(WASI)
-    if let url = Bundle.module.url(forResource: name, withExtension: "wgsl", subdirectory: "shaders"),
-       let content = try? String(contentsOf: url, encoding: .utf8) {
-        return content
-    }
     let sourceURL = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .appendingPathComponent("shaders")
@@ -572,6 +568,12 @@ func loadFXShader(_ name: String) -> String {
     if let content = try? String(contentsOf: sourceURL, encoding: .utf8) {
         return content
     }
+    #if SWIFT_PACKAGE && !os(Android)
+    if let url = Bundle.module.url(forResource: name, withExtension: "wgsl", subdirectory: "shaders"),
+       let content = try? String(contentsOf: url, encoding: .utf8) {
+        return content
+    }
+    #endif
     #endif
     return "// bundled wgsl: \(name)\n"
 }

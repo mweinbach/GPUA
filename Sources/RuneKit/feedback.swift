@@ -266,9 +266,9 @@ private let PROGRESS_ARC_ICONS: [Icon] = (0...50).map { step in
     } else if step == 50 {
         body = #"<circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none"/>"#
     } else {
-        let a = Float(step) / 50.0 * (2.0 * .pi) - (.pi / 2.0)
-        let x = 8.0 + 6.0 * cos(a)
-        let y = 8.0 + 6.0 * sin(a)
+        let a = Double(step) / 50.0 * (2.0 * .pi) - (.pi / 2.0)
+        let x = Float(8.0 + 6.0 * cos(a))
+        let y = Float(8.0 + 6.0 * sin(a))
         let large = step > 25 ? 1 : 0
         body = #"<path d="M8 2A6 6 0 \#(large) 1 \#(formatFixed3(x)) \#(formatFixed3(y))" stroke="currentColor" stroke-width="2" fill="none"/>"#
     }

@@ -414,6 +414,13 @@ private struct Reordering {
     var bind: Apply
 }
 
+// PORT NOTE: Packaged as a struct rather than a `(TextEdit, Apply)` tuple to avoid an assertion in
+// Swift 6.3.3's `LoadableByAddress` SIL pass on Windows x64 when storing `Optional<(TextEdit, (El) -> El)>`.
+private struct Renaming {
+    var edit: TextEdit
+    var bind: Apply
+}
+
 /// A selectable sidebar row: icon, label, then a trailing detail (a time), badge or element.
 /// `SidebarRow.new("Inbox").icon(INBOX).badge("3").selected(sel).onSelect(..).build(kit)`.
 /// Key the built row by its item's id.
@@ -438,7 +445,7 @@ public struct SidebarRow {
     private var subtitleStyleVal: TextStyle?
     private var subtitleColorVal: Color?
     private var selectOnlyVal: Bool
-    private var renameVal: (TextEdit, Apply)?
+    private var renameVal: Renaming?
     private var reorderVal: Reordering?
     private var actsVal: [Apply]
 
@@ -677,7 +684,7 @@ public struct SidebarRow {
                 return false
             }
         }
-        copy.renameVal = (edit, bind)
+        copy.renameVal = Renaming(edit: edit, bind: bind)
         return copy
     }
 
@@ -746,9 +753,9 @@ public struct SidebarRow {
         }
         let hasLead = lead != nil
         let labelEl: El
-        if let (edit, bind) = renameVal {
-            labelEl = bind(
-                textInput(edit, font)
+        if let rename = renameVal {
+            labelEl = rename.bind(
+                textInput(rename.edit, font)
                     .singleLine()
                     .key("rename")
                     .focusSelected(true)

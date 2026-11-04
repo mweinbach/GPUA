@@ -134,6 +134,14 @@ let allLightShaderNames: [String] = [
 
 func loadLightShader(_ name: String) -> String {
     #if !os(WASI)
+    let fallbackURL = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .appendingPathComponent("shaders")
+        .appendingPathComponent("\(name).wgsl")
+    if let text = try? String(contentsOf: fallbackURL, encoding: .utf8) {
+        return text
+    }
+    #if SWIFT_PACKAGE && !os(Android)
     if let url = Bundle.module.url(forResource: name, withExtension: "wgsl", subdirectory: "shaders"),
        let text = try? String(contentsOf: url, encoding: .utf8) {
         return text
@@ -142,13 +150,7 @@ func loadLightShader(_ name: String) -> String {
        let text = try? String(contentsOf: url, encoding: .utf8) {
         return text
     }
-    let fallbackURL = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .appendingPathComponent("shaders")
-        .appendingPathComponent("\(name).wgsl")
-    if let text = try? String(contentsOf: fallbackURL, encoding: .utf8) {
-        return text
-    }
+    #endif
     #endif
     switch name {
     case "gi":

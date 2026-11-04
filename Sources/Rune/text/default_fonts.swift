@@ -35,6 +35,13 @@ func runeBundledAssetURL(_ filename: String) -> URL? {
             return candidate
         }
     }
+    let repoCandidate = runeRepoRootDir()
+        .appendingPathComponent("Sources/Rune/assets")
+        .appendingPathComponent(filename)
+    if fm.fileExists(atPath: repoCandidate.path) {
+        return repoCandidate
+    }
+    #if SWIFT_PACKAGE && !os(Android) && !os(WASI)
     let ns = filename as NSString
     let stem = ns.deletingPathExtension
     let ext = ns.pathExtension
@@ -45,12 +52,7 @@ func runeBundledAssetURL(_ filename: String) -> URL? {
     ) {
         return url
     }
-    let repoCandidate = runeRepoRootDir()
-        .appendingPathComponent("Sources/Rune/assets")
-        .appendingPathComponent(filename)
-    if fm.fileExists(atPath: repoCandidate.path) {
-        return repoCandidate
-    }
+    #endif
     if let crateDir = upstreamRuneCrateDir() {
         let upCandidate = crateDir.appendingPathComponent("assets").appendingPathComponent(filename)
         if fm.fileExists(atPath: upCandidate.path) {
